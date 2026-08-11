@@ -26,6 +26,18 @@ object ProcessSupport {
         }
     }
 
+    private val live: MutableSet<Process> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    private val shutdownHook: Unit by lazy {
+        Runtime.getRuntime().addShutdownHook(Thread { live.toList().forEach(::terminate) })
+    }
+
+    fun terminate(process: Process) {
+        live.remove(process)
+        process.toHandle().descendants().forEach { it.destroyForcibly() }
+        process.destroyForcibly()
+    }
+
     fun launch(binary: String, config: ClaudeConfig, persistent: Boolean): Process {
         val builder = ProcessBuilder(ClaudeCommandBuilder.command(binary, config, persistent))
         builder.directory(workDir.toFile())
@@ -34,7 +46,11 @@ object ProcessSupport {
         val newEnv = ClaudeCommandBuilder.environment(System.getenv(), binary, config)
         env.clear()
         env.putAll(newEnv)
-        return builder.start()
+        shutdownHook
+        return builder.start().also { process ->
+            live.add(process)
+            process.onExit().thenRun { live.remove(process) }
+        }
     }
 }
 
@@ -71,7 +87,7 @@ class RealClaudeProcess(private val process: Process) : ClaudeProcess {
     }
 
     override fun kill() {
-        process.destroyForcibly()
+        ProcessSupport.terminate(process)
     }
 }
 

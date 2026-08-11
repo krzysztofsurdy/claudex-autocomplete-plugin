@@ -90,4 +90,48 @@ class ClaudeCliBackendTest {
         assertEquals(1, persistent.shutdowns)
         assertEquals(1, oneShot.shutdowns)
     }
+
+    private val timeout = CompletionResult.Failure(FailureKind.Timeout, "slow")
+
+    @Test
+    fun `timeouts do not open the breaker`() = runBlocking {
+        val persistent = recording(timeout, timeout, timeout)
+        val oneShot = recording()
+        val backend = ClaudeCliBackend(persistent, oneShot)
+        repeat(3) { backend.complete(testContext(), testConfig()) }
+        assertEquals(3, persistent.calls)
+        assertEquals(0, oneShot.calls)
+    }
+
+    @Test
+    fun `persistent is retried after cooldown and success closes the breaker`() = runBlocking {
+        var now = 0L
+        val persistent = recording(other, other, CompletionResult.Success("back"))
+        val oneShot = recording()
+        val backend = ClaudeCliBackend(persistent, oneShot, clock = { now }, cooldownMs = 60_000)
+        repeat(2) { backend.complete(testContext(), testConfig()) }
+        now = 30_000
+        backend.complete(testContext(), testConfig())
+        assertEquals(1, oneShot.calls)
+        now = 61_000
+        assertEquals(CompletionResult.Success("back"), backend.complete(testContext(), testConfig()))
+        backend.complete(testContext(), testConfig())
+        assertEquals(4, persistent.calls)
+        assertEquals(1, oneShot.calls)
+    }
+
+    @Test
+    fun `failed half open probe restarts the cooldown`() = runBlocking {
+        var now = 0L
+        val persistent = recording(other, other, other)
+        val oneShot = recording()
+        val backend = ClaudeCliBackend(persistent, oneShot, clock = { now }, cooldownMs = 60_000)
+        repeat(2) { backend.complete(testContext(), testConfig()) }
+        now = 61_000
+        backend.complete(testContext(), testConfig())
+        now = 100_000
+        backend.complete(testContext(), testConfig())
+        assertEquals(3, persistent.calls)
+        assertEquals(1, oneShot.calls)
+    }
 }

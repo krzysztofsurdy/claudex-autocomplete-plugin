@@ -80,4 +80,45 @@ class CompletionPostProcessorTest {
     fun `multi line tail overlap with following lines trimmed`() {
         assertEquals("return 1;", multi("return 1;\n}", prefix = "function a() {\n    ", suffix = "\n}\n"))
     }
+
+    @Test
+    fun `closing brace of own block is kept when suffix starts with brace`() {
+        val raw = "if (\$x) {\n    run();\n}"
+        assertEquals(raw, multi(raw, prefix = "function a() {\n    ", suffix = "\n}\n"))
+    }
+
+    @Test
+    fun `only unmatched closers are trimmed`() {
+        assertEquals("foo(1)", single("foo(1))", prefix = "bar(", suffix = "))"))
+    }
+
+    @Test
+    fun `brackets inside strings are ignored for balance`() {
+        assertEquals("\"a)\"", single("\"a)\")", prefix = "bar(", suffix = ")"))
+    }
+
+    @Test
+    fun `partial echo of at least two chars is removed`() {
+        assertEquals("ers", single("users", prefix = "\$this->us"))
+    }
+
+    @Test
+    fun `single char overlap is not treated as echo`() {
+        assertEquals("(1)", single("(1)", prefix = "foo("))
+    }
+
+    @Test
+    fun `echo is compared ignoring leading whitespace of line prefix`() {
+        assertEquals("= 5;", single("\$a = 5;", prefix = "    \$a "))
+    }
+
+    @Test
+    fun `blank caret line strips all leading newlines`() {
+        assertEquals("return 1;", multi("\n\nreturn 1;", prefix = "function a() {\n"))
+    }
+
+    @Test
+    fun `non blank caret line keeps one leading newline`() {
+        assertEquals("\nreturn 1;", multi("\n\nreturn 1;", prefix = "function a() {"))
+    }
 }

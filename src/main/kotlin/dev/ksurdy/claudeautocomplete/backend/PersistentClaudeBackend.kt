@@ -17,9 +17,12 @@ class PersistentClaudeBackend(
     private val locator: ClaudeCliLocator = ClaudeCliLocator(),
     private val processFactory: ClaudeProcessFactory = RealClaudeProcessFactory,
 ) : CompletionBackend {
-    private class Session(val process: ClaudeProcess, val key: ClaudeConfig, var used: Boolean = false)
+    private class Session(val process: ClaudeProcess, val key: ClaudeConfig, var used: Boolean = false,
+        @Volatile var inFlight: Boolean = false,
+    )
 
     private val mutex = Mutex()
+    @Volatile
     private var session: Session? = null
 
     override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult =
@@ -34,7 +37,7 @@ class PersistentClaudeBackend(
                 discard(current)
                 CompletionResult.Failure(FailureKind.Timeout, "Timed out after ${config.requestTimeoutMs} ms")
             } catch (e: CancellationException) {
-                withContext(NonCancellable) { interrupt(current) }
+                if (current.inFlight) withContext(NonCancellable) { interrupt(current) }
                 throw e
             } catch (e: IOException) {
                 discard(current)
@@ -64,10 +67,12 @@ class PersistentClaudeBackend(
 
     private suspend fun request(current: Session, context: CompletionContext): CompletionResult {
         if (current.used) {
+            current.inFlight = true
             send(current, userLine("/clear"))
             awaitResult(current)?.let { if (it.isError) return FailureMapper.map(it.text) }
         }
         current.used = true
+        current.inFlight = true
         send(current, userLine(PromptBuilder.userMessage(context)))
         val streamed = StringBuilder()
         var final: StreamEvent.Result? = null
@@ -75,6 +80,7 @@ class PersistentClaudeBackend(
             when (val event = StreamJsonParser.parse(line)) {
                 is StreamEvent.TextDelta -> streamed.append(event.text)
                 is StreamEvent.Result -> {
+                    current.inFlight = false
                     final = event
                     break
                 }
@@ -92,7 +98,10 @@ class PersistentClaudeBackend(
     private suspend fun awaitResult(current: Session): StreamEvent.Result? {
         for (line in current.process.lines) {
             val event = StreamJsonParser.parse(line)
-            if (event is StreamEvent.Result) return event
+            if (event is StreamEvent.Result) {
+                current.inFlight = false
+                return event
+            }
         }
         discard(current)
         return null
@@ -115,6 +124,7 @@ class PersistentClaudeBackend(
 
     override fun shutdown() {
         session?.let(::discard)
+        session = null
     }
 
     private fun userLine(content: String): String {
@@ -138,6 +148,6 @@ class PersistentClaudeBackend(
     }
 
     private companion object {
-        const val INTERRUPT_DRAIN_MS = 2000L
+        const val INTERRUPT_DRAIN_MS = 500L
     }
 }

@@ -1,6 +1,7 @@
 package dev.ksurdy.claudeautocomplete.completion
 
 import dev.ksurdy.claudeautocomplete.backend.testContext
+import dev.ksurdy.claudeautocomplete.backend.testConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -27,29 +28,48 @@ class CompletionCacheTest {
         assertEquals("3", cache.get("c"))
     }
 
+    private fun key(context: dev.ksurdy.claudeautocomplete.backend.CompletionContext = testContext(), config: dev.ksurdy.claudeautocomplete.backend.ClaudeConfig = testConfig()) =
+        CompletionCache.key(context, config)
+
     @Test
-    fun `key depends on prefix suffix and model`() {
-        val base = CompletionCache.key(testContext(prefix = "a", suffix = "b"), "haiku")
-        assertEquals(base, CompletionCache.key(testContext(prefix = "a", suffix = "b"), "haiku"))
-        assertNotEquals(base, CompletionCache.key(testContext(prefix = "aa", suffix = "b"), "haiku"))
-        assertNotEquals(base, CompletionCache.key(testContext(prefix = "a", suffix = "bb"), "haiku"))
-        assertNotEquals(base, CompletionCache.key(testContext(prefix = "a", suffix = "b"), "sonnet"))
+    fun `key depends on prefix and suffix`() {
+        val base = key(testContext(prefix = "a", suffix = "b"))
+        assertEquals(base, key(testContext(prefix = "a", suffix = "b")))
+        assertNotEquals(base, key(testContext(prefix = "aa", suffix = "b")))
+        assertNotEquals(base, key(testContext(prefix = "a", suffix = "bb")))
     }
 
     @Test
-    fun `key depends on multiline mode`() {
-        assertNotEquals(
-            CompletionCache.key(testContext(multiline = true), "haiku"),
-            CompletionCache.key(testContext(multiline = false), "haiku"),
-        )
+    fun `key depends on context attributes`() {
+        val base = key()
+        assertNotEquals(base, key(testContext(filePath = "other.php")))
+        assertNotEquals(base, key(testContext(languageId = "JS")))
+        assertNotEquals(base, key(testContext(maxLines = 3)))
+        assertNotEquals(base, key(testContext(multiline = true)))
+    }
+
+    @Test
+    fun `key depends on config attributes`() {
+        val base = key()
+        assertNotEquals(base, key(config = testConfig(model = "sonnet")))
+        assertNotEquals(base, key(config = testConfig(effort = "high")))
+        assertNotEquals(base, key(config = testConfig(customInstructions = "PSR-12")))
     }
 
     @Test
     fun `key ignores far away prefix text`() {
         val tail = "t".repeat(600)
-        assertEquals(
-            CompletionCache.key(testContext(prefix = "AAA$tail"), "haiku"),
-            CompletionCache.key(testContext(prefix = "BBB$tail"), "haiku"),
-        )
+        assertEquals(key(testContext(prefix = "AAA$tail")), key(testContext(prefix = "BBB$tail")))
+    }
+
+    @Test
+    fun `entries expire after ttl`() {
+        var now = 0L
+        val cache = CompletionCache(2, ttlMs = 60_000, clock = { now })
+        cache.put("a", "1")
+        now = 59_999
+        assertEquals("1", cache.get("a"))
+        now = 60_001
+        assertNull(cache.get("a"))
     }
 }

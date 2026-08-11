@@ -8,6 +8,9 @@ data class CompletionContext(
     val openFiles: List<OpenFileSnippet>,
     val multiline: Boolean,
     val maxLines: Int,
+    val indent: String = "",
+    val prefixTruncated: Boolean = false,
+    val suffixTruncated: Boolean = false,
 )
 
 data class OpenFileSnippet(val path: String, val languageId: String, val content: String)

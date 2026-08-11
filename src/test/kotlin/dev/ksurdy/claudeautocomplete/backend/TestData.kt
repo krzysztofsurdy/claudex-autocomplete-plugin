@@ -23,4 +23,9 @@ fun testContext(
     openFiles: List<OpenFileSnippet> = emptyList(),
     filePath: String = "src/Foo.php",
     languageId: String = "PHP",
-) = CompletionContext(filePath, languageId, prefix, suffix, openFiles, multiline, maxLines)
+    indent: String = "",
+    prefixTruncated: Boolean = false,
+    suffixTruncated: Boolean = false,
+) = CompletionContext(
+    filePath, languageId, prefix, suffix, openFiles, multiline, maxLines, indent, prefixTruncated, suffixTruncated,
+)

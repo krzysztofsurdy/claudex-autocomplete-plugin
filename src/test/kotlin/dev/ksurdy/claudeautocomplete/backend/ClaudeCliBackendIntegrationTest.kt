@@ -1,5 +1,7 @@
 package dev.ksurdy.claudeautocomplete.backend
 
+import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
+import dev.ksurdy.claudeautocomplete.completion.TriggerRules
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
@@ -42,5 +44,46 @@ class ClaudeCliBackendIntegrationTest {
     fun `persistent returns completions across requests`() {
         enabled()
         exercise(persistent = true)
+    }
+
+    private val phpClass = "<?php\n\nclass UserService\n{\n    public function __construct(private UserRepository \$users)\n    {\n    }\n\n"
+
+    private fun realistic(name: String, prefix: String, suffix: String, mode: String = "auto") = runBlocking {
+        val multiline = TriggerRules.isMultiline(prefix, suffix, mode)
+        val context = testContext(prefix = prefix, suffix = suffix, multiline = multiline, indent = "4 spaces")
+        val backend = ClaudeCliBackend()
+        try {
+            val config = testConfig(claudePath = "", requestTimeoutMs = 30000)
+            backend.complete(context, config)
+            var result: CompletionResult? = null
+            val ms = measureTimeMillis { result = backend.complete(context, config) }
+            val processed = (result as? CompletionResult.Success)?.let { CompletionPostProcessor.process(it.text, context) }
+            println("IT case=$name multiline=$multiline ms=$ms raw=$result processed=<<$processed>>")
+            assertIs<CompletionResult.Success>(result)
+        } finally {
+            backend.shutdown()
+        }
+    }
+
+    @Test
+    fun `php method body on blank line`() {
+        enabled()
+        realistic(
+            "method-body",
+            phpClass + "    public function findActive(string \$email): ?User\n    {\n        ",
+            "\n    }\n}\n",
+        )
+    }
+
+    @Test
+    fun `php mid statement single line`() {
+        enabled()
+        realistic("mid-statement", phpClass + "    public function count(): int\n    {\n        \$x = \$this->", ";\n    }\n}\n")
+    }
+
+    @Test
+    fun `php array literal`() {
+        enabled()
+        realistic("array-literal", phpClass + "    public function roles(): array\n    {\n        return [\n            ", "\n        ];\n    }\n}\n")
     }
 }

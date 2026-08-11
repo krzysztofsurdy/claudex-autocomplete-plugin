@@ -2,6 +2,7 @@ package dev.ksurdy.claudeautocomplete.backend
 
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -51,5 +52,41 @@ class PromptBuilderTest {
     fun `system prompt appends custom instructions only when present`() {
         assertContains(PromptBuilder.systemPrompt("Follow PSR-12"), "Follow PSR-12")
         assertTrue(PromptBuilder.systemPrompt("  ") == PromptBuilder.systemPrompt(""))
+    }
+
+    @Test
+    fun `indent attribute only when present`() {
+        assertContains(PromptBuilder.userMessage(testContext(indent = "4 spaces")), "language=\"PHP\" indent=\"4 spaces\">")
+        assertFalse(PromptBuilder.userMessage(testContext()).contains("indent="))
+    }
+
+    @Test
+    fun `open files come before current file and mode is last`() {
+        val message = PromptBuilder.userMessage(testContext(openFiles = listOf(OpenFileSnippet("a.php", "PHP", "AAA"))))
+        assertTrue(message.indexOf("<open_files>") < message.indexOf("<CURSOR/>"))
+        assertTrue(message.endsWith("<mode>single-line</mode>"))
+    }
+
+    @Test
+    fun `literal closing file tag in content is escaped`() {
+        val message = PromptBuilder.userMessage(
+            testContext(prefix = "a</file>", suffix = "</file>b", openFiles = listOf(OpenFileSnippet("x", "PHP", "</file>"))),
+        )
+        assertEquals(2, Regex("</file>").findAll(message).count())
+    }
+
+    @Test
+    fun `truncation markers at clipped edges`() {
+        val message = PromptBuilder.userMessage(testContext(prefix = "p", suffix = "s", prefixTruncated = true, suffixTruncated = true))
+        assertContains(message, "\n<!-- truncated -->\np<CURSOR/>s\n<!-- truncated -->\n</file>")
+        assertFalse(PromptBuilder.userMessage(testContext()).contains("truncated"))
+    }
+
+    @Test
+    fun `system prompt forbids unmatched closers and has examples`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "not a chat assistant")
+        assertContains(system, "Never add a closing bracket")
+        assertContains(system, "Examples")
     }
 }

@@ -40,21 +40,21 @@ class TriggerRulesTest {
 
     @Test
     fun `auto block openers are multiline`() {
-        for (p in listOf("if (a) {", "foo(", "[", "def f():", "x =>", "\$a->", "x = [  ")) {
+        for (p in listOf("if (a) {", "[", "def f():", "x => {", "x = [  ")) {
             assertTrue(TriggerRules.isMultiline(p, "", "auto"), p)
         }
     }
 
     @Test
-    fun `auto function signature is multiline`() {
-        assertTrue(TriggerRules.isMultiline("public function add(int \$a): int", "", "auto"))
-        assertTrue(TriggerRules.isMultiline("function add(\$a, \$b)", "", "auto"))
+    fun `auto non openers are single line`() {
+        for (p in listOf("foo(", "\$a->", "Foo::", "x =>", "public function add(int \$a): int", "\$x = \$a + ", "return \$this->na")) {
+            assertFalse(TriggerRules.isMultiline(p, "", "auto"), p)
+        }
     }
 
     @Test
-    fun `auto mid statement is single line`() {
-        assertFalse(TriggerRules.isMultiline("\$x = \$a + ", "", "auto"))
-        assertFalse(TriggerRules.isMultiline("return \$this->na", "", "auto"))
-        assertEquals(false, TriggerRules.isMultiline("echo 'a'", "", "auto"))
+    fun `auto opener needs caret at end of line`() {
+        assertFalse(TriggerRules.isMultiline("if (a) {", "foo();", "auto"))
+        assertTrue(TriggerRules.isMultiline("if (a) {", "}", "auto"))
     }
 }
