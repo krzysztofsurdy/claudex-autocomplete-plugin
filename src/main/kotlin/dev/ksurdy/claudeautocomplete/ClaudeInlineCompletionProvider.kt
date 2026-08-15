@@ -14,6 +14,7 @@ import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -21,6 +22,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     override val id = InlineCompletionProviderID(ID)
 
     private val cache = CompletionCache(CACHE_CAPACITY)
+    private val generation = AtomicLong()
 
     override fun isEnabled(event: InlineCompletionEvent): Boolean =
         ClaudeAutocompleteSettings.getInstance().state.enabled && isSupported(event)
@@ -34,33 +36,40 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
     override suspend fun getSuggestionDebounced(request: InlineCompletionRequest): InlineCompletionSuggestion {
         val settings = ClaudeAutocompleteSettings.getInstance()
-        val status = StatusService.getInstance()
-        val stamp = request.document.modificationStamp
-        val context = readAction { ContextCollector.collect(request, settings.state) }
-            ?: return InlineCompletionSuggestion.Empty
+        val manual = request.event is InlineCompletionEvent.ManualCall
+        val gen = generation.incrementAndGet()
+        val snapshot = readAction {
+            ContextCollector.collect(request, settings.state, force = manual)?.let { it to request.document.modificationStamp }
+        }
+        if (snapshot == null) {
+            publish(gen, ClaudeStatus.Ready)
+            return InlineCompletionSuggestion.Empty
+        }
+        val (context, stamp) = snapshot
 
         val config = settings.toClaudeConfig()
         val cacheKey = CompletionCache.key(context, config)
-        val cached = cache.get(cacheKey)
+        val cached = if (manual) null else cache.get(cacheKey)
+        if (cached != null) publish(gen, ClaudeStatus.Ready)
         val text = cached ?: run {
-            status.update(ClaudeStatus.Thinking)
+            publish(gen, ClaudeStatus.Thinking)
             val result = try {
                 withContext(Dispatchers.IO) { BackendService.getInstance().backend.complete(context, config) }
             } catch (e: CancellationException) {
-                status.update(ClaudeStatus.Ready)
+                publish(gen, ClaudeStatus.Ready)
                 throw e
             }
             when (result) {
                 is CompletionResult.Success -> {
-                    status.update(ClaudeStatus.Ready)
+                    publish(gen, ClaudeStatus.Ready)
                     CompletionPostProcessor.process(result.text, context).also { if (it.isNotEmpty()) cache.put(cacheKey, it) }
                 }
                 CompletionResult.Empty -> {
-                    status.update(ClaudeStatus.Ready)
+                    publish(gen, ClaudeStatus.Ready)
                     ""
                 }
                 is CompletionResult.Failure -> {
-                    status.update(ClaudeStatus.Error(result.kind.label()))
+                    publish(gen, ClaudeStatus.Error(result.kind.label()))
                     Notifier.getInstance().notifyFailure(result.kind, result.message)
                     ""
                 }
@@ -69,6 +78,10 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
         if (text.isEmpty() || request.document.modificationStamp != stamp) return InlineCompletionSuggestion.Empty
         return InlineCompletionSingleSuggestion.build { emit(InlineCompletionGrayTextElement(text)) }
+    }
+
+    private fun publish(generation: Long, newStatus: ClaudeStatus) {
+        if (this.generation.get() == generation) StatusService.getInstance().update(newStatus)
     }
 
     private fun isSupported(event: InlineCompletionEvent): Boolean =
