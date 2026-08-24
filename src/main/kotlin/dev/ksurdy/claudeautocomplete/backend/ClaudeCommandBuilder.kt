@@ -22,7 +22,8 @@ object ClaudeCommandBuilder {
             add("--verbose")
             add("--include-partial-messages")
         } else {
-            addAll(listOf("--output-format", "json"))
+            addAll(listOf("--output-format", "stream-json"))
+            add("--verbose")
             add("--disable-slash-commands")
         }
     }

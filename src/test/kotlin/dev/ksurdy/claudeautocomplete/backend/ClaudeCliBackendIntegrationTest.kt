@@ -20,6 +20,8 @@ class ClaudeCliBackendIntegrationTest {
 
     private fun exercise(persistent: Boolean) = runBlocking {
         val backend = ClaudeCliBackend()
+        val seen = mutableListOf<UsageLimits>()
+        backend.addUsageListener { seen += it }
         val config = testConfig(claudePath = "", persistentProcess = persistent, requestTimeoutMs = 30000)
         try {
             repeat(3) { index ->
@@ -29,6 +31,9 @@ class ClaudeCliBackendIntegrationTest {
                 val success = assertIs<CompletionResult.Success>(result)
                 assertTrue(success.text.isNotBlank())
             }
+            println("IT usage persistent=$persistent events=${seen.size} last=${backend.lastUsage}")
+            assertTrue(seen.isNotEmpty())
+            assertTrue(backend.lastUsage?.fiveHour != null)
         } finally {
             backend.shutdown()
         }

@@ -5,10 +5,16 @@ class ClaudeCliBackend(
     private val oneShot: CompletionBackend,
     private val clock: () -> Long = System::currentTimeMillis,
     private val cooldownMs: Long = DEFAULT_COOLDOWN_MS,
+    private val usage: UsageTracker = UsageTracker(),
 ) : CompletionBackend {
-    constructor() : this(ClaudeCliLocator())
+    constructor() : this(ClaudeCliLocator(), UsageTracker())
 
-    private constructor(locator: ClaudeCliLocator) : this(PersistentClaudeBackend(locator), OneShotClaudeBackend(locator))
+    private constructor(locator: ClaudeCliLocator, usage: UsageTracker) :
+        this(PersistentClaudeBackend(locator, usage), OneShotClaudeBackend(locator, usage), usage = usage)
+
+    val lastUsage: UsageLimits? get() = usage.last
+
+    fun addUsageListener(listener: (UsageLimits) -> Unit): () -> Unit = usage.addListener(listener)
 
     private var consecutivePersistentFailures = 0
     private var breakerOpenedAt = 0L

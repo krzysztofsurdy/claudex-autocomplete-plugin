@@ -33,9 +33,18 @@ sealed interface CompletionResult {
     data class Failure(val kind: FailureKind, val message: String) : CompletionResult
 }
 
-enum class FailureKind { NotLoggedIn, CliNotFound, InvalidModel, Timeout, Other }
+enum class FailureKind { NotLoggedIn, CliNotFound, InvalidModel, Timeout, RateLimited, Other }
 
 interface CompletionBackend {
     suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult
     fun shutdown()
 }
+
+data class UsageWindow(val utilization: Double, val resetsAt: java.time.Instant?)
+
+data class UsageLimits(
+    val fiveHour: UsageWindow?,
+    val sevenDay: UsageWindow?,
+    val status: String?,
+    val observedAt: java.time.Instant,
+)

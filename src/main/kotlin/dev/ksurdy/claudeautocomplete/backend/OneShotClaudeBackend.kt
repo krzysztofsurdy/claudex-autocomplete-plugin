@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeout
 
 class OneShotClaudeBackend(
     private val locator: ClaudeCliLocator = ClaudeCliLocator(),
+    private val usage: UsageTracker = UsageTracker(),
     private val processFactory: ClaudeProcessFactory = RealClaudeProcessFactory,
 ) : CompletionBackend {
     override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
@@ -39,12 +40,23 @@ class OneShotClaudeBackend(
             process.closeInput()
         }
         var result: StreamEvent.Result? = null
+        var rejected = false
         for (line in process.lines) {
-            val event = StreamJsonParser.parse(line)
-            if (event is StreamEvent.Result) result = event
+            when (val event = StreamJsonParser.parse(line)) {
+                is StreamEvent.Result -> result = event
+                is StreamEvent.RateLimit -> {
+                    usage.publish(event)
+                    rejected = rejected || event.status == REJECTED
+                }
+                else -> Unit
+            }
         }
-        return ResultMapper.toCompletionResult(result)
+        return ResultMapper.toCompletionResult(result, rateLimited = rejected)
     }
 
     override fun shutdown() = Unit
+
+    private companion object {
+        const val REJECTED = "rejected"
+    }
 }

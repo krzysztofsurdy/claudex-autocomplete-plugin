@@ -1,5 +1,6 @@
 package dev.ksurdy.claudeautocomplete.backend
 
+import kotlin.test.assertIs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -45,5 +46,31 @@ class StreamJsonParserTest {
         assertNull(StreamJsonParser.parse("   "))
         assertNull(StreamJsonParser.parse("not json"))
         assertNull(StreamJsonParser.parse("[1,2]"))
+    }
+
+    private val rateLimit = """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1791200400,"rateLimitType":"five_hour","overageStatus":"rejected","isUsingOverage":false,"unifiedWindows":{"five_hour":{"utilization":0.14,"resetsAt":1791200400},"seven_day":{"utilization":0.22,"resetsAt":1791302400}}},"uuid":"u"}"""
+
+    @Test
+    fun `rate limit event is parsed with both windows`() {
+        val event = assertIs<StreamEvent.RateLimit>(StreamJsonParser.parse(rateLimit))
+        assertEquals("allowed", event.status)
+        assertEquals(UsageWindow(0.14, java.time.Instant.ofEpochSecond(1791200400)), event.fiveHour)
+        assertEquals(UsageWindow(0.22, java.time.Instant.ofEpochSecond(1791302400)), event.sevenDay)
+    }
+
+    @Test
+    fun `percentage utilization is normalized`() {
+        val line = """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","unifiedWindows":{"five_hour":{"utilization":85}}}}"""
+        val event = assertIs<StreamEvent.RateLimit>(StreamJsonParser.parse(line))
+        assertEquals(UsageWindow(0.85, null), event.fiveHour)
+        assertNull(event.sevenDay)
+    }
+
+    @Test
+    fun `rate limit event without windows still yields status`() {
+        val line = """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected"}}"""
+        val event = assertIs<StreamEvent.RateLimit>(StreamJsonParser.parse(line))
+        assertEquals("rejected", event.status)
+        assertNull(event.fiveHour)
     }
 }

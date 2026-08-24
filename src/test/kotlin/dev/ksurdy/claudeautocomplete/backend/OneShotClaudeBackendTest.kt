@@ -80,4 +80,19 @@ class OneShotClaudeBackendTest {
         val result = none.complete(testContext(), testConfig(claudePath = ""))
         assertEquals(FailureKind.CliNotFound, assertIs<CompletionResult.Failure>(result).kind)
     }
+
+    @Test
+    fun `publishes rate limit events`() = runBlocking {
+        val line = """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","unifiedWindows":{"seven_day":{"utilization":0.3}}}}"""
+        val process = FakeClaudeProcess { if (it == "<EOF>") { emit(line); emit(result("x")); finish() } }
+        val tracker = UsageTracker()
+        OneShotClaudeBackend(locator, tracker) { _, _, _ -> process }.complete(testContext(), testConfig())
+        assertEquals(0.3, tracker.last?.sevenDay?.utilization)
+    }
+
+    @Test
+    fun `usage limit text maps to RateLimited`() = runBlocking {
+        val result = backend(answering("You've hit your usage limit", true)).complete(testContext(), testConfig())
+        assertEquals(FailureKind.RateLimited, assertIs<CompletionResult.Failure>(result).kind)
+    }
 }

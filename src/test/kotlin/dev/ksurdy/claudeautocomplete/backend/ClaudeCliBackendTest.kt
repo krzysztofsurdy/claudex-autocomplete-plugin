@@ -134,4 +134,16 @@ class ClaudeCliBackendTest {
         assertEquals(3, persistent.calls)
         assertEquals(1, oneShot.calls)
     }
+
+    @Test
+    fun `exposes usage from shared tracker`() {
+        val tracker = UsageTracker()
+        val backend = ClaudeCliBackend(recording(), recording(), usage = tracker)
+        var seen: UsageLimits? = null
+        val unsubscribe = backend.addUsageListener { seen = it }
+        tracker.publish(StreamEvent.RateLimit("allowed", null, UsageWindow(0.4, null)))
+        assertEquals(0.4, backend.lastUsage?.sevenDay?.utilization)
+        assertEquals(0.4, seen?.sevenDay?.utilization)
+        unsubscribe()
+    }
 }

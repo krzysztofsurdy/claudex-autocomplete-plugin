@@ -28,7 +28,6 @@ class ClaudeCommandBuilderTest {
     @Test
     fun `one shot uses json output and disables slash commands`() {
         val args = ClaudeCommandBuilder.command(binary, testConfig(), persistent = false)
-        assertEquals("json", valueAfter(args, "--output-format"))
         assertContains(args, "--disable-slash-commands")
         assertFalse(args.contains("--input-format"))
     }
@@ -91,5 +90,12 @@ class ClaudeCommandBuilderTest {
     fun `path is created when missing from base`() {
         val path = ClaudeCommandBuilder.environment(emptyMap(), binary, testConfig())["PATH"]!!
         assertContains(path, "/opt/homebrew/bin")
+    }
+
+    @Test
+    fun `one shot streams json with verbose to receive usage events`() {
+        val args = ClaudeCommandBuilder.command(binary, testConfig(), persistent = false)
+        assertEquals("stream-json", valueAfter(args, "--output-format"))
+        assertContains(args, "--verbose")
     }
 }

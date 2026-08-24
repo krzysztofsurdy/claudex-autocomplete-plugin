@@ -157,4 +157,24 @@ class PersistentClaudeBackendTest {
         backend.shutdown()
         assertTrue(process.killed)
     }
+
+    private val rateLimitLine =
+        """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","unifiedWindows":{"five_hour":{"utilization":0.5,"resetsAt":10}}}}"""
+
+    @Test
+    fun `publishes rate limit events`() = runBlocking {
+        val process = FakeClaudeProcess { emit(rateLimitLine); emit(result("x")) }
+        val tracker = UsageTracker()
+        val backend = PersistentClaudeBackend(locator, tracker) { _, _, _ -> process }
+        backend.complete(testContext(), testConfig())
+        assertEquals(0.5, tracker.last?.fiveHour?.utilization)
+    }
+
+    @Test
+    fun `rejected status with error result is RateLimited`() = runBlocking {
+        val rejected = """{"type":"rate_limit_event","rate_limit_info":{"status":"rejected"}}"""
+        val process = FakeClaudeProcess { emit(rejected); emit(result("Claude AI usage limit reached", isError = true)) }
+        val result = PersistentClaudeBackend(locator, UsageTracker()) { _, _, _ -> process }.complete(testContext(), testConfig())
+        assertEquals(FailureKind.RateLimited, assertIs<CompletionResult.Failure>(result).kind)
+    }
 }

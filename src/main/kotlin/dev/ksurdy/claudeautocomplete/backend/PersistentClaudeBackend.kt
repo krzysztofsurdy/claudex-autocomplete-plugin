@@ -15,6 +15,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class PersistentClaudeBackend(
     private val locator: ClaudeCliLocator = ClaudeCliLocator(),
+    private val usage: UsageTracker = UsageTracker(),
     private val processFactory: ClaudeProcessFactory = RealClaudeProcessFactory,
 ) : CompletionBackend {
     private class Session(val process: ClaudeProcess, val key: ClaudeConfig, var used: Boolean = false,
@@ -76,9 +77,14 @@ class PersistentClaudeBackend(
         send(current, userLine(PromptBuilder.userMessage(context)))
         val streamed = StringBuilder()
         var final: StreamEvent.Result? = null
+        var rejected = false
         for (line in current.process.lines) {
             when (val event = StreamJsonParser.parse(line)) {
                 is StreamEvent.TextDelta -> streamed.append(event.text)
+                is StreamEvent.RateLimit -> {
+                    usage.publish(event)
+                    rejected = rejected || event.status == REJECTED
+                }
                 is StreamEvent.Result -> {
                     current.inFlight = false
                     final = event
@@ -88,7 +94,7 @@ class PersistentClaudeBackend(
             }
         }
         if (final == null) discard(current)
-        return ResultMapper.toCompletionResult(final, streamed.toString())
+        return ResultMapper.toCompletionResult(final, streamed.toString(), rejected)
     }
 
     private suspend fun send(current: Session, line: String) {
@@ -98,6 +104,7 @@ class PersistentClaudeBackend(
     private suspend fun awaitResult(current: Session): StreamEvent.Result? {
         for (line in current.process.lines) {
             val event = StreamJsonParser.parse(line)
+            if (event is StreamEvent.RateLimit) usage.publish(event)
             if (event is StreamEvent.Result) {
                 current.inFlight = false
                 return event
@@ -149,5 +156,6 @@ class PersistentClaudeBackend(
 
     private companion object {
         const val INTERRUPT_DRAIN_MS = 500L
+        const val REJECTED = "rejected"
     }
 }
