@@ -10,8 +10,6 @@ import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
-import dev.ksurdy.claudeautocomplete.backend.ClaudeConfig
-import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import kotlinx.coroutines.runBlocking
 import javax.swing.JLabel
@@ -84,6 +82,7 @@ class ClaudeAutocompleteConfigurable :
                 row("Request timeout (ms):") { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
                 row("Max prefix chars:") { intTextField(100..200_000).bindIntText(state::maxPrefixChars) }
                 row("Max suffix chars:") { intTextField(200..100_000).bindIntText(state::maxSuffixChars) }
+                row { checkBox("Show request state and usage in status bar").bindSelected(state::showUsageInStatusBar) }
                 row { checkBox("Include open tabs as context").bindSelected(state::includeOpenTabs) }
                 row("Open tabs char budget:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars) }
                 row("Multi-line mode:") {
@@ -105,7 +104,7 @@ class ClaudeAutocompleteConfigurable :
         val config = working.toClaudeConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             val started = System.nanoTime()
-            val outcome = runBlocking { runTestCompletion(config) }
+            val outcome = runBlocking { BackendService.getInstance().ping(config) }
             val millis = (System.nanoTime() - started) / 1_000_000
             val text = when (outcome) {
                 is CompletionResult.Success -> "OK in $millis ms: ${outcome.text.take(80).replace('\n', ' ')}"
@@ -115,18 +114,4 @@ class ClaudeAutocompleteConfigurable :
             ApplicationManager.getApplication().invokeLater({ label.text = text }, ModalityState.any())
         }
     }
-
-    private suspend fun runTestCompletion(config: ClaudeConfig): CompletionResult =
-        BackendService.getInstance().backend.complete(
-            CompletionContext(
-                filePath = "test.kt",
-                languageId = "kotlin",
-                prefix = "fun add(a: Int, b: Int): Int {\n    return ",
-                suffix = "\n}\n",
-                openFiles = emptyList(),
-                multiline = false,
-                maxLines = 1,
-            ),
-            config,
-        )
 }

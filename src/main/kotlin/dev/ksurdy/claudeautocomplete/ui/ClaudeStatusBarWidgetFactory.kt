@@ -1,15 +1,30 @@
 package dev.ksurdy.claudeautocomplete.ui
 
+import com.intellij.ide.DataManager
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
+import com.intellij.ui.awt.RelativePoint
 import com.intellij.util.Consumer
+import dev.ksurdy.claudeautocomplete.BackendService
+import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteConfigurable
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
+import dev.ksurdy.claudeautocomplete.StatusFormatter
 import dev.ksurdy.claudeautocomplete.StatusService
+import kotlinx.coroutines.runBlocking
 import java.awt.event.MouseEvent
+import java.time.Instant
+import java.time.ZoneId
+import javax.swing.Timer
 
 class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId(): String = ClaudeStatusBarWidget.ID
@@ -18,15 +33,16 @@ class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
 
     override fun isAvailable(project: Project): Boolean = true
 
-    override fun createWidget(project: Project): StatusBarWidget = ClaudeStatusBarWidget()
+    override fun createWidget(project: Project): StatusBarWidget = ClaudeStatusBarWidget(project)
 
     override fun canBeEnabledOn(statusBar: StatusBar): Boolean = true
 }
 
-class ClaudeStatusBarWidget : StatusBarWidget, StatusBarWidget.TextPresentation {
+class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.TextPresentation {
     private var statusBar: StatusBar? = null
+    private val ticker = Timer(TICK_MS) { onStatusChanged() }.apply { isRepeats = true }
     private val listener: () -> Unit = {
-        ApplicationManager.getApplication().invokeLater({ statusBar?.updateWidget(ID) }, ModalityState.any())
+        ApplicationManager.getApplication().invokeLater({ onStatusChanged() }, ModalityState.any())
     }
 
     override fun ID(): String = ID
@@ -39,25 +55,86 @@ class ClaudeStatusBarWidget : StatusBarWidget, StatusBarWidget.TextPresentation 
     }
 
     override fun dispose() {
+        ticker.stop()
         StatusService.getInstance().removeListener(listener)
         statusBar = null
     }
 
-    override fun getText(): String = StatusService.getInstance().displayText(settings().state.enabled)
+    override fun getText(): String {
+        val state = settings().state
+        return StatusFormatter.widgetText(
+            enabled = state.enabled,
+            status = StatusService.getInstance().status,
+            usage = StatusService.getInstance().usage,
+            showUsage = state.showUsageInStatusBar,
+            nowMs = System.currentTimeMillis(),
+        )
+    }
 
     override fun getAlignment(): Float = 0.5f
 
-    override fun getTooltipText(): String = "Click to toggle Claude autocomplete"
-
-    override fun getClickConsumer(): Consumer<MouseEvent> = Consumer {
+    override fun getTooltipText(): String {
+        val service = StatusService.getInstance()
         val state = settings().state
-        state.enabled = !state.enabled
-        StatusService.getInstance().refresh()
+        return StatusFormatter.tooltip(
+            enabled = state.enabled,
+            status = service.status,
+            usage = service.usage,
+            lastLatencyMs = service.lastLatencyMs,
+            model = service.lastModel ?: state.model,
+            now = Instant.now(),
+            zone = ZoneId.systemDefault(),
+        )
+    }
+
+    override fun getClickConsumer(): Consumer<MouseEvent> = Consumer { event -> showMenu(event) }
+
+    private fun onStatusChanged() {
+        val service = StatusService.getInstance()
+        if (StatusFormatter.isAnimating(settings().state.enabled, service.status, System.currentTimeMillis())) ticker.start() else ticker.stop()
+        statusBar?.updateWidget(ID)
+    }
+
+    private fun showMenu(event: MouseEvent) {
+        val bar = statusBar ?: return
+        val enabled = settings().state.enabled
+        val group = DefaultActionGroup(
+            action(if (enabled) "Disable Claude Autocomplete" else "Enable Claude Autocomplete") {
+                settings().state.enabled = !enabled
+                StatusService.getInstance().refresh()
+            },
+            action("Open Settings") {
+                ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeAutocompleteConfigurable::class.java)
+            },
+            action("Refresh Usage") { refreshUsage() },
+        )
+        JBPopupFactory.getInstance()
+            .createActionGroupPopup(
+                null,
+                group,
+                DataManager.getInstance().getDataContext(event.component),
+                JBPopupFactory.ActionSelectionAid.SPEEDSEARCH,
+                false,
+            )
+            .show(RelativePoint(event))
+        bar.updateWidget(ID)
+    }
+
+    private fun refreshUsage() {
+        val config = settings().toClaudeConfig()
+        ApplicationManager.getApplication().executeOnPooledThread {
+            runBlocking { BackendService.getInstance().ping(config) }
+        }
+    }
+
+    private fun action(text: String, perform: () -> Unit): AnAction = object : DumbAwareAction(text) {
+        override fun actionPerformed(e: AnActionEvent) = perform()
     }
 
     private fun settings() = ClaudeAutocompleteSettings.getInstance()
 
     companion object {
         const val ID = "ClaudeAutocompleteStatus"
+        private const val TICK_MS = 500
     }
 }

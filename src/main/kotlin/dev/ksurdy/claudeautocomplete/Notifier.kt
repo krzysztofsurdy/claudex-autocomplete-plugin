@@ -37,6 +37,7 @@ class Notifier {
         FailureKind.NotLoggedIn -> "Claude CLI is not logged in. Run `claude` in a terminal, then `/login`."
         FailureKind.CliNotFound -> "Claude CLI not found. Install it or set its path in Settings > Tools > Claude Autocomplete."
         FailureKind.InvalidModel -> "Invalid model. Check the model name in Settings > Tools > Claude Autocomplete. $message"
+        FailureKind.RateLimited -> "Claude usage limit reached${if (message.isBlank()) "" else ", $message"}."
         FailureKind.Timeout, FailureKind.Other -> null
     }
 

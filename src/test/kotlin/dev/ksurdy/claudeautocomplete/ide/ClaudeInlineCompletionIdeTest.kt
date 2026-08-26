@@ -6,9 +6,12 @@ import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
+import dev.ksurdy.claudeautocomplete.ClaudeStatus
+import dev.ksurdy.claudeautocomplete.StatusFormatter
 import dev.ksurdy.claudeautocomplete.StatusService
 import dev.ksurdy.claudeautocomplete.backend.CompletionBackend
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
+import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import kotlin.time.Duration.Companion.seconds
 
 class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
@@ -29,6 +32,8 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
     override fun tearDown() {
         try {
             BackendService.getInstance().backend = original
+            StatusService.getInstance().blockUntil(null)
+            StatusService.getInstance().update(ClaudeStatus.Ready)
             ClaudeAutocompleteSettings.getInstance().loadState(ClaudeAutocompleteSettings.State())
         } finally {
             super.tearDown()
@@ -180,9 +185,31 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
             callAction("ClaudeAutocomplete.Toggle")
             assertFalse(ClaudeAutocompleteSettings.getInstance().state.enabled)
             assertEquals(1, refreshes)
-            assertEquals("Claude: Disabled", StatusService.getInstance().displayText(false))
+            assertEquals("Claude: Off", StatusFormatter.widgetText(false, StatusService.getInstance().status, null, true, 0))
         } finally {
             StatusService.getInstance().removeListener(listener)
         }
+    }
+
+    fun testSuccessReportsDoneWithLatency() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        init(PlainTextFileType.INSTANCE, "done14 <caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(StatusService.getInstance().status.toString(), StatusService.getInstance().status is ClaudeStatus.Done)
+        assertNotNull(StatusService.getInstance().lastLatencyMs)
+    }
+
+    fun testRateLimitBlocksFurtherRequestsUntilReset() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Failure(FailureKind.RateLimited, "limit")
+        init(PlainTextFileType.INSTANCE, "limit15 <caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(StatusService.getInstance().status.toString(), StatusService.getInstance().status is ClaudeStatus.LimitReached)
+        assertTrue(StatusService.getInstance().isBlocked(java.time.Instant.now()))
+        escape()
+        callAction("ClaudeAutocomplete.Trigger")
+        delay()
+        assertEquals(1, fake.contexts.size)
+        assertTrue(StatusService.getInstance().status is ClaudeStatus.LimitReached)
     }
 }

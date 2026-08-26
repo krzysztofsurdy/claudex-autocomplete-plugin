@@ -31,6 +31,17 @@ The word and line accept actions reuse your keymap's Next Word and Line End shor
 that match the suggestion keeps it and trims it. Tools > Toggle Claude Autocomplete, or a click on the status
 bar widget, enables or disables it.
 
+### Status bar widget
+
+The bottom status bar shows `Claude: Ready`, `Waiting...` (debounce), `Thinking... Ns` (request in flight),
+the latency of the last completion (for example `0.7s`, briefly), `Off`, `Error` or `Limit reached`. When usage
+data is known it appends `5h 42% | 7d 18%`; a warning sign is shown once a window reaches 80%. Usage is read
+from the CLI responses, so it appears after the first request (or after Refresh Usage / Test connection).
+The tooltip lists both windows with reset times, last request latency and model. Click the widget for a menu:
+Enable/Disable, Open Settings, Refresh Usage. When the CLI reports a usage limit, a single balloon is shown,
+requests are paused until the reset time, and the status reads `Limit reached`. Usage in the status bar can
+be hidden in settings.
+
 Completions are only requested when the text right of the caret on the current line is empty or only
 closing characters (`)]}>"';,`), and never in read-only editors or files over 1,000,000 characters.
 
@@ -51,6 +62,7 @@ Settings > Tools > Claude Autocomplete.
 | Request timeout (ms) | 8000 | |
 | Max prefix chars | 6000 | |
 | Max suffix chars | 2000 | minimum 200 |
+| Show request state and usage in status bar | true | appends 5h / 7d usage to the widget text |
 | Include open tabs | true | |
 | Open tabs char budget | 6000 | split across tabs, most recent first |
 | Multi-line mode | auto | auto / always / never |
@@ -81,5 +93,6 @@ export JAVA_HOME=/Users/krzysztof.surdy/Applications/PhpStorm.app/Contents/jbr/C
 - **Invalid model**: pick one of haiku, sonnet, opus, fable or a valid full model id.
 - **Slow completions**: use `haiku`, keep "Keep CLI process alive" on, keep effort `low` with thinking off, and
   lower the open tabs budget or prefix size.
+- **Limit reached**: the Claude usage window is exhausted; completions resume automatically after the reset time shown in the widget tooltip.
 - **No suggestions**: check the status bar widget (Ready / Thinking / Disabled / Error), the disabled
   languages list, and that the caret is not in the middle of code on the line.
