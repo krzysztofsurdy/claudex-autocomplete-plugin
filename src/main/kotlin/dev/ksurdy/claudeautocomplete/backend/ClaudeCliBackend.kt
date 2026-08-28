@@ -50,6 +50,13 @@ class ClaudeCliBackend(
         }
     }
 
+    suspend fun refreshUsage(config: ClaudeConfig): UsageLimits? {
+        val before = usage.last
+        val result = oneShot.complete(REFRESH_CONTEXT, config)
+        if (result is CompletionResult.Failure) return null
+        return usage.last?.takeIf { it !== before }
+    }
+
     override fun shutdown() {
         persistent.shutdown()
         oneShot.shutdown()
@@ -58,5 +65,6 @@ class ClaudeCliBackend(
     private companion object {
         const val MAX_PERSISTENT_FAILURES = 2
         const val DEFAULT_COOLDOWN_MS = 60_000L
+        val REFRESH_CONTEXT = CompletionContext("refresh.txt", "TEXT", "1 + ", "", emptyList(), false, 1)
     }
 }

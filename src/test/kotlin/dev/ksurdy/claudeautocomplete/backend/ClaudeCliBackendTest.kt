@@ -146,4 +146,44 @@ class ClaudeCliBackendTest {
         assertEquals(0.4, seen?.sevenDay?.utilization)
         unsubscribe()
     }
+
+    private class PublishingOneShot(private val tracker: UsageTracker, private val result: CompletionResult, private val publish: Boolean) :
+        CompletionBackend {
+        var lastContext: CompletionContext? = null
+        override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
+            lastContext = context
+            if (publish) tracker.publish(StreamEvent.RateLimit("allowed", UsageWindow(0.7, null), null))
+            return result
+        }
+
+        override fun shutdown() = Unit
+    }
+
+    @Test
+    fun `refreshUsage runs a tiny one shot request and returns fresh usage`() = runBlocking {
+        val tracker = UsageTracker()
+        val persistent = recording()
+        val oneShot = PublishingOneShot(tracker, CompletionResult.Empty, publish = true)
+        val backend = ClaudeCliBackend(persistent, oneShot, usage = tracker)
+        val usage = backend.refreshUsage(testConfig())
+        assertEquals(0.7, usage?.fiveHour?.utilization)
+        assertEquals(0, persistent.calls)
+        assertEquals(false, oneShot.lastContext?.multiline)
+        assertEquals(true, (oneShot.lastContext?.prefix?.length ?: Int.MAX_VALUE) < 20)
+    }
+
+    @Test
+    fun `refreshUsage returns null when the request fails`() = runBlocking {
+        val tracker = UsageTracker()
+        val failing = PublishingOneShot(tracker, other, publish = false)
+        assertEquals(null, ClaudeCliBackend(recording(), failing, usage = tracker).refreshUsage(testConfig()))
+    }
+
+    @Test
+    fun `refreshUsage returns null when no event arrives even if older usage exists`() = runBlocking {
+        val tracker = UsageTracker()
+        tracker.publish(StreamEvent.RateLimit("allowed", null, null))
+        val quiet = PublishingOneShot(tracker, CompletionResult.Empty, publish = false)
+        assertEquals(null, ClaudeCliBackend(recording(), quiet, usage = tracker).refreshUsage(testConfig()))
+    }
 }

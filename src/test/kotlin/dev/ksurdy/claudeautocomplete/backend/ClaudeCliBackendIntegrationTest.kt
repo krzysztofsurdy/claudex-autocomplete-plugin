@@ -91,4 +91,23 @@ class ClaudeCliBackendIntegrationTest {
         enabled()
         realistic("array-literal", phpClass + "    public function roles(): array\n    {\n        return [\n            ", "\n        ];\n    }\n}\n")
     }
+
+    @Test
+    fun `refresh usage returns fresh limits`() {
+        enabled()
+        runBlocking {
+            val backend = ClaudeCliBackend()
+            val seen = mutableListOf<UsageLimits>()
+            backend.addUsageListener { seen += it }
+            try {
+                var usage: UsageLimits? = null
+                val ms = measureTimeMillis { usage = backend.refreshUsage(testConfig(claudePath = "", requestTimeoutMs = 30000)) }
+                println("IT refresh ms=$ms usage=$usage listenerEvents=${seen.size}")
+                assertTrue(usage?.fiveHour != null)
+                assertTrue(seen.isNotEmpty())
+            } finally {
+                backend.shutdown()
+            }
+        }
+    }
 }
