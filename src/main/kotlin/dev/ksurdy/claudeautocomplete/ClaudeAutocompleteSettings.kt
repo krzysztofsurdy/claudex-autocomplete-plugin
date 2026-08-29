@@ -24,6 +24,7 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var requestTimeoutMs by property(8000)
         var maxPrefixChars by property(6000)
         var maxSuffixChars by property(2000)
+        var showInlineLoadingIndicator by property(true)
         var showUsageInStatusBar by property(true)
         var includeOpenTabs by property(true)
         var maxOpenTabsChars by property(6000)

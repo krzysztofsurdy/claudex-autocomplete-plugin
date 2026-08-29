@@ -82,6 +82,7 @@ class ClaudeAutocompleteConfigurable :
                 row("Request timeout (ms):") { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
                 row("Max prefix chars:") { intTextField(100..200_000).bindIntText(state::maxPrefixChars) }
                 row("Max suffix chars:") { intTextField(200..100_000).bindIntText(state::maxSuffixChars) }
+                row { checkBox("Show loading indicator in editor while generating").bindSelected(state::showInlineLoadingIndicator) }
                 row { checkBox("Show request state and usage in status bar").bindSelected(state::showUsageInStatusBar) }
                 row { checkBox("Include open tabs as context").bindSelected(state::includeOpenTabs) }
                 row("Open tabs char budget:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars) }

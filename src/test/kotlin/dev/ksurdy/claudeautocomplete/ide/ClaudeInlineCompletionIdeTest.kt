@@ -12,6 +12,7 @@ import dev.ksurdy.claudeautocomplete.StatusService
 import dev.ksurdy.claudeautocomplete.backend.CompletionBackend
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
+import kotlinx.coroutines.CompletableDeferred
 import kotlin.time.Duration.Companion.seconds
 
 class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
@@ -211,5 +212,54 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         delay()
         assertEquals(1, fake.contexts.size)
         assertTrue(StatusService.getInstance().status is ClaudeStatus.LimitReached)
+    }
+
+    private fun loadingInlays(): Int {
+        var count = 0
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait {
+            val editor = myFixture.editor
+            count = editor.inlayModel.getAfterLineEndElementsInRange(0, editor.document.textLength).size
+        }
+        return count
+    }
+
+    private suspend fun com.intellij.codeInsight.inline.completion.InlineCompletionLifecycleTestDSL.awaitLoadingInlays(expected: Int) {
+        repeat(60) {
+            if (loadingInlays() == expected) return
+            delay(50)
+        }
+        assertEquals(expected, loadingInlays())
+    }
+
+    fun testLoadingIndicatorShownWhileInFlightAndRemovedOnCompletion() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        val gate = CompletableDeferred<Unit>()
+        fake.gate = gate
+        init(PlainTextFileType.INSTANCE, "loading16 <caret>")
+        callInlineCompletion()
+        awaitLoadingInlays(1)
+        gate.complete(Unit)
+        delay()
+        assertInlineElements { gray("world") }
+        awaitLoadingInlays(0)
+    }
+
+    fun testLoadingIndicatorRemovedOnCancel() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.gate = CompletableDeferred()
+        init(PlainTextFileType.INSTANCE, "loading17 <caret>")
+        callInlineCompletion()
+        awaitLoadingInlays(1)
+        escape()
+        typeChar('q')
+        awaitLoadingInlays(0)
+    }
+
+    fun testLoadingIndicatorCanBeDisabled() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.showInlineLoadingIndicator = false
+        fake.gate = CompletableDeferred()
+        init(PlainTextFileType.INSTANCE, "loading18 <caret>")
+        callInlineCompletion()
+        delay(600)
+        assertEquals(0, loadingInlays())
+        fake.gate?.complete(Unit)
     }
 }

@@ -66,11 +66,18 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
             val startedAt = System.currentTimeMillis()
             publish(gen, ClaudeStatus.Thinking(startedAt))
             status.recordModel(config.model)
+            val indicator = if (settings.state.showInlineLoadingIndicator) {
+                InlineLoadingIndicator.start(request.editor, request.endOffset)
+            } else {
+                null
+            }
             val result = try {
                 withContext(Dispatchers.IO) { BackendService.getInstance().backend.complete(context, config) }
             } catch (e: CancellationException) {
                 publish(gen, ClaudeStatus.Ready)
                 throw e
+            } finally {
+                indicator?.stop()
             }
             when (result) {
                 is CompletionResult.Success -> {

@@ -42,6 +42,11 @@ Enable/Disable, Open Settings, Refresh Usage. When the CLI reports a usage limit
 requests are paused until the reset time, and the status reads `Limit reached`. Usage in the status bar can
 be hidden in settings.
 
+While a request is in flight (after the debounce, and only once it has taken longer than about 150 ms) animated
+gray dots appear at the end of the caret line in the same style as ghost text. They never move your text and
+disappear as soon as the suggestion arrives, you type, the caret moves or the request fails. Disable them with
+"Show loading indicator in editor while generating" in settings.
+
 Completions are only requested when the text right of the caret on the current line is empty or only
 closing characters (`)]}>"';,`), and never in read-only editors or files over 1,000,000 characters.
 
@@ -62,6 +67,7 @@ Settings > Tools > Claude Autocomplete.
 | Request timeout (ms) | 8000 | |
 | Max prefix chars | 6000 | |
 | Max suffix chars | 2000 | minimum 200 |
+| Show loading indicator in editor | true | animated dots at line end while generating |
 | Show request state and usage in status bar | true | appends 5h / 7d usage to the widget text |
 | Include open tabs | true | |
 | Open tabs char budget | 6000 | split across tabs, most recent first |
