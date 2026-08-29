@@ -102,4 +102,13 @@ class StatusFormatterTest {
         assertEquals(now.plus(Duration.ofMinutes(5)), StatusFormatter.limitResetsAt(null, now))
         assertEquals(now.plusSeconds(600), StatusFormatter.limitResetsAt(usage(resetsAt = now.plusSeconds(600)), now))
     }
+
+    @Test
+    fun usageIsStaleWhenUnknownOrOlderThanTenMinutes() {
+        assertTrue(StatusFormatter.usageIsStale(null, null, now))
+        assertFalse(StatusFormatter.usageIsStale(usage(), null, now.plusSeconds(599)))
+        assertTrue(StatusFormatter.usageIsStale(usage(), null, now.plusSeconds(600)))
+        assertFalse(StatusFormatter.usageIsStale(usage(), now.plusSeconds(500), now.plusSeconds(700)))
+        assertFalse(StatusFormatter.usageIsStale(null, now, now.plusSeconds(60)))
+    }
 }

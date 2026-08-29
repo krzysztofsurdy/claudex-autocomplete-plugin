@@ -41,6 +41,8 @@ class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
 class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.TextPresentation {
     private var statusBar: StatusBar? = null
     private val ticker = Timer(TICK_MS) { onStatusChanged() }.apply { isRepeats = true }
+    private val usageTimer = Timer(USAGE_CHECK_MS) { BackendService.getInstance().refreshUsageIfStale() }
+        .apply { isRepeats = true }
     private val listener: () -> Unit = {
         ApplicationManager.getApplication().invokeLater({ onStatusChanged() }, ModalityState.any())
     }
@@ -52,10 +54,13 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     override fun install(statusBar: StatusBar) {
         this.statusBar = statusBar
         StatusService.getInstance().addListener(listener)
+        usageTimer.start()
+        BackendService.getInstance().refreshUsageIfStale()
     }
 
     override fun dispose() {
         ticker.stop()
+        usageTimer.stop()
         StatusService.getInstance().removeListener(listener)
         statusBar = null
     }
@@ -123,7 +128,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     private fun refreshUsage() {
         val config = settings().toClaudeConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
-            runBlocking { BackendService.getInstance().ping(config) }
+            runBlocking { BackendService.getInstance().refreshUsage(config) }
         }
     }
 
@@ -136,5 +141,6 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     companion object {
         const val ID = "ClaudeAutocompleteStatus"
         private const val TICK_MS = 500
+        private const val USAGE_CHECK_MS = 60_000
     }
 }

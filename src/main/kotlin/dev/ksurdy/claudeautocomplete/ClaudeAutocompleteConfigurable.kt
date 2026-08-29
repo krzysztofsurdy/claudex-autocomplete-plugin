@@ -104,7 +104,9 @@ class ClaudeAutocompleteConfigurable :
         val config = working.toClaudeConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             val started = System.nanoTime()
-            val outcome = runBlocking { BackendService.getInstance().ping(config) }
+            val outcome = runBlocking {
+                BackendService.getInstance().ping(config).also { BackendService.getInstance().refreshUsage(config) }
+            }
             val millis = (System.nanoTime() - started) / 1_000_000
             val text = when (outcome) {
                 is CompletionResult.Success -> "OK in $millis ms: ${outcome.text.take(80).replace('\n', ' ')}"

@@ -14,6 +14,7 @@ object StatusFormatter {
     const val WAITING_EXPIRY_MS = 3_000L
     const val DONE_DISPLAY_MS = 4_000L
     const val DEFAULT_BLOCK_MINUTES = 5L
+    const val USAGE_REFRESH_MINUTES = 10L
 
     fun percent(utilization: Double): String = "${(utilization * 100).roundToInt().coerceAtLeast(0)}%"
 
@@ -110,6 +111,11 @@ object StatusFormatter {
         model?.takeIf { it.isNotEmpty() }?.let { lines += "Model: $it" }
         lines += "Click for menu"
         return lines.joinToString("<br>", "<html>", "</html>")
+    }
+
+    fun usageIsStale(usage: UsageLimits?, lastAttempt: Instant?, now: Instant): Boolean {
+        val reference = listOfNotNull(usage?.observedAt, lastAttempt).maxOrNull() ?: return true
+        return Duration.between(reference, now) >= Duration.ofMinutes(USAGE_REFRESH_MINUTES)
     }
 
     fun limitResetsAt(usage: UsageLimits?, now: Instant): Instant {
