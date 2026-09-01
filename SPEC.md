@@ -52,22 +52,30 @@ Claude Code CLI so it uses the user's Claude subscription (OAuth, no API key).
 | thinkingBudgetTokens | Int | 1024 | used as `MAX_THINKING_TOKENS` when thinking enabled |
 | debounceMs | Int | 250 | 0..2000 |
 | requestTimeoutMs | Int | 8000 | hard timeout per completion |
-| maxPrefixChars | Int | 6000 | |
-| maxSuffixChars | Int | 2000 | |
+| contextMode | String | "auto" | auto / wholeFile / linesAround |
+| wholeFileMaxLines | Int | 1000 | auto: send the whole file when it has at most this many lines |
+| linesAroundCursor | Int | 150 | lines above AND below the caret line when windowed (auto above the threshold, or linesAround) |
 | includeOpenTabs | Boolean | true | |
 | maxOpenTabsChars | Int | 6000 | total budget, split across tabs, most recently selected first |
+| includeImportedClasses | Boolean | true | PHP: outlines of classes imported via `use`, plus parent class/interfaces/traits |
+| maxImportedClassesChars | Int | 8000 | total budget for imported class outlines |
+| showInlineLoadingIndicator | Boolean | true | animated dots at line end while generating |
+| showUsageInStatusBar | Boolean | true | append 5h / 7d usage to the status bar widget |
 | multilineMode | String | "auto" | auto / always / never |
 | maxCompletionLines | Int | 12 | |
 | persistentProcess | Boolean | true | keep one CLI process alive (stream-json), else spawn per request |
-| customInstructions | String | "" | appended to the system prompt (e.g. "Follow PSR-12") |
+| customInstructions | String | "" | UI label "Custom prompt additions" (multi-line); appended to the system prompt |
 | disabledLanguages | String | "" | comma separated language ids, case-insensitive |
 
 ## What each request contains (user message)
 
 ```
 <file path="src/Foo/Bar.php" language="PHP">
-...prefix...<CURSOR/>...suffix...
+...prefix...<CURSOR/>...suffix...   (whole file, or +-N lines around the caret; see contextMode. A hard cap of 200k chars always applies)
 </file>
+<imported_classes>  (only if includeImportedClasses and any; PHP outlines without method bodies)
+...
+</imported_classes>
 <open_files>  (only if includeOpenTabs and any)
 <file path="..." language="...">...truncated content...</file>
 </open_files>

@@ -21,6 +21,7 @@ repositories {
 dependencies {
     intellijPlatform {
         local(providers.gradleProperty("localIdePath").getOrElse("/Users/krzysztof.surdy/Applications/PhpStorm.app"))
+        bundledPlugin("com.jetbrains.php")
         testFramework(TestFrameworkType.Platform)
     }
     testImplementation(kotlin("test-junit5"))

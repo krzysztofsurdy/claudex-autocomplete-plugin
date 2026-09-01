@@ -47,6 +47,10 @@ gray dots appear at the end of the caret line in the same style as ghost text. T
 disappear as soon as the suggestion arrives, you type, the caret moves or the request fails. Disable them with
 "Show loading indicator in editor while generating" in settings.
 
+Sending the whole file keeps suggestions accurate but makes requests bigger and slower. If latency matters,
+switch Current file context to "lines around the cursor" with a smaller window. Imported class outlines come
+from the bundled PHP plugin; in IDEs without it the option has no effect.
+
 Completions are only requested when the text right of the caret on the current line is empty or only
 closing characters (`)]}>"';,`), and never in read-only editors or files over 1,000,000 characters.
 
@@ -65,8 +69,7 @@ Settings > Tools > Claude Autocomplete.
 | Thinking budget (tokens) | 1024 | |
 | Debounce (ms) | 250 | 0..2000 |
 | Request timeout (ms) | 8000 | |
-| Max prefix chars | 6000 | |
-| Max suffix chars | 2000 | minimum 200 |
+| Current file context | auto | auto = whole file if at most 1000 lines, otherwise 150 lines above and below the cursor; or always the whole file; or always the lines around the cursor |
 | Show loading indicator in editor | true | animated dots at line end while generating |
 | Show request state and usage in status bar | true | appends 5h / 7d usage to the widget text |
 | Include open tabs | true | |
@@ -74,7 +77,9 @@ Settings > Tools > Claude Autocomplete.
 | Multi-line mode | auto | auto / always / never |
 | Max completion lines | 12 | |
 | Keep CLI process alive | true | persistent stream-json process, faster than one-shot |
-| Custom instructions | empty | appended to the system prompt, e.g. "Follow PSR-12" |
+| Include imported classes | true | PHP: outlines of `use`-imported classes, parent class, interfaces and traits (signatures only) |
+| Imported classes char budget | 8000 | |
+| Custom prompt additions | empty | multi-line, appended to the system prompt, e.g. "Follow PSR-12, prefer readonly properties" |
 | Disabled languages | empty | comma separated language ids |
 
 `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` environment variables are removed from the

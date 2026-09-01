@@ -4,6 +4,13 @@
   <vendor>ksurdy</vendor>
   <description>Copilot-style inline completion powered by the local Claude Code CLI and your Claude subscription.</description>
   <depends>com.intellij.modules.platform</depends>
+  <depends optional="true" config-file="claude-autocomplete-php.xml">com.jetbrains.php</depends>
+
+  <extensionPoints>
+    <extensionPoint name="importedClassesProvider"
+                    interface="dev.ksurdy.claudeautocomplete.ImportedClassesProvider"
+                    dynamic="true"/>
+  </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
     <inline.completion.provider implementation="dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"/>

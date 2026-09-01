@@ -4,7 +4,14 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.options.BoundSearchableConfigurable
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBRadioButton
+import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
+import com.intellij.ui.dsl.builder.Cell
+import com.intellij.ui.dsl.builder.bind
+import com.intellij.ui.layout.or
+import com.intellij.ui.layout.selected
 import com.intellij.ui.dsl.builder.bindIntText
 import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindSelected
@@ -71,26 +78,50 @@ class ClaudeAutocompleteConfigurable :
                 row {
                     comment("ANTHROPIC_API_KEY and CLAUDE_CODE_* environment variables are removed for requests so your Claude subscription login is used.")
                 }
-                row("Custom instructions:") {
-                    textField().align(AlignX.FILL)
+                row("Custom prompt additions:") {
+                    textArea().applyToComponent { rows = 5 }.align(AlignX.FILL)
                         .bindText({ state.customInstructions.orEmpty() }, { state.customInstructions = it })
-                        .comment("Appended to the system prompt, e.g. Follow PSR-12")
+                        .comment("Appended to the system prompt, e.g. Follow PSR-12, prefer readonly properties")
                 }
             }
             group("Behaviour") {
                 row("Debounce (ms):") { intTextField(0..2000).bindIntText(state::debounceMs) }
                 row("Request timeout (ms):") { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
-                row("Max prefix chars:") { intTextField(100..200_000).bindIntText(state::maxPrefixChars) }
-                row("Max suffix chars:") { intTextField(200..100_000).bindIntText(state::maxSuffixChars) }
                 row { checkBox("Show loading indicator in editor while generating").bindSelected(state::showInlineLoadingIndicator) }
                 row { checkBox("Show request state and usage in status bar").bindSelected(state::showUsageInStatusBar) }
-                row { checkBox("Include open tabs as context").bindSelected(state::includeOpenTabs) }
-                row("Open tabs char budget:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars) }
                 row("Multi-line mode:") {
                     comboBox(listOf("auto", "always", "never"))
                         .bindItem({ state.multilineMode }, { state.multilineMode = it ?: "auto" })
                 }
                 row("Max completion lines:") { intTextField(1..200).bindIntText(state::maxCompletionLines) }
+            }
+            group("Current file context") {
+                lateinit var autoRadio: Cell<JBRadioButton>
+                lateinit var aroundRadio: Cell<JBRadioButton>
+                lateinit var linesField: Cell<JBTextField>
+                buttonsGroup {
+                    row {
+                        autoRadio = radioButton("Whole file if it has at most", FileWindow.MODE_AUTO)
+                        intTextField(1..1_000_000).bindIntText(state::wholeFileMaxLines).enabledIf(autoRadio.component.selected)
+                        label("lines, otherwise")
+                        linesField = intTextField(1..100_000).bindIntText(state::linesAroundCursor)
+                        label("lines above and below the cursor")
+                    }
+                    row { radioButton("Always the whole file", FileWindow.MODE_WHOLE_FILE) }
+                    row { aroundRadio = radioButton("Only the lines around the cursor (count above)", FileWindow.MODE_LINES_AROUND) }
+                }.bind({ state.contextMode ?: FileWindow.MODE_AUTO }, { state.contextMode = it })
+                linesField.enabledIf(autoRadio.component.selected or aroundRadio.component.selected)
+                row { comment("Large contexts increase latency and token use. Characters beyond ${FileWindow.HARD_CAP_CHARS / 1000}k are always cut.") }
+            }
+            group("Additional context") {
+                lateinit var tabs: Cell<JBCheckBox>
+                lateinit var imports: Cell<JBCheckBox>
+                row { tabs = checkBox("Include open tabs").bindSelected(state::includeOpenTabs) }
+                row("Open tabs char budget:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars).enabledIf(tabs.component.selected) }
+                row { imports = checkBox("Include classes imported via `use` statements (PHP)").bindSelected(state::includeImportedClasses) }
+                row("Imported classes char budget:") {
+                    intTextField(0..200_000).bindIntText(state::maxImportedClassesChars).enabledIf(imports.component.selected)
+                }
             }
             row {
                 button("Test connection") { runTest(result) }

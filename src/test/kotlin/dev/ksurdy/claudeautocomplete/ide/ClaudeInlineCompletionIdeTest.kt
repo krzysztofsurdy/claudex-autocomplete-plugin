@@ -3,6 +3,7 @@ package dev.ksurdy.claudeautocomplete.ide
 import com.intellij.codeInsight.inline.completion.testInlineCompletion
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
+import com.jetbrains.php.lang.PhpFileType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
@@ -166,9 +167,9 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
     }
 
     fun testContextReportsTruncationAndIndent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
-        ClaudeAutocompleteSettings.getInstance().state.maxPrefixChars = 100
-        ClaudeAutocompleteSettings.getInstance().state.maxSuffixChars = 200
-        init(PlainTextFileType.INSTANCE, "x".repeat(150) + " trunc12 <caret>\n" + "y".repeat(300))
+        ClaudeAutocompleteSettings.getInstance().state.linesAroundCursor = 1
+        init(PlainTextFileType.INSTANCE, "a\nb\nc\nd\n" + "trunc12 <caret>\ne\nf\ng\nh")
+        ClaudeAutocompleteSettings.getInstance().state.wholeFileMaxLines = 3
         callInlineCompletion()
         delay()
         val context = fake.contexts.single()
@@ -261,5 +262,55 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         delay(600)
         assertEquals(0, loadingInlays())
         fake.gate?.complete(Unit)
+    }
+
+    private fun addPhpDeps() {
+        myFixture.addFileToProject(
+            "Base.php",
+            "<?php\nnamespace App;\ninterface Marker {}\n" +
+                "abstract class Base {\n public const X = 1;\n protected int \$count = 0;\n private int \$secret = 1;\n" +
+                " abstract public function run(int \$a, ?string \$b = null): bool;\n" +
+                " private function hidden() {}\n public static function make(): static {}\n}\n",
+        )
+        myFixture.addFileToProject(
+            "Svc.php",
+            "<?php\nnamespace App;\nfinal class Svc extends Base implements Marker {\n" +
+                " public function run(int \$a, ?string \$b = null): bool { return true; }\n}\n",
+        )
+    }
+
+    fun testPhpImportedClassesAreOutlined() = myFixture.testInlineCompletion(timeout = 60.seconds) {
+        withWriteAction { addPhpDeps() }
+        init(PhpFileType.INSTANCE, "<?php\nnamespace Other;\nuse App\\Svc;\nclass Foo { function bar() { \$this-><caret> } }")
+        callInlineCompletion()
+        delay()
+        val imported = fake.contexts.single().importedClasses.associate { it.path to it.content }
+        val svc = imported["App\\Svc"] ?: error(imported.keys.toString())
+        assertTrue(svc, svc.contains("namespace App;"))
+        assertTrue(svc, svc.contains("final class Svc extends Base implements Marker"))
+        assertTrue(svc, svc.contains("public function run(int \$a"))
+    }
+
+    fun testPhpParentClassOutlineSkipsPrivateMembers() = myFixture.testInlineCompletion(timeout = 60.seconds) {
+        withWriteAction { addPhpDeps() }
+        init(PhpFileType.INSTANCE, "<?php\nnamespace Other;\nclass Foo extends \\App\\Base { function bar() { \$this-><caret> } }")
+        callInlineCompletion()
+        delay()
+        val base = fake.contexts.single().importedClasses.single { it.path == "App\\Base" }.content
+        assertTrue(base, base.contains("abstract class Base"))
+        assertTrue(base, base.contains("const X = 1;"))
+        assertTrue(base, base.contains("protected int \$count"))
+        assertTrue(base, base.contains("public static function make()"))
+        assertFalse(base, base.contains("secret"))
+        assertFalse(base, base.contains("hidden"))
+    }
+
+    fun testImportedClassesCanBeDisabled() = myFixture.testInlineCompletion(timeout = 60.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.includeImportedClasses = false
+        withWriteAction { addPhpDeps() }
+        init(PhpFileType.INSTANCE, "<?php\nnamespace Other;\nuse App\\Svc;\nclass Foo { function bar() { \$this-><caret> } }")
+        callInlineCompletion()
+        delay()
+        assertTrue(fake.contexts.single().importedClasses.isEmpty())
     }
 }

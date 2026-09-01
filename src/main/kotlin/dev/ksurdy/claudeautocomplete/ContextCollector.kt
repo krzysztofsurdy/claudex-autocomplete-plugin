@@ -6,6 +6,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.impl.EditorHistoryManager
 import com.intellij.psi.PsiManager
 import com.intellij.application.options.CodeStyle
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -30,10 +31,15 @@ object ContextCollector {
         if (ContextLimits.isLanguageDisabled(languageId, settings.disabledLanguages.orEmpty())) return null
 
         val offset = request.endOffset.coerceIn(0, text.length)
-        val prefixStart = maxOf(0, offset - settings.maxPrefixChars)
-        val suffixEnd = minOf(text.length, offset + settings.maxSuffixChars)
-        val prefix = text.subSequence(prefixStart, offset).toString()
-        val suffix = text.subSequence(offset, suffixEnd).toString()
+        val window = FileWindow.compute(
+            text,
+            offset,
+            settings.contextMode.orEmpty(),
+            settings.wholeFileMaxLines,
+            settings.linesAroundCursor,
+        )
+        val prefix = window.prefix
+        val suffix = window.suffix
         if (!force && !TriggerRules.shouldTrigger(prefix, suffix)) return null
 
         val project = editor.project
@@ -51,9 +57,17 @@ object ContextCollector {
             multiline = TriggerRules.isMultiline(prefix, suffix, settings.multilineMode.orEmpty()),
             maxLines = settings.maxCompletionLines,
             indent = indentOf(request),
-            prefixTruncated = prefixStart > 0,
-            suffixTruncated = suffixEnd < text.length,
+            prefixTruncated = window.prefixTruncated,
+            suffixTruncated = window.suffixTruncated,
+            importedClasses = importedClasses(request, settings),
         )
+    }
+
+    private fun importedClasses(request: InlineCompletionRequest, settings: ClaudeAutocompleteSettings.State): List<OpenFileSnippet> {
+        val project = request.editor.project ?: return emptyList()
+        if (!settings.includeImportedClasses || DumbService.isDumb(project)) return emptyList()
+        val snippets = ImportedClassesProvider.EP_NAME.extensionList.flatMap { it.collect(request.file) }
+        return ContextLimits.budget(snippets, settings.maxImportedClassesChars)
     }
 
     private fun indentOf(request: InlineCompletionRequest): String {
