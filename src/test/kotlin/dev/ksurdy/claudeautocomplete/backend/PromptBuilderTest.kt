@@ -89,4 +89,27 @@ class PromptBuilderTest {
         assertContains(system, "Never add a closing bracket")
         assertContains(system, "Examples")
     }
+
+    @Test
+    fun `imported classes block sits between open files and current file`() {
+        val message = PromptBuilder.userMessage(
+            testContext(
+                openFiles = listOf(OpenFileSnippet("a.php", "PHP", "AAA")),
+                importedClasses = listOf(OpenFileSnippet("src/User.php", "PHP", "class User { function getName(): string; }")),
+            ),
+        )
+        assertContains(message, "<imported_classes>\n<file path=\"src/User.php\" language=\"PHP\">class User { function getName(): string; }</file>\n</imported_classes>")
+        assertTrue(message.indexOf("</open_files>") < message.indexOf("<imported_classes>"))
+        assertTrue(message.indexOf("</imported_classes>") < message.indexOf("<CURSOR/>"))
+    }
+
+    @Test
+    fun `imported classes block omitted when empty`() {
+        assertFalse(PromptBuilder.userMessage(testContext()).contains("<imported_classes>"))
+    }
+
+    @Test
+    fun `system prompt explains imported classes`() {
+        assertContains(PromptBuilder.systemPrompt(""), "<imported_classes> shows signatures of classes the current file imports; use their real method and property names.")
+    }
 }

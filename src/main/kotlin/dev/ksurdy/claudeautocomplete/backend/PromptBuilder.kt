@@ -17,6 +17,7 @@ object PromptBuilder {
         - Prefer using identifiers, methods and types visible in this file or in <open_files> over inventing new ones.
         - <mode>single-line</mode>: output exactly one line, no newline. Complete the current statement or expression only.
         - <mode>multi-line (max N lines)</mode>: output a coherent unit (the statement, block or next few statements), at most N lines, stop at a natural boundary. Do not write the remainder of the file.
+        - <imported_classes> shows signatures of classes the current file imports; use their real method and property names.
         - If nothing sensible can be inserted, output nothing at all.
 
         Examples (input shows the cursor; output is the full reply):
@@ -37,11 +38,13 @@ object PromptBuilder {
     fun userMessage(context: CompletionContext): String = buildString {
         if (context.openFiles.isNotEmpty()) {
             append("<open_files>\n")
-            for (file in context.openFiles) {
-                append("<file path=\"").append(file.path).append("\" language=\"").append(file.languageId).append("\">")
-                append(escape(file.content)).append("</file>\n")
-            }
+            for (file in context.openFiles) appendSnippet(file)
             append("</open_files>\n")
+        }
+        if (context.importedClasses.isNotEmpty()) {
+            append("<imported_classes>\n")
+            for (file in context.importedClasses) appendSnippet(file)
+            append("</imported_classes>\n")
         }
         append("<file path=\"").append(context.filePath).append("\" language=\"").append(context.languageId).append('"')
         if (context.indent.isNotEmpty()) append(" indent=\"").append(context.indent).append('"')
@@ -52,6 +55,11 @@ object PromptBuilder {
         append("</file>\n")
         if (context.multiline) append("<mode>multi-line (max ${context.maxLines} lines)</mode>")
         else append("<mode>single-line</mode>")
+    }
+
+    private fun StringBuilder.appendSnippet(file: OpenFileSnippet) {
+        append("<file path=\"").append(file.path).append("\" language=\"").append(file.languageId).append("\">")
+        append(escape(file.content)).append("</file>\n")
     }
 
     private fun escape(content: String): String = content.replace("</file>", "<\\/file>")

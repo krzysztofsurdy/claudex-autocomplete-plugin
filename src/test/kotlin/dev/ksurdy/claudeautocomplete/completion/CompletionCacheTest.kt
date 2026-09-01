@@ -72,4 +72,14 @@ class CompletionCacheTest {
         now = 60_001
         assertNull(cache.get("a"))
     }
+
+    @Test
+    fun `key depends on imported classes`() {
+        val withImport = testContext(importedClasses = listOf(dev.ksurdy.claudeautocomplete.backend.OpenFileSnippet("U.php", "PHP", "class U")))
+        assertNotEquals(key(), key(withImport))
+        assertNotEquals(
+            key(withImport),
+            key(testContext(importedClasses = listOf(dev.ksurdy.claudeautocomplete.backend.OpenFileSnippet("U.php", "PHP", "class U2")))),
+        )
+    }
 }

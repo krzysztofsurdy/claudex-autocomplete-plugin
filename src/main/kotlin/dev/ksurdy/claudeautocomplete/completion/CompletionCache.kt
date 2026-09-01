@@ -34,7 +34,7 @@ class CompletionCache(
         private const val SUFFIX_HEAD_CHARS = 200
         private const val DEFAULT_TTL_MS = 60_000L
 
-        fun key(context: CompletionContext, config: ClaudeConfig): String = listOf(
+        fun key(context: CompletionContext, config: ClaudeConfig): String = (listOf(
             config.model,
             config.effort,
             config.customInstructions,
@@ -44,6 +44,6 @@ class CompletionCache(
             context.multiline.toString(),
             context.prefix.takeLast(PREFIX_TAIL_CHARS),
             context.suffix.take(SUFFIX_HEAD_CHARS),
-        ).joinToString("\u0000")
+        ) + context.importedClasses.map { it.path + "\u0001" + it.content }).joinToString("\u0000")
     }
 }

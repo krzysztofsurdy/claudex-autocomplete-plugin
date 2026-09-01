@@ -26,6 +26,8 @@ fun testContext(
     indent: String = "",
     prefixTruncated: Boolean = false,
     suffixTruncated: Boolean = false,
+    importedClasses: List<OpenFileSnippet> = emptyList(),
 ) = CompletionContext(
     filePath, languageId, prefix, suffix, openFiles, multiline, maxLines, indent, prefixTruncated, suffixTruncated,
+    importedClasses,
 )
