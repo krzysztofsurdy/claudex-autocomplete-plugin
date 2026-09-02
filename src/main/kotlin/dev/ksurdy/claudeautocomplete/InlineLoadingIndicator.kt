@@ -13,6 +13,7 @@ import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
+import java.awt.Font
 import java.awt.Graphics
 import java.awt.Rectangle
 import java.util.concurrent.atomic.AtomicBoolean
@@ -22,6 +23,8 @@ class InlineLoadingIndicator private constructor(private val editor: Editor, pri
     private val stopped = AtomicBoolean(false)
     private var inlay: Inlay<*>? = null
     private var tick = 0
+    private var elapsedVisible = false
+    private val startedAtNanos = System.nanoTime()
     private val timer = Timer(LoadingFrames.SHOW_DELAY_MS) { onTick() }.apply { isRepeats = false }
     private val caretListener = object : CaretListener {
         override fun caretPositionChanged(event: CaretEvent) = stop()
@@ -46,9 +49,17 @@ class InlineLoadingIndicator private constructor(private val editor: Editor, pri
             timer.restart()
         } else {
             tick++
-            current.repaint()
+            val showElapsed = elapsedMs() >= LoadingFrames.ELAPSED_THRESHOLD_MS
+            if (showElapsed != elapsedVisible) {
+                elapsedVisible = showElapsed
+                current.update()
+            } else {
+                current.repaint()
+            }
         }
     }
+
+    private fun elapsedMs(): Long = (System.nanoTime() - startedAtNanos) / 1_000_000
 
     fun stop() {
         if (!stopped.compareAndSet(false, true)) return
@@ -64,17 +75,30 @@ class InlineLoadingIndicator private constructor(private val editor: Editor, pri
     }
 
     private inner class Renderer : EditorCustomElementRenderer {
+        private val base: Font = InlineCompletionFontUtils.font(editor)
+        private val braille: Boolean = canDisplayBraille(base)
+        private val font: Font = if (braille) fontFor(base) else base
+
+        private fun canDisplayBraille(candidate: Font): Boolean = fontFor(candidate).canDisplayUpTo(LoadingFrames.BRAILLE.joinToString("")) == -1
+
+        private fun fontFor(candidate: Font): Font {
+            val all = LoadingFrames.BRAILLE.joinToString("")
+            return listOf(candidate, Font(Font.MONOSPACED, candidate.style, candidate.size), Font(Font.DIALOG, candidate.style, candidate.size))
+                .firstOrNull { it.canDisplayUpTo(all) == -1 } ?: candidate
+        }
+
         override fun calcWidthInPixels(inlay: Inlay<*>): Int {
-            val font = InlineCompletionFontUtils.font(editor)
-            return editor.contentComponent.getFontMetrics(font).stringWidth(LoadingFrames.widest) + GAP
+            val metrics = editor.contentComponent.getFontMetrics(font)
+            val frame = LoadingFrames.frames(braille).maxOf { metrics.stringWidth(it) }
+            val elapsed = if (elapsedVisible) metrics.stringWidth(LoadingFrames.WIDEST_ELAPSED) else 0
+            return frame + elapsed + GAP
         }
 
         override fun paint(inlay: Inlay<*>, g: Graphics, targetRegion: Rectangle, textAttributes: TextAttributes) {
-            val font = InlineCompletionFontUtils.font(editor)
             g.font = font
             g.color = InlineCompletionFontUtils.color(editor)
             val ascent = (editor as? EditorImpl)?.ascent ?: g.fontMetrics.ascent
-            g.drawString(LoadingFrames.frame(tick), targetRegion.x + GAP, targetRegion.y + ascent)
+            g.drawString(LoadingFrames.text(tick, elapsedMs(), braille), targetRegion.x + GAP, targetRegion.y + ascent)
         }
     }
 
