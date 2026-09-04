@@ -38,14 +38,18 @@ object ProcessSupport {
         process.destroyForcibly()
     }
 
-    fun launch(binary: String, config: ClaudeConfig, persistent: Boolean): Process {
-        val builder = ProcessBuilder(ClaudeCommandBuilder.command(binary, config, persistent))
+    fun launch(binary: String, config: ClaudeConfig, persistent: Boolean): Process = launch(
+        ClaudeCommandBuilder.command(binary, config, persistent),
+        ClaudeCommandBuilder.environment(System.getenv(), binary, config),
+    )
+
+    fun launch(command: List<String>, environment: Map<String, String>): Process {
+        val builder = ProcessBuilder(command)
         builder.directory(workDir.toFile())
         builder.redirectError(ProcessBuilder.Redirect.DISCARD)
         val env = builder.environment()
-        val newEnv = ClaudeCommandBuilder.environment(System.getenv(), binary, config)
         env.clear()
-        env.putAll(newEnv)
+        env.putAll(environment)
         shutdownHook
         return builder.start().also { process ->
             live.add(process)

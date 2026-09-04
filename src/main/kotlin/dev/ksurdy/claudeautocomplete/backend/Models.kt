@@ -31,7 +31,11 @@ data class ClaudeConfig(
 sealed interface CompletionResult {
     data class Success(val text: String) : CompletionResult
     data object Empty : CompletionResult
-    data class Failure(val kind: FailureKind, val message: String) : CompletionResult
+    data class Failure(
+        val kind: FailureKind,
+        val message: String,
+        val provider: ProviderKind = ProviderKind.Claude,
+    ) : CompletionResult
 }
 
 enum class FailureKind { NotLoggedIn, CliNotFound, InvalidModel, Timeout, RateLimited, Other }
@@ -48,4 +52,18 @@ data class UsageLimits(
     val sevenDay: UsageWindow?,
     val status: String?,
     val observedAt: java.time.Instant,
+    val provider: ProviderKind = ProviderKind.Claude,
 )
+
+enum class ProviderKind { Claude, Codex }
+
+data class CodexConfig(
+    val codexPath: String,
+    val model: String,
+    val reasoningEffort: String,
+    val requestTimeoutMs: Int,
+    val persistentProcess: Boolean,
+    val customInstructions: String,
+)
+
+data class BackendConfig(val provider: ProviderKind, val claude: ClaudeConfig, val codex: CodexConfig)

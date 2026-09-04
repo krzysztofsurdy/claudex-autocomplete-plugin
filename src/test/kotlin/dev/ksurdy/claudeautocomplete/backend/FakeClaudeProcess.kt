@@ -42,6 +42,6 @@ class FakeClaudeProcess(private val onSend: FakeClaudeProcess.(String) -> Unit =
         fun result(text: String, isError: Boolean = false) =
             """{"type":"result","is_error":$isError,"result":${quote(text)}}"""
 
-        private fun quote(text: String) = com.google.gson.JsonPrimitive(text).toString()
+        fun quote(text: String) = com.google.gson.JsonPrimitive(text).toString()
     }
 }

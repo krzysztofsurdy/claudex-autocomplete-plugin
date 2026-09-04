@@ -31,3 +31,12 @@ fun testContext(
     filePath, languageId, prefix, suffix, openFiles, multiline, maxLines, indent, prefixTruncated, suffixTruncated,
     importedClasses,
 )
+
+fun testCodexConfig(
+    codexPath: String = "/usr/local/bin/codex",
+    model: String = "gpt-5.3-codex",
+    reasoningEffort: String = "low",
+    requestTimeoutMs: Int = 8000,
+    persistentProcess: Boolean = false,
+    customInstructions: String = "",
+) = CodexConfig(codexPath, model, reasoningEffort, requestTimeoutMs, persistentProcess, customInstructions)
