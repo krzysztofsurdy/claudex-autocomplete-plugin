@@ -78,11 +78,12 @@ object StatusFormatter {
         usage: UsageLimits?,
         showUsage: Boolean,
         nowMs: Long,
+        providerName: String = "Claude",
     ): String {
         val warning = (showUsage && isWarning(usage)) || status is ClaudeStatus.LimitReached
         val prefix = if (warning && enabled) "⚠ " else ""
         val suffix = if (showUsage) usageSuffix(usage) else ""
-        return "${prefix}Claude: ${statusLabel(enabled, status, nowMs)}$suffix"
+        return "$prefix$providerName: ${statusLabel(enabled, status, nowMs)}$suffix"
     }
 
     fun tooltip(
@@ -93,8 +94,10 @@ object StatusFormatter {
         model: String?,
         now: Instant,
         zone: ZoneId,
+        providerName: String = "Claude",
     ): String {
         val lines = ArrayList<String>()
+        lines += "Provider: $providerName"
         when {
             !enabled -> lines += "Disabled"
             status is ClaudeStatus.Error -> lines += "Error: ${status.message}"

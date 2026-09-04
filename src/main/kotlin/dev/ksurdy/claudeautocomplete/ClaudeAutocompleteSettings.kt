@@ -6,7 +6,10 @@ import com.intellij.openapi.components.SimplePersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
+import dev.ksurdy.claudeautocomplete.backend.BackendConfig
 import dev.ksurdy.claudeautocomplete.backend.ClaudeConfig
+import dev.ksurdy.claudeautocomplete.backend.CodexConfig
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 
 @Service(Service.Level.APP)
 @State(name = "ClaudeAutocompleteSettings", storages = [Storage("claude-autocomplete.xml")])
@@ -14,7 +17,11 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
 
     class State : BaseState() {
         var enabled by property(true)
+        var provider by string("claude")
         var claudePath by string("")
+        var codexPath by string("")
+        var codexModel by string("gpt-5-codex-mini")
+        var codexReasoningEffort by string("low")
         var model by string("haiku")
         var fallbackModel by string("")
         var effort by string("low")
@@ -40,6 +47,8 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
 
     fun toClaudeConfig(): ClaudeConfig = state.toClaudeConfig()
 
+    fun toBackendConfig(): BackendConfig = state.toBackendConfig()
+
     companion object {
         fun getInstance(): ClaudeAutocompleteSettings = service()
     }
@@ -56,3 +65,37 @@ fun ClaudeAutocompleteSettings.State.toClaudeConfig(): ClaudeConfig = ClaudeConf
     persistentProcess = persistentProcess,
     customInstructions = customInstructions.orEmpty(),
 )
+
+fun ClaudeAutocompleteSettings.State.providerKind(): ProviderKind =
+    if (provider == "codex") ProviderKind.Codex else ProviderKind.Claude
+
+fun ClaudeAutocompleteSettings.State.toCodexConfig(): CodexConfig = CodexConfig(
+    codexPath = codexPath.orEmpty(),
+    model = codexModel.orEmpty(),
+    reasoningEffort = codexReasoningEffort.orEmpty(),
+    requestTimeoutMs = requestTimeoutMs,
+    persistentProcess = persistentProcess,
+    customInstructions = customInstructions.orEmpty(),
+)
+
+fun ClaudeAutocompleteSettings.State.toBackendConfig(): BackendConfig =
+    BackendConfig(providerKind(), toClaudeConfig(), toCodexConfig())
+
+fun ProviderKind.displayName(): String = when (this) {
+    ProviderKind.Claude -> "Claude"
+    ProviderKind.Codex -> "Codex"
+}
+
+fun BackendConfig.activeModel(): String = when (provider) {
+    ProviderKind.Claude -> claude.model
+    ProviderKind.Codex -> codex.model
+}
+
+fun BackendConfig.cacheConfig(): ClaudeConfig = when (provider) {
+    ProviderKind.Claude -> claude
+    ProviderKind.Codex -> claude.copy(
+        model = "codex:${codex.model}",
+        effort = codex.reasoningEffort,
+        customInstructions = codex.customInstructions,
+    )
+}

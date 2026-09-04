@@ -4,13 +4,16 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.options.BoundSearchableConfigurable
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.Cell
 import com.intellij.ui.dsl.builder.bind
+import com.intellij.ui.layout.not
 import com.intellij.ui.layout.or
+import com.intellij.ui.layout.selectedValueIs
 import com.intellij.ui.layout.selected
 import com.intellij.ui.dsl.builder.bindIntText
 import com.intellij.ui.dsl.builder.bindItem
@@ -37,7 +40,9 @@ class ClaudeAutocompleteConfigurable :
 
     override fun apply() {
         super.apply()
+        val providerBefore = persisted.providerKind()
         persisted.copyFrom(working)
+        if (persisted.providerKind() != providerBefore) BackendService.getInstance().providerChanged()
         StatusService.getInstance().refresh()
     }
 
@@ -46,11 +51,15 @@ class ClaudeAutocompleteConfigurable :
         val state = working
         val result = JLabel(" ")
         return panel {
+            lateinit var providerCombo: Cell<ComboBox<String>>
             group("General") {
-                row { checkBox("Enable Claude autocomplete").bindSelected(state::enabled) }
-                row("Claude CLI path:") {
-                    textField().align(AlignX.FILL).bindText({ state.claudePath.orEmpty() }, { state.claudePath = it })
-                        .comment("Empty = auto-detect")
+                row { checkBox("Enable inline completion").bindSelected(state::enabled) }
+                row("Provider:") {
+                    providerCombo = comboBox(listOf(CLAUDE_LABEL, CODEX_LABEL))
+                        .bindItem(
+                            { if (state.provider == "codex") CODEX_LABEL else CLAUDE_LABEL },
+                            { state.provider = if (it == CODEX_LABEL) "codex" else "claude" },
+                        )
                 }
                 row("Disabled languages:") {
                     textField().align(AlignX.FILL)
@@ -58,7 +67,12 @@ class ClaudeAutocompleteConfigurable :
                         .comment("Comma separated language ids, e.g. Markdown, JSON")
                 }
             }
-            group("Model") {
+            val isCodex = providerCombo.component.selectedValueIs(CODEX_LABEL)
+            group("Claude Code") {
+                row("Claude CLI path:") {
+                    textField().align(AlignX.FILL).bindText({ state.claudePath.orEmpty() }, { state.claudePath = it })
+                        .comment("Empty = auto-detect")
+                }
                 row("Model:") {
                     comboBox(listOf("haiku", "sonnet", "opus", "fable")).applyToComponent { isEditable = true }
                         .bindItem({ state.model }, { state.model = it.orEmpty().trim() })
@@ -74,10 +88,27 @@ class ClaudeAutocompleteConfigurable :
                 row("Thinking budget (tokens):") {
                     intTextField(0..100_000).bindIntText(state::thinkingBudgetTokens)
                 }
-                row { checkBox("Keep one CLI process alive (faster)").bindSelected(state::persistentProcess) }
                 row {
                     comment("ANTHROPIC_API_KEY and CLAUDE_CODE_* environment variables are removed for requests so your Claude subscription login is used.")
                 }
+            }.visibleIf(isCodex.not())
+            group("Codex") {
+                row("Codex CLI path:") {
+                    textField().align(AlignX.FILL).bindText({ state.codexPath.orEmpty() }, { state.codexPath = it })
+                        .comment("Empty = auto-detect")
+                }
+                row("Model:") {
+                    comboBox(listOf("gpt-5-codex-mini", "gpt-5-codex", "gpt-5")).applyToComponent { isEditable = true }
+                        .bindItem({ state.codexModel }, { state.codexModel = it.orEmpty().trim() })
+                }
+                row("Reasoning effort:") {
+                    comboBox(listOf("minimal", "low", "medium", "high"))
+                        .bindItem({ state.codexReasoningEffort }, { state.codexReasoningEffort = it ?: "low" })
+                }
+                row { comment("Uses your ChatGPT subscription: run `codex login` in a terminal.") }
+            }.visibleIf(isCodex)
+            group("Request") {
+                row { checkBox("Keep one CLI process alive (faster)").bindSelected(state::persistentProcess) }
                 row("Custom prompt additions:") {
                     textArea().applyToComponent { rows = 5 }.align(AlignX.FILL)
                         .bindText({ state.customInstructions.orEmpty() }, { state.customInstructions = it })
@@ -133,7 +164,7 @@ class ClaudeAutocompleteConfigurable :
     private fun runTest(label: JLabel) {
         panelRef?.apply()
         label.text = "Testing..."
-        val config = working.toClaudeConfig()
+        val config = working.toBackendConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             val started = System.nanoTime()
             val outcome = runBlocking {
@@ -147,5 +178,10 @@ class ClaudeAutocompleteConfigurable :
             }
             ApplicationManager.getApplication().invokeLater({ label.text = text }, ModalityState.any())
         }
+    }
+
+    private companion object {
+        const val CLAUDE_LABEL = "Claude Code"
+        const val CODEX_LABEL = "Codex"
     }
 }

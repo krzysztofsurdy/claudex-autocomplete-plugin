@@ -52,6 +52,11 @@ class StatusService {
         refresh()
     }
 
+    fun clearUsage() {
+        usage = null
+        refresh()
+    }
+
     fun recordModel(model: String) {
         lastModel = model
     }

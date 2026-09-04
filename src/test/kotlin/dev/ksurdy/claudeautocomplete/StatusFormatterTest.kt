@@ -111,4 +111,10 @@ class StatusFormatterTest {
         assertFalse(StatusFormatter.usageIsStale(usage(), now.plusSeconds(500), now.plusSeconds(700)))
         assertFalse(StatusFormatter.usageIsStale(null, now, now.plusSeconds(60)))
     }
+
+    @Test
+    fun providerNameIsUsedInWidgetTextAndTooltip() {
+        assertEquals("Codex: Ready", StatusFormatter.widgetText(true, ClaudeStatus.Ready, null, true, 0, "Codex"))
+        assertTrue(StatusFormatter.tooltip(true, ClaudeStatus.Ready, null, null, null, now, zone, "Codex").contains("Provider: Codex"))
+    }
 }

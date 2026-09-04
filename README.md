@@ -3,6 +3,18 @@
 Copilot-style inline ghost-text completions for PhpStorm 2025.3+ (build 253+) and other JetBrains IDEs,
 powered by the local Claude Code CLI. It uses your Claude subscription login, no API key needed.
 
+## Providers
+
+Settings > Tools > Claude Autocomplete > Provider selects the engine:
+
+- **Claude Code**: the `claude` CLI, logged in with your Claude subscription.
+- **Codex**: the OpenAI `codex` CLI, logged in with your ChatGPT subscription. Install with
+  `npm i -g @openai/codex` or `brew install codex`, then run `codex login` in a terminal.
+
+You can also switch from the status bar widget menu (Provider submenu). The widget text, notifications and usage
+tooltip follow the selected provider. Timeout, persistent process, custom prompt additions, context options and
+debounce are shared by both.
+
 ## Requirements
 
 - JetBrains IDE build 253 or newer.
@@ -62,8 +74,9 @@ Settings > Tools > Claude Autocomplete.
 | Field | Default | Notes |
 |---|---|---|
 | Enabled | true | |
+| Provider | Claude Code | Claude Code or Codex |
 | Claude CLI path | empty | empty = auto-detect (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `~/.claude/local`, login shell) |
-| Model | haiku | haiku, sonnet, opus, fable or a full model id |
+| Model (Claude) | haiku | haiku, sonnet, opus, fable or a full model id |
 | Fallback model | empty | passed as `--fallback-model` |
 | Effort | low | low, medium, high, xhigh, max |
 | Thinking | off | when on, uses the thinking budget |
@@ -77,6 +90,9 @@ Settings > Tools > Claude Autocomplete.
 | Open tabs char budget | 6000 | split across tabs, most recent first |
 | Multi-line mode | auto | auto / always / never |
 | Max completion lines | 12 | |
+| Codex CLI path | empty | empty = auto-detect |
+| Model (Codex) | gpt-5-codex-mini | any model id supported by your ChatGPT plan |
+| Reasoning effort (Codex) | low | minimal, low, medium, high |
 | Keep CLI process alive | true | persistent stream-json process, faster than one-shot |
 | Include imported classes | true | PHP: outlines of `use`-imported classes, parent class, interfaces and traits (signatures only) |
 | Imported classes char budget | 8000 | |
@@ -100,6 +116,7 @@ export JAVA_HOME=/Users/krzysztof.surdy/Applications/PhpStorm.app/Contents/jbr/C
 
 - **Not logged in**: run `claude` in a terminal, then `/login`. A balloon notification is shown at most once
   every 5 minutes per error kind.
+- **Codex not logged in**: run `codex login` in a terminal.
 - **CLI not found**: set the full path in Settings > Tools > Claude Autocomplete. GUI-launched IDEs have a minimal
   PATH, so auto-detection checks the usual install locations.
 - **Invalid model**: pick one of haiku, sonnet, opus, fable or a valid full model id.

@@ -10,6 +10,7 @@ import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSug
 import com.intellij.openapi.application.readAction
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
 import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
 import kotlinx.coroutines.CancellationException
@@ -58,21 +59,21 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         }
         val (context, stamp) = snapshot
 
-        val config = settings.toClaudeConfig()
-        val cacheKey = CompletionCache.key(context, config)
+        val config = settings.toBackendConfig()
+        val cacheKey = CompletionCache.key(context, config.cacheConfig())
         val cached = if (manual) null else cache.get(cacheKey)
         if (cached != null) publish(gen, ClaudeStatus.Ready)
         val text = cached ?: run {
             val startedAt = System.currentTimeMillis()
             publish(gen, ClaudeStatus.Thinking(startedAt))
-            status.recordModel(config.model)
+            status.recordModel(config.activeModel())
             val indicator = if (settings.state.showInlineLoadingIndicator) {
                 InlineLoadingIndicator.start(request.editor, request.endOffset)
             } else {
                 null
             }
             val result = try {
-                withContext(Dispatchers.IO) { BackendService.getInstance().backend.complete(context, config) }
+                withContext(Dispatchers.IO) { BackendService.getInstance().engine.complete(context, config) }
             } catch (e: CancellationException) {
                 publish(gen, ClaudeStatus.Ready)
                 throw e
@@ -90,7 +91,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
                     ""
                 }
                 is CompletionResult.Failure -> {
-                    handleFailure(gen, result)
+                    handleFailure(gen, result, config.provider)
                     ""
                 }
             }
@@ -100,18 +101,18 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         return InlineCompletionSingleSuggestion.build { emit(InlineCompletionGrayTextElement(text)) }
     }
 
-    private fun handleFailure(gen: Long, failure: CompletionResult.Failure) {
+    private fun handleFailure(gen: Long, failure: CompletionResult.Failure, provider: ProviderKind) {
         val status = StatusService.getInstance()
         if (failure.kind != FailureKind.RateLimited) {
             publish(gen, ClaudeStatus.Error(failure.kind.label()))
-            Notifier.getInstance().notifyFailure(failure.kind, failure.message)
+            Notifier.getInstance().notifyFailure(failure.kind, failure.message, provider.displayName())
             return
         }
         val now = Instant.now()
         val resetsAt = status.registerRateLimit(now)
         publish(gen, ClaudeStatus.LimitReached(resetsAt))
         val clock = StatusFormatter.clock(resetsAt, ZoneId.systemDefault())
-        Notifier.getInstance().notifyFailure(failure.kind, "resets at $clock")
+        Notifier.getInstance().notifyFailure(failure.kind, "resets at $clock", provider.displayName())
     }
 
     private fun publish(generation: Long, newStatus: ClaudeStatus) {

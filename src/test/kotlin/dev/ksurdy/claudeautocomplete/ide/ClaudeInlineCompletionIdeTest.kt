@@ -10,7 +10,8 @@ import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
 import dev.ksurdy.claudeautocomplete.ClaudeStatus
 import dev.ksurdy.claudeautocomplete.StatusFormatter
 import dev.ksurdy.claudeautocomplete.StatusService
-import dev.ksurdy.claudeautocomplete.backend.CompletionBackend
+import dev.ksurdy.claudeautocomplete.CompletionEngine
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import kotlinx.coroutines.CompletableDeferred
@@ -18,22 +19,22 @@ import kotlin.time.Duration.Companion.seconds
 
 class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
     private lateinit var fake: FakeCompletionBackend
-    private lateinit var original: CompletionBackend
+    private lateinit var original: CompletionEngine
 
     override fun runInDispatchThread(): Boolean = false
 
     override fun setUp() {
         super.setUp()
         val service = BackendService.getInstance()
-        original = service.backend
+        original = service.engine
         fake = FakeCompletionBackend(CompletionResult.Success("world"))
-        service.backend = fake
+        service.engine = fake
         ClaudeAutocompleteSettings.getInstance().state.debounceMs = 0
     }
 
     override fun tearDown() {
         try {
-            BackendService.getInstance().backend = original
+            BackendService.getInstance().engine = original
             StatusService.getInstance().blockUntil(null)
             StatusService.getInstance().update(ClaudeStatus.Ready)
             ClaudeAutocompleteSettings.getInstance().loadState(ClaudeAutocompleteSettings.State())
@@ -312,5 +313,24 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         callInlineCompletion()
         delay()
         assertTrue(fake.contexts.single().importedClasses.isEmpty())
+    }
+
+    fun testProviderSettingRoutesToSelectedProvider() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.provider = "codex"
+        init(PlainTextFileType.INSTANCE, "route19 <caret>")
+        callInlineCompletion()
+        delay()
+        assertEquals(ProviderKind.Codex, fake.configs.single().provider)
+    }
+
+    fun testCacheIsSeparatePerProvider() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(PlainTextFileType.INSTANCE, "cache20 <caret>")
+        callInlineCompletion()
+        delay()
+        escape()
+        ClaudeAutocompleteSettings.getInstance().state.provider = "codex"
+        callInlineCompletion()
+        delay()
+        assertEquals(listOf(ProviderKind.Claude, ProviderKind.Codex), fake.configs.map { it.provider })
     }
 }

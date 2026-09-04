@@ -1,6 +1,7 @@
 package dev.ksurdy.claudeautocomplete.ui
 
 import com.intellij.ide.DataManager
+import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
@@ -8,6 +9,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAwareAction
+import com.intellij.openapi.project.DumbAwareToggleAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.wm.StatusBar
@@ -18,6 +20,11 @@ import com.intellij.util.Consumer
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteConfigurable
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
+import dev.ksurdy.claudeautocomplete.activeModel
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
+import dev.ksurdy.claudeautocomplete.displayName
+import dev.ksurdy.claudeautocomplete.providerKind
+import dev.ksurdy.claudeautocomplete.toBackendConfig
 import dev.ksurdy.claudeautocomplete.StatusFormatter
 import dev.ksurdy.claudeautocomplete.StatusService
 import kotlinx.coroutines.runBlocking
@@ -73,6 +80,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
             usage = StatusService.getInstance().usage,
             showUsage = state.showUsageInStatusBar,
             nowMs = System.currentTimeMillis(),
+            providerName = state.providerKind().displayName(),
         )
     }
 
@@ -86,9 +94,10 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
             status = service.status,
             usage = service.usage,
             lastLatencyMs = service.lastLatencyMs,
-            model = service.lastModel ?: state.model,
+            model = state.toBackendConfig().activeModel(),
             now = Instant.now(),
             zone = ZoneId.systemDefault(),
+            providerName = state.providerKind().displayName(),
         )
     }
 
@@ -108,6 +117,9 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
                 settings().state.enabled = !enabled
                 StatusService.getInstance().refresh()
             },
+            DefaultActionGroup("Provider", true).apply {
+                ProviderKind.entries.forEach { add(providerAction(it)) }
+            },
             action("Open Settings") {
                 ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeAutocompleteConfigurable::class.java)
             },
@@ -126,9 +138,21 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     }
 
     private fun refreshUsage() {
-        val config = settings().toClaudeConfig()
+        val config = settings().toBackendConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             runBlocking { BackendService.getInstance().refreshUsage(config) }
+        }
+    }
+
+    private fun providerAction(kind: ProviderKind): AnAction = object : DumbAwareToggleAction(kind.displayName()) {
+        override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+        override fun isSelected(e: AnActionEvent): Boolean = settings().state.providerKind() == kind
+
+        override fun setSelected(e: AnActionEvent, state: Boolean) {
+            if (!state || settings().state.providerKind() == kind) return
+            settings().state.provider = if (kind == ProviderKind.Codex) "codex" else "claude"
+            BackendService.getInstance().providerChanged()
         }
     }
 

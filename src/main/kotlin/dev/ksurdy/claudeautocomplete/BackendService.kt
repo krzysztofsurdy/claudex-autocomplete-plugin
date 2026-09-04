@@ -4,11 +4,10 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import dev.ksurdy.claudeautocomplete.backend.ClaudeCliBackend
-import dev.ksurdy.claudeautocomplete.backend.ClaudeConfig
-import dev.ksurdy.claudeautocomplete.backend.CompletionBackend
+import dev.ksurdy.claudeautocomplete.backend.BackendConfig
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
+import dev.ksurdy.claudeautocomplete.backend.CompletionRouter
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import dev.ksurdy.claudeautocomplete.backend.UsageLimits
 import kotlinx.coroutines.runBlocking
@@ -17,20 +16,34 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @Service(Service.Level.APP)
 class BackendService : Disposable {
-    @Volatile
-    var backend: CompletionBackend = ClaudeCliBackend().also { cli ->
-        cli.addUsageListener { StatusService.getInstance().updateUsage(it) }
+    private val router = CompletionRouter().also { router ->
+        router.addUsageListener { limits ->
+            if (limits.provider == ClaudeAutocompleteSettings.getInstance().state.providerKind()) {
+                StatusService.getInstance().updateUsage(limits)
+            }
+        }
     }
+
+    @Volatile
+    var engine: CompletionEngine = RouterEngine(router)
 
     private val refreshing = AtomicBoolean(false)
 
     @Volatile
     private var lastRefreshAttempt: Instant? = null
 
-    suspend fun refreshUsage(config: ClaudeConfig): UsageLimits? {
-        val cli = backend as? ClaudeCliBackend ?: return null
+    fun providerChanged() {
+        val status = StatusService.getInstance()
+        status.clearUsage()
+        status.blockUntil(null)
+        status.update(ClaudeStatus.Ready)
+        lastRefreshAttempt = null
+        refreshUsageIfStale()
+    }
+
+    suspend fun refreshUsage(config: BackendConfig): UsageLimits? {
         lastRefreshAttempt = Instant.now()
-        val limits = cli.refreshUsage(config) ?: return null
+        val limits = engine.refreshUsage(config) ?: return null
         val status = StatusService.getInstance()
         status.updateUsage(limits)
         if (limits.status == "rejected") {
@@ -45,7 +58,7 @@ class BackendService : Disposable {
         val status = StatusService.getInstance()
         if (!StatusFormatter.usageIsStale(status.usage, lastRefreshAttempt, Instant.now())) return
         if (!refreshing.compareAndSet(false, true)) return
-        val config = settings.toClaudeConfig()
+        val config = settings.toBackendConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 runBlocking { refreshUsage(config) }
@@ -55,7 +68,7 @@ class BackendService : Disposable {
         }
     }
 
-    suspend fun ping(config: ClaudeConfig): CompletionResult {
+    suspend fun ping(config: BackendConfig): CompletionResult {
         val result = pingBackend(config)
         val status = StatusService.getInstance()
         when {
@@ -70,8 +83,8 @@ class BackendService : Disposable {
         return result
     }
 
-    private suspend fun pingBackend(config: ClaudeConfig): CompletionResult =
-        backend.complete(
+    private suspend fun pingBackend(config: BackendConfig): CompletionResult =
+        engine.complete(
             CompletionContext(
                 filePath = "test.kt",
                 languageId = "kotlin",
@@ -85,7 +98,7 @@ class BackendService : Disposable {
         )
 
     override fun dispose() {
-        backend.shutdown()
+        engine.shutdown()
     }
 
     companion object {
