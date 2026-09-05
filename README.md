@@ -91,8 +91,8 @@ Settings > Tools > Claude Autocomplete.
 | Multi-line mode | auto | auto / always / never |
 | Max completion lines | 12 | |
 | Codex CLI path | empty | empty = auto-detect |
-| Model (Codex) | gpt-5-codex-mini | any model id supported by your ChatGPT plan |
-| Reasoning effort (Codex) | low | minimal, low, medium, high |
+| Model (Codex) | gpt-5.3-codex | any model id supported by your ChatGPT plan |
+| Reasoning effort (Codex) | low | none, minimal, low, medium, high |
 | Keep CLI process alive | true | persistent stream-json process, faster than one-shot |
 | Include imported classes | true | PHP: outlines of `use`-imported classes, parent class, interfaces and traits (signatures only) |
 | Imported classes char budget | 8000 | |

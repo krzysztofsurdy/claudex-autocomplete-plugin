@@ -46,8 +46,8 @@ Claude Code CLI so it uses the user's Claude subscription (OAuth, no API key).
 | enabled | Boolean | true | |
 | provider | String | "claude" | claude / codex; selects the backend (status bar menu can switch it) |
 | codexPath | String | "" | empty = auto-detect the `codex` binary |
-| codexModel | String | "gpt-5-codex-mini" | editable combo |
-| codexReasoningEffort | String | "low" | minimal, low, medium, high |
+| codexModel | String | "gpt-5.3-codex" | editable combo |
+| codexReasoningEffort | String | "low" | none, minimal, low, medium, high |
 | claudePath | String | "" | empty = auto-detect: `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`, `~/.claude/local/claude`, then `$SHELL -lc 'command -v claude'` |
 | model | String | "haiku" | combo: haiku, sonnet, opus, fable, or any full model id (editable) |
 | fallbackModel | String | "" | passed as `--fallback-model` when non-empty |

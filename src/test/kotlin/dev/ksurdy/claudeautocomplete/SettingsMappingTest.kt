@@ -39,6 +39,6 @@ class SettingsMappingTest {
         state.provider = "codex"
         val codex = state.toBackendConfig().cacheConfig()
         assertEquals(false, claude.model == codex.model)
-        assertEquals("gpt-5-codex-mini", state.toBackendConfig().activeModel())
+        assertEquals("gpt-5.3-codex", state.toBackendConfig().activeModel())
     }
 }

@@ -98,17 +98,20 @@ class ClaudeAutocompleteConfigurable :
                         .comment("Empty = auto-detect")
                 }
                 row("Model:") {
-                    comboBox(listOf("gpt-5-codex-mini", "gpt-5-codex", "gpt-5")).applyToComponent { isEditable = true }
+                    comboBox(listOf("gpt-5.3-codex", "gpt-5.2", "gpt-5.1-codex-mini")).applyToComponent { isEditable = true }
                         .bindItem({ state.codexModel }, { state.codexModel = it.orEmpty().trim() })
                 }
                 row("Reasoning effort:") {
-                    comboBox(listOf("minimal", "low", "medium", "high"))
+                    comboBox(listOf("none", "minimal", "low", "medium", "high"))
                         .bindItem({ state.codexReasoningEffort }, { state.codexReasoningEffort = it ?: "low" })
                 }
                 row { comment("Uses your ChatGPT subscription: run `codex login` in a terminal.") }
             }.visibleIf(isCodex)
             group("Request") {
-                row { checkBox("Keep one CLI process alive (faster)").bindSelected(state::persistentProcess) }
+                row {
+                    checkBox("Keep one CLI process alive (faster, Claude only)").bindSelected(state::persistentProcess)
+                        .enabledIf(isCodex.not())
+                }
                 row("Custom prompt additions:") {
                     textArea().applyToComponent { rows = 5 }.align(AlignX.FILL)
                         .bindText({ state.customInstructions.orEmpty() }, { state.customInstructions = it })

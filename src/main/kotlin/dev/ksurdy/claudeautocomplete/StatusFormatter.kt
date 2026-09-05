@@ -1,5 +1,6 @@
 package dev.ksurdy.claudeautocomplete
 
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.backend.UsageLimits
 import dev.ksurdy.claudeautocomplete.backend.UsageWindow
 import java.time.Duration
@@ -45,10 +46,15 @@ object StatusFormatter {
     fun isWarning(usage: UsageLimits?): Boolean =
         listOfNotNull(usage?.fiveHour, usage?.sevenDay).any { it.utilization >= WARNING_THRESHOLD }
 
+    fun longWindowLabel(provider: ProviderKind?, short: Boolean): String = when {
+        provider == ProviderKind.Codex -> if (short) "wk" else "weekly"
+        else -> "7d"
+    }
+
     fun usageSuffix(usage: UsageLimits?): String {
         val parts = listOfNotNull(
             usage?.fiveHour?.let { "5h ${percent(it.utilization)}" },
-            usage?.sevenDay?.let { "7d ${percent(it.utilization)}" },
+            usage?.sevenDay?.let { "${longWindowLabel(usage.provider, true)} ${percent(it.utilization)}" },
         )
         return if (parts.isEmpty()) "" else " · " + parts.joinToString(" · ")
     }
@@ -106,7 +112,7 @@ object StatusFormatter {
         }
         usage?.let {
             it.fiveHour?.let { w -> lines += windowLine("5h", w, now, zone) }
-            it.sevenDay?.let { w -> lines += windowLine("7d", w, now, zone) }
+            it.sevenDay?.let { w -> lines += windowLine(longWindowLabel(it.provider, false), w, now, zone) }
             it.status?.let { s -> lines += "Status: $s" }
             lines += "Usage updated: ${clock(it.observedAt, zone)}"
         }

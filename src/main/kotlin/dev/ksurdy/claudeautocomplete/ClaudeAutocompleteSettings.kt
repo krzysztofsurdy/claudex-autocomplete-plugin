@@ -20,7 +20,7 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var provider by string("claude")
         var claudePath by string("")
         var codexPath by string("")
-        var codexModel by string("gpt-5-codex-mini")
+        var codexModel by string("gpt-5.3-codex")
         var codexReasoningEffort by string("low")
         var model by string("haiku")
         var fallbackModel by string("")

@@ -117,4 +117,11 @@ class StatusFormatterTest {
         assertEquals("Codex: Ready", StatusFormatter.widgetText(true, ClaudeStatus.Ready, null, true, 0, "Codex"))
         assertTrue(StatusFormatter.tooltip(true, ClaudeStatus.Ready, null, null, null, now, zone, "Codex").contains("Provider: Codex"))
     }
+
+    @Test
+    fun codexUsesWeeklyLabel() {
+        val codex = usage().copy(provider = dev.ksurdy.claudeautocomplete.backend.ProviderKind.Codex)
+        assertEquals(" \u00B7 5h 42% \u00B7 wk 18%", StatusFormatter.usageSuffix(codex))
+        assertTrue(StatusFormatter.tooltip(true, ClaudeStatus.Ready, codex, null, null, now, zone, "Codex").contains("weekly: 18%"))
+    }
 }
