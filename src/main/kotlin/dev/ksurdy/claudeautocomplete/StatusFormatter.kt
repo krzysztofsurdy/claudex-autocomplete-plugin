@@ -15,6 +15,10 @@ object StatusFormatter {
     const val WAITING_EXPIRY_MS = 3_000L
     const val DONE_DISPLAY_MS = 4_000L
     const val DEFAULT_BLOCK_MINUTES = 5L
+    const val FIVE_HOUR_MINUTES = 300
+    const val WEEK_MINUTES = 10_080
+    private const val DAY_MINUTES = 1_440
+    private const val HOUR_MINUTES = 60
     const val USAGE_REFRESH_MINUTES = 10L
 
     fun percent(utilization: Double): String = "${(utilization * 100).roundToInt().coerceAtLeast(0)}%"
@@ -51,10 +55,20 @@ object StatusFormatter {
         else -> "7d"
     }
 
+    fun windowLabel(window: UsageWindow, slotDefaultMinutes: Int, provider: ProviderKind?, short: Boolean): String {
+        val minutes = window.windowMinutes ?: slotDefaultMinutes
+        return when {
+            minutes == WEEK_MINUTES -> longWindowLabel(provider, short)
+            minutes % DAY_MINUTES == 0 && minutes >= DAY_MINUTES -> "${minutes / DAY_MINUTES}d"
+            minutes % HOUR_MINUTES == 0 -> "${minutes / HOUR_MINUTES}h"
+            else -> "${minutes}m"
+        }
+    }
+
     fun usageSuffix(usage: UsageLimits?): String {
         val parts = listOfNotNull(
-            usage?.fiveHour?.let { "5h ${percent(it.utilization)}" },
-            usage?.sevenDay?.let { "${longWindowLabel(usage.provider, true)} ${percent(it.utilization)}" },
+            usage?.fiveHour?.let { "${windowLabel(it, FIVE_HOUR_MINUTES, usage.provider, true)} ${percent(it.utilization)}" },
+            usage?.sevenDay?.let { "${windowLabel(it, WEEK_MINUTES, usage.provider, true)} ${percent(it.utilization)}" },
         )
         return if (parts.isEmpty()) "" else " · " + parts.joinToString(" · ")
     }
@@ -111,8 +125,8 @@ object StatusFormatter {
                 (resets(status.resetsAt, now, zone)?.let { " ($it)" } ?: "")
         }
         usage?.let {
-            it.fiveHour?.let { w -> lines += windowLine("5h", w, now, zone) }
-            it.sevenDay?.let { w -> lines += windowLine(longWindowLabel(it.provider, false), w, now, zone) }
+            it.fiveHour?.let { w -> lines += windowLine(windowLabel(w, FIVE_HOUR_MINUTES, it.provider, false), w, now, zone) }
+            it.sevenDay?.let { w -> lines += windowLine(windowLabel(w, WEEK_MINUTES, it.provider, false), w, now, zone) }
             it.status?.let { s -> lines += "Status: $s" }
             lines += "Usage updated: ${clock(it.observedAt, zone)}"
         }

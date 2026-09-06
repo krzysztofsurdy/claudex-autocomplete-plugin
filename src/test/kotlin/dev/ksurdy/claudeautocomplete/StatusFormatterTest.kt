@@ -124,4 +124,12 @@ class StatusFormatterTest {
         assertEquals(" \u00B7 5h 42% \u00B7 wk 18%", StatusFormatter.usageSuffix(codex))
         assertTrue(StatusFormatter.tooltip(true, ClaudeStatus.Ready, codex, null, null, now, zone, "Codex").contains("weekly: 18%"))
     }
+
+    @Test
+    fun windowLabelsComeFromWindowMinutes() {
+        val codex = UsageLimits(UsageWindow(0.1, null, 300), UsageWindow(0.2, null, 10_080), null, now, dev.ksurdy.claudeautocomplete.backend.ProviderKind.Codex)
+        assertEquals(" \u00B7 5h 10% \u00B7 wk 20%", StatusFormatter.usageSuffix(codex))
+        val odd = UsageLimits(UsageWindow(0.1, null, 120), UsageWindow(0.2, null, 4_320), null, now)
+        assertEquals(" \u00B7 2h 10% \u00B7 3d 20%", StatusFormatter.usageSuffix(odd))
+    }
 }
