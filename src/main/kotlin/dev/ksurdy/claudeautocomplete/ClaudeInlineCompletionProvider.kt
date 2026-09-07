@@ -60,7 +60,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         val (context, stamp) = snapshot
 
         val config = settings.toBackendConfig()
-        val cacheKey = CompletionCache.key(context, config.cacheConfig())
+        val cacheKey = CompletionCache.key(context, config)
         val cached = if (manual) null else cache.get(cacheKey)
         if (cached != null) publish(gen, ClaudeStatus.Ready)
         val text = cached ?: run {

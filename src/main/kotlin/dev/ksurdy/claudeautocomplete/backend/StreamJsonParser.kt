@@ -12,6 +12,10 @@ sealed interface StreamEvent {
 }
 
 object StreamJsonParser {
+    private const val FIVE_HOUR_MINUTES = 300
+    private const val SEVEN_DAY_MINUTES = 10080
+
+
     fun parse(line: String): StreamEvent? {
         val obj = parseObject(line) ?: return null
         return toEvent(obj)
@@ -43,11 +47,12 @@ object StreamJsonParser {
     }
 
     private fun window(windows: JsonObject?, name: String): UsageWindow? {
+        val minutes = if (name == "five_hour") FIVE_HOUR_MINUTES else SEVEN_DAY_MINUTES
         val window = windows?.get(name)?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
         val raw = window.get("utilization")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asDouble ?: return null
         val utilization = if (raw > 1.0) raw / 100.0 else raw
         val resets = window.get("resetsAt")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asLong
-        return UsageWindow(utilization.coerceIn(0.0, 1.0), resets?.let(Instant::ofEpochSecond))
+        return UsageWindow(utilization.coerceIn(0.0, 1.0), resets?.let(Instant::ofEpochSecond), minutes)
     }
 
     private fun textDelta(obj: JsonObject): StreamEvent.TextDelta? {

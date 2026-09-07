@@ -36,7 +36,8 @@ object CodexJsonlParser {
     private fun window(window: JsonObject?): UsageWindow? {
         val used = window?.get("usedPercent")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asDouble ?: return null
         val resets = window.get("resetsAt")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asLong
-        return UsageWindow((used / 100.0).coerceIn(0.0, 1.0), resets?.let(Instant::ofEpochSecond))
+        val minutes = window.get("windowDurationMins")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt
+        return UsageWindow((used / 100.0).coerceIn(0.0, 1.0), resets?.let(Instant::ofEpochSecond), minutes)
     }
 
     private fun agentMessage(obj: JsonObject): CodexEvent? {

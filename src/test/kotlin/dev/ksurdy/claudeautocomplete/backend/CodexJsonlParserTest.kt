@@ -46,8 +46,8 @@ class CodexJsonlParserTest {
         val json = """{"rateLimits":{"limitId":"codex","primary":{"usedPercent":25,"windowDurationMins":300,"resetsAt":1791200400},"secondary":{"usedPercent":60,"windowDurationMins":10080,"resetsAt":1791302400},"rateLimitReachedType":null}}"""
         val event = CodexJsonlParser.parseRateLimits(com.google.gson.JsonParser.parseString(json).asJsonObject)
         assertEquals("allowed", event.status)
-        assertEquals(UsageWindow(0.25, java.time.Instant.ofEpochSecond(1791200400)), event.fiveHour)
-        assertEquals(UsageWindow(0.6, java.time.Instant.ofEpochSecond(1791302400)), event.sevenDay)
+        assertEquals(UsageWindow(0.25, java.time.Instant.ofEpochSecond(1791200400), 300), event.fiveHour)
+        assertEquals(UsageWindow(0.6, java.time.Instant.ofEpochSecond(1791302400), 10080), event.sevenDay)
     }
 
     @Test

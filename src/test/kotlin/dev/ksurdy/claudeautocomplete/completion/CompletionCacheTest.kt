@@ -1,6 +1,9 @@
 package dev.ksurdy.claudeautocomplete.completion
 
 import dev.ksurdy.claudeautocomplete.backend.testContext
+import dev.ksurdy.claudeautocomplete.backend.BackendConfig
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
+import dev.ksurdy.claudeautocomplete.backend.testCodexConfig
 import dev.ksurdy.claudeautocomplete.backend.testConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,7 +31,7 @@ class CompletionCacheTest {
         assertEquals("3", cache.get("c"))
     }
 
-    private fun key(context: dev.ksurdy.claudeautocomplete.backend.CompletionContext = testContext(), config: dev.ksurdy.claudeautocomplete.backend.ClaudeConfig = testConfig()) =
+    private fun key(context: dev.ksurdy.claudeautocomplete.backend.CompletionContext = testContext(), config: BackendConfig = BackendConfig(ProviderKind.Claude, testConfig(), testCodexConfig())) =
         CompletionCache.key(context, config)
 
     @Test
@@ -51,9 +54,9 @@ class CompletionCacheTest {
     @Test
     fun `key depends on config attributes`() {
         val base = key()
-        assertNotEquals(base, key(config = testConfig(model = "sonnet")))
-        assertNotEquals(base, key(config = testConfig(effort = "high")))
-        assertNotEquals(base, key(config = testConfig(customInstructions = "PSR-12")))
+        assertNotEquals(base, key(config = claude(testConfig(model = "sonnet"))))
+        assertNotEquals(base, key(config = claude(testConfig(effort = "high"))))
+        assertNotEquals(base, key(config = claude(testConfig(customInstructions = "PSR-12"))))
     }
 
     @Test
@@ -81,5 +84,18 @@ class CompletionCacheTest {
             key(withImport),
             key(testContext(importedClasses = listOf(dev.ksurdy.claudeautocomplete.backend.OpenFileSnippet("U.php", "PHP", "class U2")))),
         )
+    }
+
+    private fun claude(config: dev.ksurdy.claudeautocomplete.backend.ClaudeConfig) = BackendConfig(ProviderKind.Claude, config, testCodexConfig())
+
+    @Test
+    fun `key depends on provider and its own settings only`() {
+        val claudeKey = key()
+        val codex = BackendConfig(ProviderKind.Codex, testConfig(), testCodexConfig())
+        assertNotEquals(claudeKey, key(config = codex))
+        assertNotEquals(key(config = codex), key(config = codex.copy(codex = testCodexConfig(model = "other"))))
+        assertNotEquals(key(config = codex), key(config = codex.copy(codex = testCodexConfig(reasoningEffort = "high"))))
+        assertEquals(key(config = codex), key(config = codex.copy(claude = testConfig(model = "sonnet"))))
+        assertEquals(claudeKey, key(config = BackendConfig(ProviderKind.Claude, testConfig(), testCodexConfig(model = "other"))))
     }
 }

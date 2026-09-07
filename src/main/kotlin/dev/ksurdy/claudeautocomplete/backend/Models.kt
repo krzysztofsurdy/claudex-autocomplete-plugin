@@ -45,7 +45,7 @@ interface CompletionBackend {
     fun shutdown()
 }
 
-data class UsageWindow(val utilization: Double, val resetsAt: java.time.Instant?)
+data class UsageWindow(val utilization: Double, val resetsAt: java.time.Instant?, val windowMinutes: Int? = null)
 
 data class UsageLimits(
     val fiveHour: UsageWindow?,

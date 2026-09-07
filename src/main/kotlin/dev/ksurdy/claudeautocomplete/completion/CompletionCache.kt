@@ -1,6 +1,7 @@
 package dev.ksurdy.claudeautocomplete.completion
 
-import dev.ksurdy.claudeautocomplete.backend.ClaudeConfig
+import dev.ksurdy.claudeautocomplete.backend.BackendConfig
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 
 class CompletionCache(
@@ -34,10 +35,9 @@ class CompletionCache(
         private const val SUFFIX_HEAD_CHARS = 200
         private const val DEFAULT_TTL_MS = 60_000L
 
-        fun key(context: CompletionContext, config: ClaudeConfig): String = (listOf(
-            config.model,
-            config.effort,
-            config.customInstructions,
+        fun key(context: CompletionContext, config: BackendConfig): String = (listOf(
+            config.provider.name,
+            *providerSettings(config).toTypedArray(),
             context.filePath,
             context.languageId,
             context.maxLines.toString(),
@@ -45,5 +45,10 @@ class CompletionCache(
             context.prefix.takeLast(PREFIX_TAIL_CHARS),
             context.suffix.take(SUFFIX_HEAD_CHARS),
         ) + context.importedClasses.map { it.path + "\u0001" + it.content }).joinToString("\u0000")
+
+        private fun providerSettings(config: BackendConfig): List<String> = when (config.provider) {
+            ProviderKind.Claude -> listOf(config.claude.model, config.claude.effort, config.claude.customInstructions)
+            ProviderKind.Codex -> listOf(config.codex.model, config.codex.reasoningEffort, config.codex.customInstructions)
+        }
     }
 }

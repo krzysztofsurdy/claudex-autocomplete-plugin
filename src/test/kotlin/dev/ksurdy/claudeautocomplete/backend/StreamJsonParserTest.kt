@@ -54,15 +54,15 @@ class StreamJsonParserTest {
     fun `rate limit event is parsed with both windows`() {
         val event = assertIs<StreamEvent.RateLimit>(StreamJsonParser.parse(rateLimit))
         assertEquals("allowed", event.status)
-        assertEquals(UsageWindow(0.14, java.time.Instant.ofEpochSecond(1791200400)), event.fiveHour)
-        assertEquals(UsageWindow(0.22, java.time.Instant.ofEpochSecond(1791302400)), event.sevenDay)
+        assertEquals(UsageWindow(0.14, java.time.Instant.ofEpochSecond(1791200400), 300), event.fiveHour)
+        assertEquals(UsageWindow(0.22, java.time.Instant.ofEpochSecond(1791302400), 10080), event.sevenDay)
     }
 
     @Test
     fun `percentage utilization is normalized`() {
         val line = """{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","unifiedWindows":{"five_hour":{"utilization":85}}}}"""
         val event = assertIs<StreamEvent.RateLimit>(StreamJsonParser.parse(line))
-        assertEquals(UsageWindow(0.85, null), event.fiveHour)
+        assertEquals(UsageWindow(0.85, null, 300), event.fiveHour)
         assertNull(event.sevenDay)
     }
 
