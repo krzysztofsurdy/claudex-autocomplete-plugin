@@ -90,12 +90,3 @@ fun BackendConfig.activeModel(): String = when (provider) {
     ProviderKind.Claude -> claude.model
     ProviderKind.Codex -> codex.model
 }
-
-fun BackendConfig.cacheConfig(): ClaudeConfig = when (provider) {
-    ProviderKind.Claude -> claude
-    ProviderKind.Codex -> claude.copy(
-        model = "codex:${codex.model}",
-        effort = codex.reasoningEffort,
-        customInstructions = codex.customInstructions,
-    )
-}

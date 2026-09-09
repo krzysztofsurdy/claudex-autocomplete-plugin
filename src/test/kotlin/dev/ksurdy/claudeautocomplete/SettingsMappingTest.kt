@@ -31,14 +31,4 @@ class SettingsMappingTest {
         assertEquals("PSR-12", config.codex.customInstructions)
         assertEquals("haiku", config.claude.model)
     }
-
-    @Test
-    fun cacheConfigDiffersPerProvider() {
-        val state = ClaudeAutocompleteSettings.State()
-        val claude = state.toBackendConfig().cacheConfig()
-        state.provider = "codex"
-        val codex = state.toBackendConfig().cacheConfig()
-        assertEquals(false, claude.model == codex.model)
-        assertEquals("gpt-5.3-codex", state.toBackendConfig().activeModel())
-    }
 }
