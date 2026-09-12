@@ -1,4 +1,4 @@
-rootProject.name = "claude-autocomplete"
+rootProject.name = "claudex-autocomplete"
 
 pluginManagement {
     repositories {

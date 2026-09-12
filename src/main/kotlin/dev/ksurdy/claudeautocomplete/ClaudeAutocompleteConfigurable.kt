@@ -25,7 +25,7 @@ import kotlinx.coroutines.runBlocking
 import javax.swing.JLabel
 
 class ClaudeAutocompleteConfigurable :
-    BoundSearchableConfigurable("Claude Autocomplete", "claude.autocomplete.settings", "claude.autocomplete.settings") {
+    BoundSearchableConfigurable("Claudex Autocomplete", "claude.autocomplete.settings", "claude.autocomplete.settings") {
 
     private val persisted get() = ClaudeAutocompleteSettings.getInstance().state
     private val working = ClaudeAutocompleteSettings.State()

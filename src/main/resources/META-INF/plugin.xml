@@ -1,8 +1,8 @@
 <idea-plugin>
   <id>dev.ksurdy.claudeautocomplete</id>
-  <name>Claude Autocomplete</name>
+  <name>Claudex Autocomplete</name>
   <vendor>ksurdy</vendor>
-  <description>Copilot-style inline completion powered by the local Claude Code CLI and your Claude subscription.</description>
+  <description>Copilot-style inline completion powered by the local Claude Code CLI or Codex CLI, using your Claude or ChatGPT subscription. No API key needed.</description>
   <depends>com.intellij.modules.platform</depends>
   <depends optional="true" config-file="claude-autocomplete-php.xml">com.jetbrains.php</depends>
 
@@ -17,23 +17,25 @@
     <applicationConfigurable parentId="tools"
                              instance="dev.ksurdy.claudeautocomplete.ClaudeAutocompleteConfigurable"
                              id="claude.autocomplete.settings"
-                             displayName="Claude Autocomplete"/>
+                             displayName="Claudex Autocomplete"/>
     <statusBarWidgetFactory id="ClaudeAutocompleteStatus"
                             implementation="dev.ksurdy.claudeautocomplete.ui.ClaudeStatusBarWidgetFactory"/>
-    <notificationGroup id="Claude Autocomplete" displayType="BALLOON"/>
+    <notificationGroup id="Claude Autocomplete" displayType="BALLOON" icon="/icons/claudex.svg"/>
   </extensions>
 
   <actions>
     <action id="ClaudeAutocomplete.Toggle"
             class="dev.ksurdy.claudeautocomplete.actions.ToggleAction"
-            text="Toggle Claude Autocomplete"
-            description="Enable or disable Claude inline completions">
+            text="Toggle Claudex Autocomplete"
+            icon="dev.ksurdy.claudeautocomplete.ClaudexIcons.Logo"
+            description="Enable or disable Claudex inline completions">
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
     <action id="ClaudeAutocomplete.Trigger"
             class="dev.ksurdy.claudeautocomplete.actions.TriggerAction"
-            text="Trigger Claude Completion"
-            description="Request an inline completion from Claude">
+            text="Trigger Claudex Completion"
+            icon="dev.ksurdy.claudeautocomplete.ClaudexIcons.Logo"
+            description="Request an inline completion from Claude Code or Codex">
       <keyboard-shortcut keymap="$default" first-keystroke="alt BACK_SLASH"/>
       <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="alt BACK_SLASH"/>
       <keyboard-shortcut keymap="Mac OS X" first-keystroke="alt BACK_SLASH"/>

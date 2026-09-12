@@ -1,4 +1,4 @@
-# Claude Autocomplete for JetBrains - Spec
+# Claudex Autocomplete for JetBrains - Spec
 
 Copilot-style inline ghost-text completion for PhpStorm 2025.3+ (build 253+), backed by the local
 Claude Code CLI so it uses the user's Claude subscription (OAuth, no API key).
@@ -35,11 +35,11 @@ Claude Code CLI so it uses the user's Claude subscription (OAuth, no API key).
     toggles enabled globally. Tools menu action `ClaudeAutocomplete.Toggle`.
 11. Disabled per language list; no completions in read-only/viewer editors, in files larger than
     the cap, or when a lookup popup is not the trigger.
-12. Error surfacing: one balloon notification (group `Claude Autocomplete`) on "Not logged in"
+12. Error surfacing: one balloon notification (group `Claudex Autocomplete`) on "Not logged in"
     (tell user to run `claude` then `/login` in a terminal), CLI not found, or invalid model.
     Throttle to once per 5 minutes per error kind. Never spam.
 
-## Settings (app-level, `ClaudeAutocompleteSettings`, Settings > Tools > Claude Autocomplete)
+## Settings (app-level, `ClaudeAutocompleteSettings`, Settings > Tools > Claudex Autocomplete)
 
 | Field | Type | Default | Notes |
 |---|---|---|---|

@@ -36,7 +36,7 @@ import javax.swing.Timer
 class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId(): String = ClaudeStatusBarWidget.ID
 
-    override fun getDisplayName(): String = "Claude Autocomplete"
+    override fun getDisplayName(): String = "Claudex Autocomplete"
 
     override fun isAvailable(project: Project): Boolean = true
 
@@ -113,7 +113,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
         val bar = statusBar ?: return
         val enabled = settings().state.enabled
         val group = DefaultActionGroup(
-            action(if (enabled) "Disable Claude Autocomplete" else "Enable Claude Autocomplete") {
+            action(if (enabled) "Disable Claudex Autocomplete" else "Enable Claudex Autocomplete") {
                 settings().state.enabled = !enabled
                 StatusService.getInstance().refresh()
             },

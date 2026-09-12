@@ -1,11 +1,11 @@
-# Claude Autocomplete for JetBrains
+# Claudex Autocomplete for JetBrains
 
 Copilot-style inline ghost-text completions for PhpStorm 2025.3+ (build 253+) and other JetBrains IDEs,
-powered by the local Claude Code CLI. It uses your Claude subscription login, no API key needed.
+powered by the local Claude Code CLI or Codex CLI. It uses your Claude or ChatGPT subscription login, no API key needed.
 
 ## Providers
 
-Settings > Tools > Claude Autocomplete > Provider selects the engine:
+Settings > Tools > Claudex Autocomplete > Provider selects the engine:
 
 - **Claude Code**: the `claude` CLI, logged in with your Claude subscription.
 - **Codex**: the OpenAI `codex` CLI, logged in with your ChatGPT subscription. Install with
@@ -24,7 +24,7 @@ debounce are shared by both.
 
 1. Build the plugin: `./gradlew buildPlugin`
 2. In the IDE: Settings > Plugins > gear icon > Install Plugin from Disk...
-3. Select `build/distributions/claude-autocomplete-0.1.0.zip` and restart the IDE.
+3. Select `build/distributions/claudex-autocomplete-0.1.0.zip` and restart the IDE.
 
 ## Usage and keys
 
@@ -40,7 +40,7 @@ Completions appear as gray text after a short pause in typing.
 | Next / previous variant | Alt+] / Alt+[ (only if a provider returns several) |
 
 The word and line accept actions reuse your keymap's Next Word and Line End shortcuts. Typing characters
-that match the suggestion keeps it and trims it. Tools > Toggle Claude Autocomplete, or a click on the status
+that match the suggestion keeps it and trims it. Tools > Toggle Claudex Autocomplete, or a click on the status
 bar widget, enables or disables it.
 
 ### Status bar widget
@@ -69,7 +69,7 @@ closing characters (`)]}>"';,`), and never in read-only editors or files over 1,
 
 ## Settings
 
-Settings > Tools > Claude Autocomplete.
+Settings > Tools > Claudex Autocomplete.
 
 | Field | Default | Notes |
 |---|---|---|
@@ -117,7 +117,7 @@ export JAVA_HOME=/Users/krzysztof.surdy/Applications/PhpStorm.app/Contents/jbr/C
 - **Not logged in**: run `claude` in a terminal, then `/login`. A balloon notification is shown at most once
   every 5 minutes per error kind.
 - **Codex not logged in**: run `codex login` in a terminal.
-- **CLI not found**: set the full path in Settings > Tools > Claude Autocomplete. GUI-launched IDEs have a minimal
+- **CLI not found**: set the full path in Settings > Tools > Claudex Autocomplete. GUI-launched IDEs have a minimal
   PATH, so auto-detection checks the usual install locations.
 - **Invalid model**: pick one of haiku, sonnet, opus, fable or a valid full model id.
 - **Slow completions**: use `haiku`, keep "Keep CLI process alive" on, keep effort `low` with thinking off, and

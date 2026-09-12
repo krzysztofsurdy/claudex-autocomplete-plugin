@@ -16,7 +16,7 @@ class Notifier {
         if (!shouldNotify(kind, now, provider)) return
         NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
-            .createNotification("Claude Autocomplete", content, NotificationType.WARNING)
+            .createNotification("Claudex Autocomplete", content, NotificationType.WARNING)
             .notify(null)
     }
 
@@ -48,11 +48,11 @@ class Notifier {
                 "Claude CLI is not logged in. Run `claude` in a terminal, then `/login`."
             }
             FailureKind.CliNotFound -> if (provider == CODEX) {
-                "Codex CLI not found. Install it (`npm i -g @openai/codex` or `brew install codex`) or set its path in Settings > Tools > Claude Autocomplete."
+                "Codex CLI not found. Install it (`npm i -g @openai/codex` or `brew install codex`) or set its path in Settings > Tools > Claudex Autocomplete."
             } else {
-                "Claude CLI not found. Install it or set its path in Settings > Tools > Claude Autocomplete."
+                "Claude CLI not found. Install it or set its path in Settings > Tools > Claudex Autocomplete."
             }
-            FailureKind.InvalidModel -> "Invalid $provider model. Check the model name in Settings > Tools > Claude Autocomplete. $message"
+            FailureKind.InvalidModel -> "Invalid $provider model. Check the model name in Settings > Tools > Claudex Autocomplete. $message"
             FailureKind.RateLimited -> "$provider usage limit reached${if (message.isBlank()) "" else ", $message"}."
             FailureKind.Timeout, FailureKind.Other -> null
         }
