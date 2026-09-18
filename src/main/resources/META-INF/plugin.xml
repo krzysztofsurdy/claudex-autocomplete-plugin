@@ -2,7 +2,42 @@
   <id>dev.ksurdy.claudeautocomplete</id>
   <name>Claudex Autocomplete</name>
   <vendor>ksurdy</vendor>
-  <description>Copilot-style inline completion powered by the local Claude Code CLI or Codex CLI, using your Claude or ChatGPT subscription. No API key needed.</description>
+  <description><![CDATA[
+    <p>Copilot-style inline code completion for JetBrains IDEs, powered by the Claude Code CLI or Codex CLI you already have installed. Uses your Claude or ChatGPT subscription. No API key needed.</p>
+    <h3>Features</h3>
+    <ul>
+      <li>Inline gray-text suggestions as you type</li>
+      <li>Choose Claude Code or Codex as the provider</li>
+      <li>Accept the whole suggestion, the next word or the rest of the line</li>
+      <li>Context from the current file, open tabs and, for PHP, imported classes</li>
+      <li>Persistent CLI process for lower latency</li>
+      <li>Status bar widget with request state and usage windows</li>
+      <li>Custom prompt additions and per-language disable list</li>
+    </ul>
+    <h3>Requirements</h3>
+    <ul>
+      <li>IntelliJ-based IDE 2025.3 or newer</li>
+      <li>Claude Code CLI (<code>claude</code>) or Codex CLI (<code>codex</code>), installed and logged in</li>
+    </ul>
+    <h3>Getting started</h3>
+    <ol>
+      <li>Log in: run <code>claude</code> and then <code>/login</code>, or run <code>codex login</code>.</li>
+      <li>Open Settings | Tools | Claudex Autocomplete and select the provider.</li>
+      <li>Start typing. Press Tab to accept, Esc to dismiss, Alt+\ to trigger manually.</li>
+    </ol>
+    <h3>Privacy</h3>
+    <p>The plugin runs your local CLI with your existing subscription login. Code context around the caret, and optionally from open tabs, is sent to Anthropic or OpenAI through that CLI and is subject to their terms.</p>
+  ]]></description>
+  <change-notes><![CDATA[
+    <h4>0.1.0</h4>
+    <ul>
+      <li>Initial release</li>
+      <li>Inline completions via Claude Code CLI or Codex CLI</li>
+      <li>Accept word, line or whole suggestion; manual trigger</li>
+      <li>Open tabs and PHP imported-class context</li>
+      <li>Status bar widget with usage windows</li>
+    </ul>
+  ]]></change-notes>
   <depends>com.intellij.modules.platform</depends>
   <depends optional="true" config-file="claude-autocomplete-php.xml">com.jetbrains.php</depends>
 
