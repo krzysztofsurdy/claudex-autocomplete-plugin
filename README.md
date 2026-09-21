@@ -105,3 +105,7 @@ export JAVA_HOME=/path/to/PhpStorm.app/Contents/jbr/Contents/Home
 ```
 
 Point the build at your IDE with `./gradlew buildPlugin -PlocalIdePath=/path/to/PhpStorm.app` (or set `localIdePath` in `~/.gradle/gradle.properties`).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for bug reports, setup, tests and commit conventions.
