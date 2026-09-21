@@ -10,7 +10,8 @@ Copilot-style inline ghost-text completions for PhpStorm and other JetBrains IDE
 - Two providers: Claude Code (`claude`) and Codex (`codex`), switchable from settings or the status bar.
 - Accept a whole suggestion, the next word, or the rest of the line.
 - Context-aware: current file (whole or a window around the caret), open tabs, and for PHP the outlines of imported classes, parent class, interfaces and traits.
-- Persistent CLI process for lower latency.
+- Persistent CLI process for lower latency (Claude Code).
+- Animated braille spinner with elapsed time at the end of the line while a suggestion is generated.
 - Status bar widget with request state, last latency and 5h / 7d usage windows.
 - Custom prompt additions, for example "Follow PSR-12".
 
@@ -46,7 +47,6 @@ The plugin is not published on JetBrains Marketplace yet. Install from disk:
 | Accept rest of line | Cmd+Right (macOS), End (Windows/Linux) |
 | Dismiss | Esc |
 | Trigger a completion manually | Alt+\ |
-| Next / previous variant | Alt+] / Alt+[ (only if a provider returns several) |
 
 Word and line accept reuse your keymap's Next Word and Line End shortcuts. Tools > Toggle Claudex Autocomplete (or a click on the status bar widget) enables or disables the plugin.
 
@@ -67,7 +67,7 @@ Settings > Tools > Claudex Autocomplete. The most useful options:
 | Include open tabs | true | Character budget configurable |
 | Include imported classes | true | PHP only, signatures only |
 | Multi-line mode | auto | auto / always / never |
-| Keep CLI process alive | true | Persistent process, faster than one-shot |
+| Keep CLI process alive | true | Claude Code only; Codex starts a process per request |
 | Custom prompt additions | empty | Appended to the system prompt |
 | Disabled languages | empty | Comma-separated language ids |
 
@@ -75,7 +75,7 @@ Settings > Tools > Claudex Autocomplete. The most useful options:
 
 ## How it works
 
-After you pause typing, the plugin sends the CLI the code before and after the caret, a window or the whole of the current file, optionally snippets of other open tabs and (for PHP) outlines of imported classes. The CLI runs as a persistent process, so there is no startup cost per request. The result is shown as ghost text.
+After you pause typing, the plugin sends the CLI the code before and after the caret, a window or the whole of the current file, optionally snippets of other open tabs and (for PHP) outlines of imported classes. With Claude Code the CLI runs as a persistent process, so there is no startup cost per request; Codex runs once per request. The result is shown as ghost text.
 
 Completions are requested only when the text right of the caret on the line is empty or only closing characters, and never in read-only editors or files over 1,000,000 characters. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` environment variables are removed from the CLI environment so your subscription login is always used.
 
@@ -83,7 +83,7 @@ Your code context is sent to Anthropic or OpenAI through the respective CLI, sub
 
 ## Status bar
 
-The widget shows `Claude: Ready`, `Waiting...`, `Thinking... Ns`, the last latency, `Off`, `Error` or `Limit reached`, plus usage like `5h 42% | 7d 18%` once known. The tooltip lists reset times and the model. Click it for Enable/Disable, Provider, Open Settings and Refresh Usage. When a usage limit is hit, requests pause until the reset time.
+The widget shows `Claude: Ready`, `Waiting...`, `Thinking... Ns`, the last latency, `Off`, `Error` or `Limit reached`, plus usage like `5h 42% · 7d 18%` once known. The tooltip lists reset times and the model. Click it for Enable/Disable, Provider, Open Settings and Refresh Usage. When a usage limit is hit, requests pause until the reset time.
 
 ## Troubleshooting
 
@@ -95,11 +95,13 @@ The widget shows `Claude: Ready`, `Waiting...`, `Thinking... Ns`, the last laten
 
 ## Building from source
 
+Requires a local PhpStorm 2025.3+ install; its bundled JetBrains Runtime is used as the JDK.
+
 ```
-export JAVA_HOME=/Users/krzysztof.surdy/Applications/PhpStorm.app/Contents/jbr/Contents/Home
+export JAVA_HOME=/path/to/PhpStorm.app/Contents/jbr/Contents/Home
 ./gradlew test         # unit tests and headless IDE platform tests
 ./gradlew buildPlugin  # zip in build/distributions/
 ./gradlew runIde       # sandbox IDE
 ```
 
-The build uses a local PhpStorm installation (`localIdePath` in `gradle.properties`, defaulting to the path in `build.gradle.kts`).
+Point the build at your IDE with `./gradlew buildPlugin -PlocalIdePath=/path/to/PhpStorm.app` (or set `localIdePath` in `~/.gradle/gradle.properties`).

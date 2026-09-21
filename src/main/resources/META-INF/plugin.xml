@@ -10,7 +10,8 @@
       <li>Choose Claude Code or Codex as the provider</li>
       <li>Accept the whole suggestion, the next word or the rest of the line</li>
       <li>Context from the current file, open tabs and, for PHP, imported classes</li>
-      <li>Persistent CLI process for lower latency</li>
+      <li>Persistent Claude Code process for lower latency</li>
+      <li>Animated spinner with elapsed time while a suggestion is generated</li>
       <li>Status bar widget with request state and usage windows</li>
       <li>Custom prompt additions and per-language disable list</li>
     </ul>
