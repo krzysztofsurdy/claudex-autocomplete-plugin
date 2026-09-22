@@ -1,28 +1,28 @@
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="1100 1160 820 820" width="16" height="16" preserveAspectRatio="xMidYMid meet">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:100%;background:transparent;" viewBox="438.956 409.965 2194.27 2194.27" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
 <defs>
 	<linearGradient id="Gradient1" gradientUnits="userSpaceOnUse" x1="994.031" y1="1201.26" x2="1348.64" y2="668.679">
-		<stop offset="0" stop-opacity="1" stop-color="rgb(220,117,78)"/>
-		<stop offset="1" stop-opacity="1" stop-color="rgb(192,123,129)"/>
+		<stop class="stop0" offset="0" stop-opacity="1" stop-color="rgb(220,117,78)"/>
+		<stop class="stop1" offset="1" stop-opacity="1" stop-color="rgb(192,123,129)"/>
 	</linearGradient>
 	<linearGradient id="Gradient2" gradientUnits="userSpaceOnUse" x1="817.196" y1="1981.09" x2="1479.62" y2="2028.34">
-		<stop offset="0" stop-opacity="1" stop-color="rgb(223,119,76)"/>
-		<stop offset="1" stop-opacity="1" stop-color="rgb(198,116,109)"/>
+		<stop class="stop0" offset="0" stop-opacity="1" stop-color="rgb(223,119,76)"/>
+		<stop class="stop1" offset="1" stop-opacity="1" stop-color="rgb(198,116,109)"/>
 	</linearGradient>
 	<linearGradient id="Gradient3" gradientUnits="userSpaceOnUse" x1="1561.6" y1="1591.01" x2="1572.61" y2="1893.2">
-		<stop offset="0" stop-opacity="1" stop-color="rgb(106,114,234)"/>
-		<stop offset="1" stop-opacity="1" stop-color="rgb(124,157,247)"/>
+		<stop class="stop0" offset="0" stop-opacity="1" stop-color="rgb(106,114,234)"/>
+		<stop class="stop1" offset="1" stop-opacity="1" stop-color="rgb(124,157,247)"/>
 	</linearGradient>
 	<linearGradient id="Gradient4" gradientUnits="userSpaceOnUse" x1="1525.16" y1="1627.64" x2="1736.78" y2="1772.69">
-		<stop offset="0" stop-opacity="1" stop-color="rgb(190,126,139)"/>
-		<stop offset="1" stop-opacity="1" stop-color="rgb(91,90,235)"/>
+		<stop class="stop0" offset="0" stop-opacity="1" stop-color="rgb(190,126,139)"/>
+		<stop class="stop1" offset="1" stop-opacity="1" stop-color="rgb(91,90,235)"/>
 	</linearGradient>
 	<linearGradient id="Gradient5" gradientUnits="userSpaceOnUse" x1="1450.92" y1="1417.23" x2="1812.55" y2="1319.98">
-		<stop offset="0" stop-opacity="1" stop-color="rgb(97,106,239)"/>
-		<stop offset="1" stop-opacity="1" stop-color="rgb(131,165,250)"/>
+		<stop class="stop0" offset="0" stop-opacity="1" stop-color="rgb(97,106,239)"/>
+		<stop class="stop1" offset="1" stop-opacity="1" stop-color="rgb(131,165,250)"/>
 	</linearGradient>
 	<linearGradient id="Gradient6" gradientUnits="userSpaceOnUse" x1="1211.6" y1="1571.48" x2="1674.97" y2="1530.6">
-		<stop offset="0" stop-opacity="1" stop-color="rgb(221,117,76)"/>
-		<stop offset="1" stop-opacity="1" stop-color="rgb(186,122,131)"/>
+		<stop class="stop0" offset="0" stop-opacity="1" stop-color="rgb(221,117,76)"/>
+		<stop class="stop1" offset="1" stop-opacity="1" stop-color="rgb(186,122,131)"/>
 	</linearGradient>
 </defs>
 <path transform="translate(0,0)" fill="url(#Gradient6)" d="M 1563.67 1897.43 C 1537.06 1901.09 1496.1 1897.38 1470 1891.88 C 1386.49 1874.16 1313.53 1823.8 1267.37 1752 C 1162.09 1590.01 1198.67 1346.8 1366.24 1240.05 C 1437.6 1195.46 1523.54 1180.51 1605.77 1198.37 C 1664.12 1210.41 1714.08 1238.13 1757 1279.32 C 1778.14 1300.35 1802.1 1330.78 1815.97 1357.24 C 1830.98 1377.92 1845.21 1428.49 1852.22 1453.81 L 1713.85 1453.7 C 1708.29 1442.3 1704.35 1430.67 1698.08 1419.33 C 1648.61 1329.81 1554.81 1300.03 1461.42 1337.06 C 1438.77 1347.96 1432.79 1353.65 1413.01 1368.06 C 1389.88 1392.76 1380.48 1405.94 1364.55 1435.56 C 1352.05 1467.79 1344.63 1490.96 1341.64 1526.34 C 1340.78 1536.59 1341.37 1549.78 1340.63 1557.95 C 1348.36 1617.63 1360.61 1657.28 1398.22 1705.86 C 1412.91 1720.76 1427.36 1735.24 1445.86 1745.53 C 1505.86 1777.49 1561.67 1777.98 1622.35 1747.72 C 1636.47 1739.51 1646.76 1731.6 1658.87 1720.85 C 1688.13 1692.8 1701.3 1666.14 1715.45 1629.36 C 1754.65 1629.32 1811.83 1627.71 1850.06 1630.27 L 1852.37 1631.54 C 1852.12 1639.88 1845.51 1665.96 1842.33 1673.53 C 1834.61 1701.64 1812.2 1745.21 1793.61 1768.54 C 1746.27 1834.47 1672.94 1881.35 1592.51 1894.71 C 1585.25 1895.92 1570.9 1897.75 1563.67 1897.43 z"/>

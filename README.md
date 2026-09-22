@@ -1,4 +1,4 @@
-<img src="src/main/resources/META-INF/pluginIcon.svg" width="80" alt="Claudex Autocomplete logo">
+<img src="docs/logo.svg" width="96" alt="Claudex Autocomplete logo">
 
 # Claudex Autocomplete
 
