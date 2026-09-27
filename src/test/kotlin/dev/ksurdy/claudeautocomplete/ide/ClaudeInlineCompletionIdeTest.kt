@@ -4,6 +4,7 @@ import com.intellij.codeInsight.inline.completion.testInlineCompletion
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.jetbrains.php.lang.PhpFileType
+import org.jetbrains.yaml.YAMLFileType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
@@ -313,6 +314,59 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         callInlineCompletion()
         delay()
         assertTrue(fake.contexts.single().importedClasses.isEmpty())
+    }
+
+    fun testYamlDirectCallAfterKey() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(YAMLFileType.YML, "services:\n  app.mailer:\n    class: <caret>\n")
+        callInlineCompletion()
+        delay()
+        assertInlineElements { gray("world") }
+    }
+
+    fun testYamlTypingAtEndOfLine() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(YAMLFileType.YML, "services:\n  app.mailer:\n    class: App\\Mai<caret>\n")
+        typeChar('l')
+        delay()
+        assertInlineElements { gray("world") }
+    }
+
+    fun testYamlBlankIndentedLine() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(YAMLFileType.YML, "services:\n  app.mailer:\n    <caret>\n")
+        callInlineCompletion()
+        delay()
+        assertInlineElements { gray("world") }
+    }
+
+    fun testYamlListItem() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(YAMLFileType.YML, "items:\n  - <caret>\n")
+        callInlineCompletion()
+        delay()
+        assertInlineElements { gray("world") }
+    }
+
+    fun testYamlTypingNewlineAfterKey() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(YAMLFileType.YML, "services:<caret>")
+        typeChar('\n')
+        delay()
+        assertInlineElements { gray("world") }
+    }
+
+    fun testYamlTypingWithLookupOpen() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(YAMLFileType.YML, "a: foobar1\nb: foobar2\nkey: foo<caret>\n")
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait { myFixture.completeBasic() }
+        typeChar('b')
+        delay()
+        assertInlineElements { gray("world") }
+    }
+
+    fun testYamlSuggestionSurvivesLookupPopup() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        init(YAMLFileType.YML, "a: foobar1\nb: foobar2\nkey: foo<caret>\n")
+        typeChar('b')
+        delay()
+        assertInlineElements { gray("world") }
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait { myFixture.completeBasic() }
+        delay()
+        assertInlineElements { gray("world") }
     }
 
     fun testProviderSettingRoutesToSelectedProvider() = myFixture.testInlineCompletion(timeout = 30.seconds) {
