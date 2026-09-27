@@ -32,3 +32,15 @@ class SettingsMappingTest {
         assertEquals("haiku", config.claude.model)
     }
 }
+
+class SettingsConsentTest {
+    @Test
+    fun inactiveUntilConsentGiven() {
+        val state = ClaudeAutocompleteSettings.State()
+        kotlin.test.assertFalse(state.isActive)
+        state.consentGiven = true
+        kotlin.test.assertTrue(state.isActive)
+        state.enabled = false
+        kotlin.test.assertFalse(state.isActive)
+    }
+}

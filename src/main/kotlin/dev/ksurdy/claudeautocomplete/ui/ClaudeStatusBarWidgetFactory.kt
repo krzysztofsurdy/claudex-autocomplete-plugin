@@ -23,6 +23,7 @@ import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
 import dev.ksurdy.claudeautocomplete.activeModel
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.displayName
+import dev.ksurdy.claudeautocomplete.isActive
 import dev.ksurdy.claudeautocomplete.providerKind
 import dev.ksurdy.claudeautocomplete.toBackendConfig
 import dev.ksurdy.claudeautocomplete.StatusFormatter
@@ -48,8 +49,6 @@ class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
 class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.TextPresentation {
     private var statusBar: StatusBar? = null
     private val ticker = Timer(TICK_MS) { onStatusChanged() }.apply { isRepeats = true }
-    private val usageTimer = Timer(USAGE_CHECK_MS) { BackendService.getInstance().refreshUsageIfStale() }
-        .apply { isRepeats = true }
     private val listener: () -> Unit = {
         ApplicationManager.getApplication().invokeLater({ onStatusChanged() }, ModalityState.any())
     }
@@ -61,13 +60,10 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     override fun install(statusBar: StatusBar) {
         this.statusBar = statusBar
         StatusService.getInstance().addListener(listener)
-        usageTimer.start()
-        BackendService.getInstance().refreshUsageIfStale()
     }
 
     override fun dispose() {
         ticker.stop()
-        usageTimer.stop()
         StatusService.getInstance().removeListener(listener)
         statusBar = null
     }
@@ -75,12 +71,12 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     override fun getText(): String {
         val state = settings().state
         return StatusFormatter.widgetText(
-            enabled = state.enabled,
+            enabled = state.isActive,
             status = StatusService.getInstance().status,
             usage = StatusService.getInstance().usage,
             showUsage = state.showUsageInStatusBar,
             nowMs = System.currentTimeMillis(),
-            providerName = state.providerKind().displayName(),
+            providerName = if (state.consentGiven) state.providerKind().displayName() else "Claudex",
         )
     }
 
@@ -90,7 +86,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
         val service = StatusService.getInstance()
         val state = settings().state
         return StatusFormatter.tooltip(
-            enabled = state.enabled,
+            enabled = state.isActive,
             status = service.status,
             usage = service.usage,
             lastLatencyMs = service.lastLatencyMs,
@@ -105,16 +101,16 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
 
     private fun onStatusChanged() {
         val service = StatusService.getInstance()
-        if (StatusFormatter.isAnimating(settings().state.enabled, service.status, System.currentTimeMillis())) ticker.start() else ticker.stop()
+        if (StatusFormatter.isAnimating(settings().state.isActive, service.status, System.currentTimeMillis())) ticker.start() else ticker.stop()
         statusBar?.updateWidget(ID)
     }
 
     private fun showMenu(event: MouseEvent) {
         val bar = statusBar ?: return
-        val enabled = settings().state.enabled
+        val enabled = settings().isActive
         val group = DefaultActionGroup(
             action(if (enabled) "Disable Claudex Autocomplete" else "Enable Claudex Autocomplete") {
-                settings().state.enabled = !enabled
+                if (enabled) settings().state.enabled = false else settings().grantConsent()
                 StatusService.getInstance().refresh()
             },
             DefaultActionGroup("Provider", true).apply {
@@ -138,6 +134,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     }
 
     private fun refreshUsage() {
+        if (!settings().state.consentGiven) return
         val config = settings().toBackendConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             runBlocking { BackendService.getInstance().refreshUsage(config) }
@@ -165,6 +162,5 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     companion object {
         const val ID = "ClaudeAutocompleteStatus"
         private const val TICK_MS = 500
-        private const val USAGE_CHECK_MS = 60_000
     }
 }

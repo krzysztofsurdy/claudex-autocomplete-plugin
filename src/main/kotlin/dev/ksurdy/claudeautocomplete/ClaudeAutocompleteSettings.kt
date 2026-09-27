@@ -17,6 +17,7 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
 
     class State : BaseState() {
         var enabled by property(true)
+        var consentGiven by property(false)
         var provider by string("claude")
         var claudePath by string("")
         var codexPath by string("")
@@ -45,6 +46,13 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var disabledLanguages by string("")
     }
 
+    val isActive: Boolean get() = state.isActive
+
+    fun grantConsent() {
+        state.consentGiven = true
+        state.enabled = true
+    }
+
     fun toClaudeConfig(): ClaudeConfig = state.toClaudeConfig()
 
     fun toBackendConfig(): BackendConfig = state.toBackendConfig()
@@ -53,6 +61,8 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         fun getInstance(): ClaudeAutocompleteSettings = service()
     }
 }
+
+val ClaudeAutocompleteSettings.State.isActive: Boolean get() = enabled && consentGiven
 
 fun ClaudeAutocompleteSettings.State.toClaudeConfig(): ClaudeConfig = ClaudeConfig(
     claudePath = claudePath.orEmpty(),

@@ -25,7 +25,7 @@ class BackendService : Disposable {
     }
 
     @Volatile
-    var engine: CompletionEngine = RouterEngine(router)
+    var engine: CompletionEngine = RouterEngine(router, onCompleted = ::refreshUsageIfStale)
 
     private val refreshing = AtomicBoolean(false)
 
@@ -38,7 +38,6 @@ class BackendService : Disposable {
         status.blockUntil(null)
         status.update(ClaudeStatus.Ready)
         lastRefreshAttempt = null
-        refreshUsageIfStale()
     }
 
     suspend fun refreshUsage(config: BackendConfig): UsageLimits? {
@@ -54,7 +53,7 @@ class BackendService : Disposable {
 
     fun refreshUsageIfStale() {
         val settings = ClaudeAutocompleteSettings.getInstance()
-        if (!settings.state.enabled) return
+        if (!settings.isActive) return
         val status = StatusService.getInstance()
         if (!StatusFormatter.usageIsStale(status.usage, lastRefreshAttempt, Instant.now())) return
         if (!refreshing.compareAndSet(false, true)) return

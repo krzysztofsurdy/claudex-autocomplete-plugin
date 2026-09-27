@@ -31,6 +31,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         fake = FakeCompletionBackend(CompletionResult.Success("world"))
         service.engine = fake
         ClaudeAutocompleteSettings.getInstance().state.debounceMs = 0
+        ClaudeAutocompleteSettings.getInstance().state.consentGiven = true
     }
 
     override fun tearDown() {
@@ -193,6 +194,14 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         } finally {
             StatusService.getInstance().removeListener(listener)
         }
+    }
+
+    fun testNoBackendCallWithoutConsent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.consentGiven = false
+        init(PlainTextFileType.INSTANCE, "noconsent <caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(fake.contexts.isEmpty())
     }
 
     fun testSuccessReportsDoneWithLatency() = myFixture.testInlineCompletion(timeout = 20.seconds) {

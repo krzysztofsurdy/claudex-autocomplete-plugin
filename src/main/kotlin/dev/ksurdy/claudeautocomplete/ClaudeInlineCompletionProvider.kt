@@ -29,7 +29,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     private val generation = AtomicLong()
 
     override fun isEnabled(event: InlineCompletionEvent): Boolean =
-        ClaudeAutocompleteSettings.getInstance().state.enabled && isSupported(event)
+        ClaudeAutocompleteSettings.getInstance().isActive && isSupported(event)
 
     override suspend fun getDebounceDelay(request: InlineCompletionRequest): Duration {
         val gen = generation.incrementAndGet()

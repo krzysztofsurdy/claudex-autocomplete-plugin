@@ -9,10 +9,11 @@ import dev.ksurdy.claudeautocomplete.StatusService
 class ToggleAction : DumbAwareToggleAction() {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
-    override fun isSelected(e: AnActionEvent): Boolean = ClaudeAutocompleteSettings.getInstance().state.enabled
+    override fun isSelected(e: AnActionEvent): Boolean = ClaudeAutocompleteSettings.getInstance().isActive
 
     override fun setSelected(e: AnActionEvent, state: Boolean) {
-        ClaudeAutocompleteSettings.getInstance().state.enabled = state
+        val settings = ClaudeAutocompleteSettings.getInstance()
+        if (state) settings.grantConsent() else settings.state.enabled = false
         StatusService.getInstance().refresh()
     }
 }

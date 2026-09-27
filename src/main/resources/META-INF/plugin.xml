@@ -1,9 +1,9 @@
 <idea-plugin>
   <id>dev.ksurdy.claudeautocomplete</id>
   <name>Claudex Autocomplete</name>
-  <vendor>ksurdy</vendor>
+  <vendor email="surdy@protonmail.com" url="https://github.com/krzysztofsurdy/claudex-autocomplete-plugin">Krzysztof Surdy</vendor>
   <description><![CDATA[
-    <p>Copilot-style inline code completion for JetBrains IDEs, powered by the Claude Code CLI or Codex CLI you already have installed. Uses your Claude or ChatGPT subscription. No API key needed.</p>
+    <p>Inline code completion in your editor, using the Claude Code or Codex CLI you already have installed and logged in. Uses your existing subscription login, no API key needed.</p>
     <h3>Features</h3>
     <ul>
       <li>Inline gray-text suggestions as you type</li>
@@ -23,11 +23,12 @@
     <h3>Getting started</h3>
     <ol>
       <li>Log in: run <code>claude</code> and then <code>/login</code>, or run <code>codex login</code>.</li>
-      <li>Open Settings | Tools | Claudex Autocomplete and select the provider.</li>
-      <li>Start typing. Press Tab to accept, Esc to dismiss, Alt+\ to trigger manually.</li>
+      <li>Choose Enable in the first-run notification, or turn on Enable completions in Settings | Tools | Claudex Autocomplete, and select the provider.</li>
+      <li>Start typing. Press Tab to accept, Esc to dismiss, Shift+Alt+\ to trigger manually, or use Tools | Trigger Claudex Autocomplete to force a completion mid-line.</li>
     </ol>
     <h3>Privacy</h3>
-    <p>The plugin runs your local CLI with your existing subscription login. Code context around the caret, and optionally from open tabs, is sent to Anthropic or OpenAI through that CLI and is subject to their terms.</p>
+    <p>The plugin runs your local CLI with your existing subscription login. Code context around the caret, and optionally from open tabs, is sent to Anthropic or OpenAI through that CLI and is subject to their terms. Nothing is sent until you enable completions.</p>
+    <p>Claudex Autocomplete is an independent project and is not affiliated with, endorsed or sponsored by Anthropic or OpenAI. Claude is a trademark of Anthropic; Codex is a trademark of OpenAI.</p>
   ]]></description>
   <change-notes><![CDATA[
     <h4>0.1.0</h4>
@@ -56,7 +57,9 @@
                              displayName="Claudex Autocomplete"/>
     <statusBarWidgetFactory id="ClaudeAutocompleteStatus"
                             implementation="dev.ksurdy.claudeautocomplete.ui.ClaudeStatusBarWidgetFactory"/>
-    <notificationGroup id="Claude Autocomplete" displayType="BALLOON" icon="/icons/claudex.svg"/>
+    <notificationGroup id="Claude Autocomplete" displayType="BALLOON" icon="/icons/claudex.svg"
+                       displayName="Claudex Autocomplete"/>
+    <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.ConsentPrompt"/>
   </extensions>
 
   <actions>
@@ -69,12 +72,10 @@
     </action>
     <action id="ClaudeAutocomplete.Trigger"
             class="dev.ksurdy.claudeautocomplete.actions.TriggerAction"
-            text="Trigger Claudex Completion"
+            text="Trigger Claudex Autocomplete"
             icon="dev.ksurdy.claudeautocomplete.ClaudexIcons.Logo"
-            description="Request an inline completion from Claude Code or Codex">
-      <keyboard-shortcut keymap="$default" first-keystroke="alt BACK_SLASH"/>
-      <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="alt BACK_SLASH"/>
-      <keyboard-shortcut keymap="Mac OS X" first-keystroke="alt BACK_SLASH"/>
+            description="Request an inline completion from Claude Code or Codex, even in the middle of a line">
+      <add-to-group group-id="ToolsMenu" anchor="after" relative-to-action="ClaudeAutocomplete.Toggle"/>
     </action>
   </actions>
 </idea-plugin>

@@ -14,9 +14,12 @@ interface CompletionEngine {
     fun shutdown()
 }
 
-class RouterEngine(private val router: CompletionRouter) : CompletionEngine {
+class RouterEngine(
+    private val router: CompletionRouter,
+    private val onCompleted: () -> Unit = {},
+) : CompletionEngine {
     override suspend fun complete(context: CompletionContext, config: BackendConfig): CompletionResult =
-        router.complete(context, config)
+        router.complete(context, config).also { onCompleted() }
 
     override suspend fun refreshUsage(config: BackendConfig): UsageLimits? = router.refreshUsage(config)
 
