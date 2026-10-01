@@ -66,11 +66,13 @@ object StatusFormatter {
     }
 
     fun usageSuffix(usage: UsageLimits?): String {
-        val parts = listOfNotNull(
-            usage?.fiveHour?.let { "${windowLabel(it, FIVE_HOUR_MINUTES, usage.provider, true)} ${percent(it.utilization)}" },
-            usage?.sevenDay?.let { "${windowLabel(it, WEEK_MINUTES, usage.provider, true)} ${percent(it.utilization)}" },
+        val candidates = listOfNotNull(
+            usage?.fiveHour?.let { it to FIVE_HOUR_MINUTES },
+            usage?.sevenDay?.let { it to WEEK_MINUTES },
         )
-        return if (parts.isEmpty()) "" else " · " + parts.joinToString(" · ")
+        val (window, slot) = candidates.reduceOrNull { best, next -> if (next.first.utilization > best.first.utilization) next else best }
+            ?: return ""
+        return " · ${windowLabel(window, slot, usage?.provider, true)} ${percent(window.utilization)}"
     }
 
     fun statusLabel(enabled: Boolean, status: ClaudeStatus, nowMs: Long): String = when {

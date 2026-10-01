@@ -53,7 +53,15 @@ class ClaudeAutocompleteConfigurable :
         return panel {
             lateinit var providerCombo: Cell<ComboBox<String>>
             group("General") {
-                row { checkBox("Enable inline completion").bindSelected(state::enabled) }
+                row {
+                    comment("Completions run your local Claude Code or Codex CLI. Code around the cursor and, if enabled below, open tabs and imported class outlines are sent to Anthropic or OpenAI through that CLI.")
+                }
+                row {
+                    checkBox("Enable completions").bindSelected(
+                        { state.isActive },
+                        { state.enabled = it; if (it) state.consentGiven = true },
+                    )
+                }
                 row("Provider:") {
                     providerCombo = comboBox(listOf(CLAUDE_LABEL, CODEX_LABEL))
                         .bindItem(
@@ -64,12 +72,12 @@ class ClaudeAutocompleteConfigurable :
                 row("Disabled languages:") {
                     textField().align(AlignX.FILL)
                         .bindText({ state.disabledLanguages.orEmpty() }, { state.disabledLanguages = it })
-                        .comment("Comma separated language ids, e.g. Markdown, JSON")
+                        .comment("Comma-separated language IDs, e.g. Markdown, JSON")
                 }
             }
             val isCodex = providerCombo.component.selectedValueIs(CODEX_LABEL)
             group("Claude Code") {
-                row("Claude CLI path:") {
+                row("Claude Code CLI path:") {
                     textField().align(AlignX.FILL).bindText({ state.claudePath.orEmpty() }, { state.claudePath = it })
                         .comment("Empty = auto-detect")
                 }
@@ -105,7 +113,7 @@ class ClaudeAutocompleteConfigurable :
                     comboBox(listOf("none", "minimal", "low", "medium", "high"))
                         .bindItem({ state.codexReasoningEffort }, { state.codexReasoningEffort = it ?: "low" })
                 }
-                row { comment("Uses your ChatGPT subscription: run `codex login` in a terminal.") }
+                row { comment("Uses your ChatGPT subscription: run <code>codex login</code> in a terminal.") }
             }.visibleIf(isCodex)
             group("Request") {
                 row {
@@ -118,7 +126,7 @@ class ClaudeAutocompleteConfigurable :
                         .comment("Appended to the system prompt, e.g. Follow PSR-12, prefer readonly properties")
                 }
             }
-            group("Behaviour") {
+            group("Behavior") {
                 row("Debounce (ms):") { intTextField(0..2000).bindIntText(state::debounceMs) }
                 row("Request timeout (ms):") { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
                 row { checkBox("Show loading indicator in editor while generating").bindSelected(state::showInlineLoadingIndicator) }
@@ -129,7 +137,7 @@ class ClaudeAutocompleteConfigurable :
                 }
                 row("Max completion lines:") { intTextField(1..200).bindIntText(state::maxCompletionLines) }
             }
-            group("Current file context") {
+            group("Current File Context") {
                 lateinit var autoRadio: Cell<JBRadioButton>
                 lateinit var aroundRadio: Cell<JBRadioButton>
                 lateinit var linesField: Cell<JBTextField>
@@ -147,18 +155,18 @@ class ClaudeAutocompleteConfigurable :
                 linesField.enabledIf(autoRadio.component.selected or aroundRadio.component.selected)
                 row { comment("Large contexts increase latency and token use. Characters beyond ${FileWindow.HARD_CAP_CHARS / 1000}k are always cut.") }
             }
-            group("Additional context") {
+            group("Additional Context") {
                 lateinit var tabs: Cell<JBCheckBox>
                 lateinit var imports: Cell<JBCheckBox>
                 row { tabs = checkBox("Include open tabs").bindSelected(state::includeOpenTabs) }
                 row("Open tabs char budget:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars).enabledIf(tabs.component.selected) }
-                row { imports = checkBox("Include classes imported via `use` statements (PHP)").bindSelected(state::includeImportedClasses) }
+                row { imports = checkBox("Include classes imported via <code>use</code> statements (PHP)").bindSelected(state::includeImportedClasses) }
                 row("Imported classes char budget:") {
                     intTextField(0..200_000).bindIntText(state::maxImportedClassesChars).enabledIf(imports.component.selected)
                 }
             }
             row {
-                button("Test connection") { runTest(result) }
+                button("Test Connection") { runTest(result) }
                 cell(result)
             }
         }.also { panelRef = it }

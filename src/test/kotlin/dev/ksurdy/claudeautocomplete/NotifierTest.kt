@@ -41,3 +41,17 @@ class NotifierTextTest {
         assertTrue(Notifier.contentFor(Notifier.CODEX, FailureKind.RateLimited, "resets at 14:30")!!.startsWith("Codex usage limit reached, resets at 14:30"))
     }
 }
+
+class NotifierWordingTest {
+    @Test
+    fun usesSettingsPathStyleWithoutBackticks() {
+        listOf(FailureKind.NotLoggedIn, FailureKind.CliNotFound, FailureKind.InvalidModel).forEach { kind ->
+            listOf(Notifier.CLAUDE, Notifier.CODEX).forEach { provider ->
+                val text = Notifier.contentFor(provider, kind, "")!!
+                assertFalse(text.contains('`'), text)
+                assertFalse(text.contains("Settings >"), text)
+            }
+        }
+        assertTrue(Notifier.contentFor(Notifier.CLAUDE, FailureKind.CliNotFound, "")!!.contains("Settings | Tools | Claudex Autocomplete"))
+    }
+}

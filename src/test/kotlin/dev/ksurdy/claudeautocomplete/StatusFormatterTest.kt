@@ -41,8 +41,10 @@ class StatusFormatterTest {
 
     @Test
     fun usageSuffixHidesMissingParts() {
-        assertEquals(" · 5h 42% · 7d 18%", StatusFormatter.usageSuffix(usage()))
+        assertEquals(" · 5h 42%", StatusFormatter.usageSuffix(usage()))
         assertEquals(" · 7d 18%", StatusFormatter.usageSuffix(usage(five = null)))
+        assertEquals(" · 7d 60%", StatusFormatter.usageSuffix(usage(seven = 0.6)))
+        assertEquals(" · 5h 42%", StatusFormatter.usageSuffix(usage(seven = 0.42)))
         assertEquals("", StatusFormatter.usageSuffix(usage(five = null, seven = null)))
         assertEquals("", StatusFormatter.usageSuffix(null))
     }
@@ -70,7 +72,7 @@ class StatusFormatterTest {
 
     @Test
     fun widgetTextAppendsUsageOnlyWhenEnabledInSettings() {
-        assertEquals("Claude: Ready · 5h 42% · 7d 18%", StatusFormatter.widgetText(true, ClaudeStatus.Ready, usage(), true, 0))
+        assertEquals("Claude: Ready · 5h 42%", StatusFormatter.widgetText(true, ClaudeStatus.Ready, usage(), true, 0))
         assertEquals("Claude: Ready", StatusFormatter.widgetText(true, ClaudeStatus.Ready, usage(), false, 0))
         assertEquals("Claude: Ready", StatusFormatter.widgetText(true, ClaudeStatus.Ready, null, true, 0))
     }
@@ -121,15 +123,16 @@ class StatusFormatterTest {
     @Test
     fun codexUsesWeeklyLabel() {
         val codex = usage().copy(provider = dev.ksurdy.claudeautocomplete.backend.ProviderKind.Codex)
-        assertEquals(" \u00B7 5h 42% \u00B7 wk 18%", StatusFormatter.usageSuffix(codex))
+        assertEquals(" \u00B7 5h 42%", StatusFormatter.usageSuffix(codex))
+        assertEquals(" \u00B7 wk 80%", StatusFormatter.usageSuffix(codex.copy(sevenDay = UsageWindow(0.8, null))))
         assertTrue(StatusFormatter.tooltip(true, ClaudeStatus.Ready, codex, null, null, now, zone, "Codex").contains("weekly: 18%"))
     }
 
     @Test
     fun windowLabelsComeFromWindowMinutes() {
         val codex = UsageLimits(UsageWindow(0.1, null, 300), UsageWindow(0.2, null, 10_080), null, now, dev.ksurdy.claudeautocomplete.backend.ProviderKind.Codex)
-        assertEquals(" \u00B7 5h 10% \u00B7 wk 20%", StatusFormatter.usageSuffix(codex))
+        assertEquals(" \u00B7 wk 20%", StatusFormatter.usageSuffix(codex))
         val odd = UsageLimits(UsageWindow(0.1, null, 120), UsageWindow(0.2, null, 4_320), null, now)
-        assertEquals(" \u00B7 2h 10% \u00B7 3d 20%", StatusFormatter.usageSuffix(odd))
+        assertEquals(" \u00B7 3d 20%", StatusFormatter.usageSuffix(odd))
     }
 }

@@ -1,9 +1,11 @@
 package dev.ksurdy.claudeautocomplete
 
 import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
+import com.intellij.openapi.options.ShowSettingsUtil
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import java.util.concurrent.ConcurrentHashMap
 
@@ -17,6 +19,7 @@ class Notifier {
         NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
             .createNotification("Claudex Autocomplete", content, NotificationType.WARNING)
+            .addAction(openSettingsAction("Open Settings"))
             .notify(null)
     }
 
@@ -41,18 +44,22 @@ class Notifier {
 
         fun getInstance(): Notifier = service()
 
+        fun openSettingsAction(text: String): NotificationAction = NotificationAction.createSimpleExpiring(text) {
+            ShowSettingsUtil.getInstance().showSettingsDialog(null, ClaudeAutocompleteConfigurable::class.java)
+        }
+
         fun contentFor(provider: String, kind: FailureKind, message: String): String? = when (kind) {
             FailureKind.NotLoggedIn -> if (provider == CODEX) {
-                "Codex CLI is not logged in. Run `codex login` in a terminal."
+                "Codex CLI is not logged in. Run <code>codex login</code> in a terminal."
             } else {
-                "Claude CLI is not logged in. Run `claude` in a terminal, then `/login`."
+                "Claude CLI is not logged in. Run <code>claude</code> in a terminal, then <code>/login</code>."
             }
             FailureKind.CliNotFound -> if (provider == CODEX) {
-                "Codex CLI not found. Install it (`npm i -g @openai/codex` or `brew install codex`) or set its path in Settings > Tools > Claudex Autocomplete."
+                "Codex CLI not found. Install it (<code>npm i -g @openai/codex</code> or <code>brew install codex</code>) or set its path in Settings | Tools | Claudex Autocomplete."
             } else {
-                "Claude CLI not found. Install it or set its path in Settings > Tools > Claudex Autocomplete."
+                "Claude CLI not found. Install it or set its path in Settings | Tools | Claudex Autocomplete."
             }
-            FailureKind.InvalidModel -> "Invalid $provider model. Check the model name in Settings > Tools > Claudex Autocomplete. $message"
+            FailureKind.InvalidModel -> "Invalid $provider model. Check the model name in Settings | Tools | Claudex Autocomplete. $message"
             FailureKind.RateLimited -> "$provider usage limit reached${if (message.isBlank()) "" else ", $message"}."
             FailureKind.Timeout, FailureKind.Other -> null
         }
