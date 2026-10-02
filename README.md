@@ -27,7 +27,7 @@ Copilot-style inline ghost-text completions for PhpStorm and other JetBrains IDE
 The plugin is not published on JetBrains Marketplace yet. Install from disk:
 
 1. Build it: `./gradlew buildPlugin` (see [Building from source](#building-from-source)).
-2. In the IDE: Settings > Plugins > gear icon > Install Plugin from Disk...
+2. In the IDE: Settings | Plugins > gear icon > Install Plugin from Disk...
 3. Select `build/distributions/claudex-autocomplete-0.1.0.zip` and restart the IDE.
 
 ## Quick start
@@ -35,8 +35,9 @@ The plugin is not published on JetBrains Marketplace yet. Install from disk:
 1. Log in to a CLI in a terminal:
    - Claude: run `claude`, then `/login`.
    - Codex: `npm i -g @openai/codex` (or `brew install codex`), then `codex login`.
-2. Open Settings > Tools > Claudex Autocomplete and pick the Provider.
-3. Click Test connection, then start typing in an editor.
+2. Enable completions. They are off until you consent: choose Enable in the first-run notification (the other choices are Settings and Not now), or tick "Enable completions" in Settings | Tools | Claudex Autocomplete. Nothing is sent to Anthropic or OpenAI before that.
+3. In Settings | Tools | Claudex Autocomplete pick the Provider and click Test Connection.
+4. Start typing in an editor.
 
 ## Keyboard shortcuts
 
@@ -46,16 +47,19 @@ The plugin is not published on JetBrains Marketplace yet. Install from disk:
 | Accept next word | Alt+Right (macOS), Ctrl+Right (Windows/Linux) |
 | Accept rest of line | Cmd+Right (macOS), End (Windows/Linux) |
 | Dismiss | Esc |
-| Trigger a completion manually | Alt+\ |
+| Trigger a completion manually | Shift+Alt+\ |
 
-Word and line accept reuse your keymap's Next Word and Line End shortcuts. Tools > Toggle Claudex Autocomplete (or a click on the status bar widget) enables or disables the plugin.
+Word and line accept reuse your keymap's Next Word and Line End shortcuts. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) enables or disables the plugin.
+
+Tools | Trigger Claudex Autocomplete forces a completion even in the middle of a line. It has no default shortcut; assign one in Settings | Keymap if you want it.
 
 ## Settings
 
-Settings > Tools > Claudex Autocomplete. The most useful options:
+Settings | Tools | Claudex Autocomplete. The most useful options:
 
 | Setting | Default | Notes |
 |---|---|---|
+| Enable completions | off | Set by the first-run notification or this checkbox |
 | Provider | Claude Code | Claude Code or Codex |
 | Claude CLI path / Codex CLI path | empty | Empty = auto-detect common install locations |
 | Model (Claude) | haiku | haiku, sonnet, opus, fable or a full model id |
@@ -71,7 +75,7 @@ Settings > Tools > Claudex Autocomplete. The most useful options:
 | Custom prompt additions | empty | Appended to the system prompt |
 | Disabled languages | empty | Comma-separated language ids |
 
-"Test connection" runs one completion with the values currently in the form, without saving them.
+"Test Connection" runs one completion with the values currently in the form, without saving them.
 
 ## How it works
 
@@ -83,14 +87,16 @@ Your code context is sent to Anthropic or OpenAI through the respective CLI, sub
 
 ## Status bar
 
-The widget shows `Claude: Ready`, `Waiting...`, `Thinking... Ns`, the last latency, `Off`, `Error` or `Limit reached`, plus usage like `5h 42% · 7d 18%` once known. The tooltip lists reset times and the model. Click it for Enable/Disable, Provider, Open Settings and Refresh Usage. When a usage limit is hit, requests pause until the reset time.
+The widget shows `Claudex: Off` until completions are enabled. Afterwards it shows the provider and state, for example `Claude: Ready`, `Waiting...`, `Thinking... Ns`, the last latency, `Error` or `Limit reached`. Only the usage window closest to its limit is shown, for example `Claude: Ready · 5h 41%`; the tooltip lists both windows with reset times, plus the model. Click it for Enable/Disable, Provider, Open Settings and Refresh Usage.
+
+No CLI process is started at IDE startup. Usage is refreshed after completions, via Refresh Usage, or Test Connection. When a usage limit is hit, requests pause until the reset time.
 
 ## Troubleshooting
 
 - **Not logged in**: run `claude` then `/login`, or `codex login`, in a terminal.
 - **CLI not found**: set the full path in settings. GUI-launched IDEs have a minimal PATH.
 - **Slow completions**: use `haiku`, keep "Keep CLI process alive" on, effort `low`, thinking off, and reduce the open tabs budget or file context window.
-- **No suggestions**: check the status bar widget, the disabled languages list, and that the caret is at the end of the code on its line.
+- **No suggestions**: check that completions are enabled, the status bar widget, the disabled languages list, and that the caret is at the end of the code on its line.
 - **Limit reached**: completions resume automatically after the reset time shown in the widget tooltip.
 
 ## Building from source
@@ -105,6 +111,14 @@ export JAVA_HOME=/path/to/PhpStorm.app/Contents/jbr/Contents/Home
 ```
 
 Point the build at your IDE with `./gradlew buildPlugin -PlocalIdePath=/path/to/PhpStorm.app` (or set `localIdePath` in `~/.gradle/gradle.properties`).
+
+## Disclaimer
+
+Claudex Autocomplete is an independent project and is not affiliated with, endorsed or sponsored by Anthropic or OpenAI. Claude is a trademark of Anthropic; Codex is a trademark of OpenAI.
+
+## License
+
+Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 ## Contributing
 

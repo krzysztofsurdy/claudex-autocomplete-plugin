@@ -8,10 +8,10 @@ Thanks for helping improve the plugin. This guide covers how to report problems,
 
 Open an issue and include:
 
-- IDE name and build number (Help > About) and the plugin version.
+- IDE name and build number (Help | About) and the plugin version.
 - Provider in use (Claude Code or Codex) and the CLI version (`claude --version` or `codex --version`).
 - Steps to reproduce, what you expected and what happened.
-- A relevant excerpt of `idea.log` (Help > Show Log in Finder/Explorer/Files). Remove anything private before pasting.
+- A relevant excerpt of `idea.log` (Help | Show Log in Finder/Explorer/Files). Remove anything private before pasting.
 
 ### Feature ideas
 
@@ -95,4 +95,5 @@ Pull requests:
 
 - One logical change per PR.
 - `./gradlew test buildPlugin` must pass.
+- Contributions are accepted under the project's GNU GPL v3.0 license (see `LICENSE`).
 - Update `README.md`, and the description and change notes in `src/main/resources/META-INF/plugin.xml`, when user-facing behaviour changes.
