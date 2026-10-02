@@ -1,8 +1,18 @@
-<img src="docs/logo.svg" width="96" alt="Claudex Autocomplete logo">
+<p align="center"><img src="docs/logo.svg" width="160" alt="Claudex Autocomplete logo"></p>
 
-# Claudex Autocomplete
+<h1 align="center">Claudex Autocomplete</h1>
 
-Copilot-style inline ghost-text completions for PhpStorm and other JetBrains IDEs, powered by your local Claude Code CLI or Codex CLI. It uses your existing Claude or ChatGPT subscription login. No API key needed.
+<p align="center">
+  Copilot-style inline ghost-text completions for PhpStorm and other JetBrains IDEs, powered by your local Claude Code CLI or Codex CLI.<br>
+  It uses your existing Claude or ChatGPT subscription login. No API key needed.
+</p>
+
+<p align="center">
+  <a href="https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/actions/workflows/ci.yml"><img src="https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/krzysztofsurdy/claudex-autocomplete-plugin" alt="License: GPL-3.0"></a>
+  <img src="https://img.shields.io/badge/JetBrains%20IDEs-2025.3%2B-000000?logo=jetbrains&logoColor=white" alt="JetBrains IDEs 2025.3+">
+  <img src="https://img.shields.io/badge/Kotlin-2.2-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin 2.2">
+</p>
 
 ## Features
 
@@ -101,7 +111,7 @@ No CLI process is started at IDE startup. Usage is refreshed after completions, 
 
 ## Building from source
 
-Requires a local PhpStorm 2025.3+ install; its bundled JetBrains Runtime is used as the JDK.
+Requires JDK 21. Without extra setup Gradle downloads PhpStorm 2025.3 as the build target. To use a local PhpStorm 2025.3+ install instead (offline, faster), set `localIdePath`; its bundled JetBrains Runtime works as the JDK.
 
 ```
 export JAVA_HOME=/path/to/PhpStorm.app/Contents/jbr/Contents/Home
@@ -110,7 +120,7 @@ export JAVA_HOME=/path/to/PhpStorm.app/Contents/jbr/Contents/Home
 ./gradlew runIde       # sandbox IDE
 ```
 
-Point the build at your IDE with `./gradlew buildPlugin -PlocalIdePath=/path/to/PhpStorm.app` (or set `localIdePath` in `~/.gradle/gradle.properties`).
+Optionally point the build at your local IDE with `./gradlew buildPlugin -PlocalIdePath=/path/to/PhpStorm.app` (or set `localIdePath` in `~/.gradle/gradle.properties`).
 
 ## Disclaimer
 

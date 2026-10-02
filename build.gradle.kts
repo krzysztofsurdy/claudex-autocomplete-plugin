@@ -20,7 +20,12 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        local(providers.gradleProperty("localIdePath").getOrElse("/Users/krzysztof.surdy/Applications/PhpStorm.app"))
+        val localIdePath = providers.gradleProperty("localIdePath")
+        if (localIdePath.isPresent) {
+            local(localIdePath.get())
+        } else {
+            phpstorm("2025.3")
+        }
         bundledPlugin("com.jetbrains.php")
         bundledPlugin("org.jetbrains.plugins.yaml")
         testFramework(TestFrameworkType.Platform)

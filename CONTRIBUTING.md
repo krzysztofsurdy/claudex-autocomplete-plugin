@@ -19,13 +19,13 @@ Open an issue to discuss the idea before writing code, so effort is not spent on
 
 ## Development setup
 
-You need a local PhpStorm 2025.3 or newer. Its bundled JetBrains Runtime is used as the JDK:
+You need JDK 21. By default Gradle downloads PhpStorm 2025.3 as the build target. To use a local PhpStorm 2025.3 or newer instead, set `localIdePath` (optional). Its bundled JetBrains Runtime works as the JDK:
 
 ```
 export JAVA_HOME=/path/to/PhpStorm.app/Contents/jbr/Contents/Home
 ```
 
-Point the build at the IDE with a Gradle property, either per command:
+Optionally point the build at the local IDE with a Gradle property, either per command:
 
 ```
 ./gradlew buildPlugin -PlocalIdePath=/path/to/PhpStorm.app
