@@ -21,6 +21,7 @@ import com.intellij.util.Consumer
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteConfigurable
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
+import dev.ksurdy.claudeautocomplete.ClaudexBundle
 import dev.ksurdy.claudeautocomplete.ConsentPrompt
 import dev.ksurdy.claudeautocomplete.activeModel
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
@@ -39,7 +40,7 @@ import javax.swing.Timer
 class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId(): String = ClaudeStatusBarWidget.ID
 
-    override fun getDisplayName(): String = "Claudex Autocomplete"
+    override fun getDisplayName(): String = ClaudexBundle.message("status.widget.display.name")
 
     override fun isAvailable(project: Project): Boolean = true
 
@@ -119,7 +120,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
         val enabled = settings().isActive
         val consented = settings().state.consentGiven
         val group = DefaultActionGroup(
-            action(if (enabled) "Disable Completions" else if (consented) "Enable Completions" else "Enable Completions…") {
+            action(ClaudexBundle.message(if (enabled) "status.menu.disable" else if (consented) "status.menu.enable" else "status.menu.enable.consent")) {
                 when {
                     enabled -> settings().state.enabled = false
                     consented -> settings().grantConsent()
@@ -127,13 +128,13 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
                 }
                 StatusService.getInstance().refresh()
             },
-            DefaultActionGroup("Provider", true).apply {
+            DefaultActionGroup(ClaudexBundle.message("status.menu.provider"), true).apply {
                 ProviderKind.entries.forEach { add(providerAction(it)) }
             },
-            action("Open settings") {
+            action(ClaudexBundle.message("status.menu.open.settings")) {
                 ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeAutocompleteConfigurable::class.java)
             },
-            object : DumbAwareAction("Refresh Usage") {
+            object : DumbAwareAction(ClaudexBundle.message("status.menu.refresh.usage")) {
                 override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
                 override fun update(e: AnActionEvent) {
@@ -157,10 +158,10 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
 
     private fun askConsent(): Boolean = Messages.showOkCancelDialog(
         project,
-        ConsentPrompt.MESSAGE,
-        "Claudex Autocomplete",
-        "Enable",
-        "Cancel",
+        ConsentPrompt.message(),
+        ClaudexBundle.message("plugin.name"),
+        ClaudexBundle.message("notification.action.enable"),
+        ClaudexBundle.message("consent.dialog.cancel"),
         Messages.getInformationIcon(),
     ) == Messages.OK
 

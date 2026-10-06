@@ -30,7 +30,7 @@ import kotlinx.coroutines.runBlocking
 import javax.swing.JButton
 
 class ClaudeAutocompleteConfigurable :
-    BoundSearchableConfigurable("Claudex Autocomplete", SETTINGS_ID, SETTINGS_ID) {
+    BoundSearchableConfigurable(ClaudexBundle.message("settings.display.name"), SETTINGS_ID, SETTINGS_ID) {
 
     private val persisted get() = ClaudeAutocompleteSettings.getInstance().state
     private val working = ClaudeAutocompleteSettings.State()
@@ -57,126 +57,126 @@ class ClaudeAutocompleteConfigurable :
         val result = JBLabel(" ")
         return panel {
             lateinit var providerCombo: Cell<ComboBox<String>>
-            group("General") {
+            group(ClaudexBundle.message("settings.group.general")) {
                 row {
-                    comment("Completions run your local Claude Code or Codex CLI. Code around the cursor and, if enabled below, open tabs and imported class outlines are sent to Anthropic or OpenAI through that CLI. Secret-like files and files ignored by VCS are never sent.")
+                    comment(ClaudexBundle.message("settings.general.comment"))
                 }
                 row {
-                    checkBox("Enable completions").bindSelected(
+                    checkBox(ClaudexBundle.message("settings.enable")).bindSelected(
                         { state.isActive },
                         { state.enabled = it; if (it) state.consentGiven = true },
                     )
                 }
-                row("Provider:") {
+                row(ClaudexBundle.message("settings.provider")) {
                     providerCombo = comboBox(listOf(CLAUDE_LABEL, CODEX_LABEL))
                         .bindItem(
                             { if (state.provider == "codex") CODEX_LABEL else CLAUDE_LABEL },
                             { state.provider = if (it == CODEX_LABEL) "codex" else "claude" },
                         )
                 }
-                row("Disabled languages:") {
+                row(ClaudexBundle.message("settings.disabled.languages")) {
                     textField().align(AlignX.FILL)
                         .bindText({ state.disabledLanguages.orEmpty() }, { state.disabledLanguages = it })
-                        .comment("Comma-separated language IDs, for example Markdown, JSON.")
+                        .comment(ClaudexBundle.message("settings.disabled.languages.comment"))
                 }
             }
             val isCodex = providerCombo.component.selectedValueIs(CODEX_LABEL)
-            group("Claude Code") {
-                row("Claude Code CLI path:") {
+            group(ClaudexBundle.message("settings.group.claude")) {
+                row(ClaudexBundle.message("settings.claude.path")) {
                     textField().align(AlignX.FILL).bindText({ state.claudePath.orEmpty() }, { state.claudePath = it })
-                        .comment("Leave empty to auto-detect.")
+                        .comment(ClaudexBundle.message("settings.path.comment"))
                 }
-                row("Model:") {
+                row(ClaudexBundle.message("settings.model")) {
                     comboBox(listOf("haiku", "sonnet", "opus", "fable")).applyToComponent { isEditable = true }
                         .bindItem({ state.model }, { state.model = it.orEmpty().trim() })
                 }
-                row("Fallback model:") {
+                row(ClaudexBundle.message("settings.fallback.model")) {
                     textField().bindText({ state.fallbackModel.orEmpty() }, { state.fallbackModel = it.trim() })
                 }
-                row("Effort:") {
+                row(ClaudexBundle.message("settings.effort")) {
                     comboBox(listOf("low", "medium", "high", "xhigh", "max"), optionRenderer())
                         .bindItem({ state.effort }, { state.effort = it ?: "low" })
                 }
-                row { checkBox("Enable thinking").bindSelected(state::thinkingEnabled) }
-                row("Thinking budget (tokens):") {
+                row { checkBox(ClaudexBundle.message("settings.thinking")).bindSelected(state::thinkingEnabled) }
+                row(ClaudexBundle.message("settings.thinking.budget")) {
                     intTextField(0..100_000).bindIntText(state::thinkingBudgetTokens)
                 }
                 row {
-                    comment("ANTHROPIC_API_KEY and CLAUDE_CODE_* environment variables are removed for requests so your Claude subscription login is used.")
+                    comment(ClaudexBundle.message("settings.claude.env.comment"))
                 }
             }.visibleIf(isCodex.not())
-            group("Codex") {
-                row("Codex CLI path:") {
+            group(ClaudexBundle.message("settings.group.codex")) {
+                row(ClaudexBundle.message("settings.codex.path")) {
                     textField().align(AlignX.FILL).bindText({ state.codexPath.orEmpty() }, { state.codexPath = it })
-                        .comment("Leave empty to auto-detect.")
+                        .comment(ClaudexBundle.message("settings.path.comment"))
                 }
-                row("Model:") {
+                row(ClaudexBundle.message("settings.model")) {
                     comboBox(listOf("gpt-5.3-codex", "gpt-5.2", "gpt-5.1-codex-mini")).applyToComponent { isEditable = true }
                         .bindItem({ state.codexModel }, { state.codexModel = it.orEmpty().trim() })
                 }
-                row("Reasoning effort:") {
+                row(ClaudexBundle.message("settings.codex.reasoning")) {
                     comboBox(listOf("none", "minimal", "low", "medium", "high"), optionRenderer())
                         .bindItem({ state.codexReasoningEffort }, { state.codexReasoningEffort = it ?: "low" })
                 }
-                row { comment("Uses your ChatGPT subscription: run <code>codex login</code> in a terminal.") }
+                row { comment(ClaudexBundle.message("settings.codex.login.comment")) }
             }.visibleIf(isCodex)
-            group("Request") {
+            group(ClaudexBundle.message("settings.group.request")) {
                 row {
-                    checkBox("Keep one CLI process alive (faster, Claude only)").bindSelected(state::persistentProcess)
+                    checkBox(ClaudexBundle.message("settings.persistent")).bindSelected(state::persistentProcess)
                         .enabledIf(isCodex.not())
                 }
-                row("Custom prompt additions:") {
+                row(ClaudexBundle.message("settings.custom.instructions")) {
                     textArea().applyToComponent { rows = 5 }.align(AlignX.FILL)
                         .bindText({ state.customInstructions.orEmpty() }, { state.customInstructions = it })
-                        .comment("Appended to the system prompt, for example: Follow PSR-12, prefer readonly properties.")
+                        .comment(ClaudexBundle.message("settings.custom.instructions.comment"))
                 }
             }
-            group("Behavior") {
-                row("Debounce (ms):") { intTextField(0..2000).bindIntText(state::debounceMs) }
-                row("Request timeout (ms):") { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
-                row { checkBox("Show loading indicator in editor while generating").bindSelected(state::showInlineLoadingIndicator) }
-                row { checkBox("Show request state and usage in status bar").bindSelected(state::showUsageInStatusBar) }
-                row("Multi-line mode:") {
+            group(ClaudexBundle.message("settings.group.behavior")) {
+                row(ClaudexBundle.message("settings.debounce")) { intTextField(0..2000).bindIntText(state::debounceMs) }
+                row(ClaudexBundle.message("settings.timeout")) { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
+                row { checkBox(ClaudexBundle.message("settings.loading.indicator")).bindSelected(state::showInlineLoadingIndicator) }
+                row { checkBox(ClaudexBundle.message("settings.status.usage")).bindSelected(state::showUsageInStatusBar) }
+                row(ClaudexBundle.message("settings.multiline")) {
                     comboBox(listOf("auto", "always", "never"), optionRenderer())
                         .bindItem({ state.multilineMode }, { state.multilineMode = it ?: "auto" })
                 }
-                row("Max completion lines:") { intTextField(1..200).bindIntText(state::maxCompletionLines) }
+                row(ClaudexBundle.message("settings.max.lines")) { intTextField(1..200).bindIntText(state::maxCompletionLines) }
             }
-            group("Current File Context") {
+            group(ClaudexBundle.message("settings.group.context")) {
                 lateinit var autoRadio: Cell<JBRadioButton>
                 lateinit var aroundRadio: Cell<JBRadioButton>
                 lateinit var linesField: Cell<JBTextField>
                 buttonsGroup {
                     row {
-                        autoRadio = radioButton("Whole file if it has at most", FileWindow.MODE_AUTO)
+                        autoRadio = radioButton(ClaudexBundle.message("settings.context.auto"), FileWindow.MODE_AUTO)
                         intTextField(1..1_000_000).bindIntText(state::wholeFileMaxLines).enabledIf(autoRadio.component.selected)
-                        label("lines, otherwise")
+                        label(ClaudexBundle.message("settings.context.auto.lines"))
                         linesField = intTextField(1..100_000).bindIntText(state::linesAroundCursor)
-                        label("lines above and below the cursor")
+                        label(ClaudexBundle.message("settings.context.auto.around"))
                     }
-                    row { radioButton("Always the whole file", FileWindow.MODE_WHOLE_FILE) }
-                    row { aroundRadio = radioButton("Only the lines around the cursor (count above)", FileWindow.MODE_LINES_AROUND) }
+                    row { radioButton(ClaudexBundle.message("settings.context.whole"), FileWindow.MODE_WHOLE_FILE) }
+                    row { aroundRadio = radioButton(ClaudexBundle.message("settings.context.around"), FileWindow.MODE_LINES_AROUND) }
                 }.bind({ state.contextMode ?: FileWindow.MODE_AUTO }, { state.contextMode = it })
                 linesField.enabledIf(autoRadio.component.selected or aroundRadio.component.selected)
-                row { comment("Large contexts increase latency and token use. Characters beyond ${FileWindow.HARD_CAP_CHARS / 1000}k are always cut.") }
+                row { comment(ClaudexBundle.message("settings.context.comment", FileWindow.HARD_CAP_CHARS / 1000)) }
             }
-            group("Additional Context") {
+            group(ClaudexBundle.message("settings.group.additional")) {
                 lateinit var tabs: Cell<JBCheckBox>
                 lateinit var imports: Cell<JBCheckBox>
-                row { tabs = checkBox("Include open tabs").bindSelected(state::includeOpenTabs) }
-                row("Character budget for open tabs:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars).enabledIf(tabs.component.selected) }
-                row { imports = checkBox("Include classes imported via <code>use</code> statements (PHP)").bindSelected(state::includeImportedClasses) }
-                row("Character budget for imported classes:") {
+                row { tabs = checkBox(ClaudexBundle.message("settings.include.tabs")).bindSelected(state::includeOpenTabs) }
+                row(ClaudexBundle.message("settings.tabs.budget")) { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars).enabledIf(tabs.component.selected) }
+                row { imports = checkBox(ClaudexBundle.message("settings.include.imports")).bindSelected(state::includeImportedClasses) }
+                row(ClaudexBundle.message("settings.imports.budget")) {
                     intTextField(0..200_000).bindIntText(state::maxImportedClassesChars).enabledIf(imports.component.selected)
                 }
-                row("Excluded file patterns:") {
+                row(ClaudexBundle.message("settings.excluded.patterns")) {
                     textField().align(AlignX.FILL)
                         .bindText({ state.excludedFilePatterns.orEmpty() }, { state.excludedFilePatterns = it })
-                        .comment("Comma-separated file name patterns, for example .env, *.pem. Matching files, files ignored by VCS and files excluded from the project are never sent.")
+                        .comment(ClaudexBundle.message("settings.excluded.patterns.comment"))
                 }
             }
             row {
-                button("Test Connection") { event -> runTest(result, event.source as JButton) }
+                button(ClaudexBundle.message("settings.test.connection")) { event -> runTest(result, event.source as JButton) }
                 cell(result)
             }
         }.also { panelRef = it }
@@ -188,7 +188,7 @@ class ClaudeAutocompleteConfigurable :
         panelRef?.apply()
         button.isEnabled = false
         label.foreground = UIUtil.getLabelForeground()
-        label.text = "Testing…"
+        label.text = ClaudexBundle.message("settings.test.running")
         val config = working.toBackendConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             val started = System.nanoTime()
@@ -199,9 +199,9 @@ class ClaudeAutocompleteConfigurable :
             val failure = outcome as? CompletionResult.Failure
             if (failure != null) LOG.warn("Test connection failed: kind=${failure.kind} message=${failure.message.take(MAX_LOGGED_MESSAGE)}")
             val text = when (outcome) {
-                is CompletionResult.Success -> "OK in $millis ms: ${outcome.text.take(80).replace('\n', ' ')}"
-                CompletionResult.Empty -> "OK in $millis ms (empty completion)"
-                is CompletionResult.Failure -> "Failed (${outcome.kind.label()}): ${outcome.message.take(200)}"
+                is CompletionResult.Success -> ClaudexBundle.message("settings.test.ok", millis, outcome.text.take(80).replace('\n', ' '))
+                CompletionResult.Empty -> ClaudexBundle.message("settings.test.ok.empty", millis)
+                is CompletionResult.Failure -> ClaudexBundle.message("settings.test.failed", outcome.kind.label(), outcome.message.take(200))
             }
             ApplicationManager.getApplication().invokeLater({
                 label.foreground = if (failure != null) NamedColorUtil.getErrorForeground() else UIUtil.getLabelForeground()

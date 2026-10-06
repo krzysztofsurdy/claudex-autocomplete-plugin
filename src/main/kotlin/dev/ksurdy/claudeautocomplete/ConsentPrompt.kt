@@ -13,23 +13,20 @@ class ConsentPrompt : ProjectActivity {
         if (!askedThisSession.compareAndSet(false, true)) return
         NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
-            .createNotification("Claudex Autocomplete", MESSAGE, NotificationType.INFORMATION)
-            .addAction(NotificationAction.createSimpleExpiring("Enable") {
+            .createNotification(ClaudexBundle.message("plugin.name"), message(), NotificationType.INFORMATION)
+            .addAction(NotificationAction.createSimpleExpiring(ClaudexBundle.message("notification.action.enable")) {
                 ClaudeAutocompleteSettings.getInstance().grantConsent()
                 StatusService.getInstance().refresh()
             })
-            .addAction(Notifier.openSettingsAction("Settings"))
-            .addAction(NotificationAction.createSimpleExpiring("Not now") { ClaudeAutocompleteSettings.getInstance().declineConsent() })
+            .addAction(Notifier.openSettingsAction(ClaudexBundle.message("notification.action.settings")))
+            .addAction(NotificationAction.createSimpleExpiring(ClaudexBundle.message("notification.action.not.now")) { ClaudeAutocompleteSettings.getInstance().declineConsent() })
             .notify(project)
     }
 
     companion object {
         const val GROUP_ID = "Claudex Autocomplete Consent"
 
-        const val MESSAGE =
-            "Shows AI completions by running your local Claude Code or Codex CLI. " +
-                "Code around the cursor, and optionally open tabs and imported class outlines, " +
-                "is sent to Anthropic or OpenAI through that CLI. Secret-like and VCS-ignored files are never sent."
+        fun message(): String = ClaudexBundle.message("consent.message")
 
         private val askedThisSession = AtomicBoolean(false)
     }

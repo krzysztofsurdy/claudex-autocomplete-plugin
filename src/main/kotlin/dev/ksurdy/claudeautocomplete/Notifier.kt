@@ -19,8 +19,8 @@ class Notifier {
         if (!shouldNotify(kind, now, provider)) return
         NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
-            .createNotification("Claudex Autocomplete", content, NotificationType.WARNING)
-            .addAction(openSettingsAction("Open settings"))
+            .createNotification(ClaudexBundle.message("plugin.name"), content, NotificationType.WARNING)
+            .addAction(openSettingsAction(ClaudexBundle.message("notification.action.open.settings")))
             .notify(null)
     }
 
@@ -49,20 +49,18 @@ class Notifier {
             ShowSettingsUtil.getInstance().showSettingsDialog(null, ClaudeAutocompleteConfigurable::class.java)
         }
 
-        fun contentFor(provider: String, kind: FailureKind, message: String): String? = when (kind) {
-            FailureKind.NotLoggedIn -> if (provider == CODEX) {
-                "Codex CLI is not logged in. Run <code>codex login</code> in a terminal."
-            } else {
-                "Claude Code CLI is not logged in. Run <code>claude</code> in a terminal, then <code>/login</code>."
+        fun contentFor(provider: String, kind: FailureKind, message: String): String? {
+            val codex = provider == CODEX
+            val escaped = StringUtil.escapeXmlEntities(message)
+            return when (kind) {
+                FailureKind.NotLoggedIn -> ClaudexBundle.message(if (codex) "failure.codex.not.logged.in" else "failure.claude.not.logged.in")
+                FailureKind.CliNotFound -> ClaudexBundle.message(if (codex) "failure.codex.cli.not.found" else "failure.claude.cli.not.found")
+                FailureKind.InvalidModel -> ClaudexBundle.message("failure.invalid.model", provider, escaped)
+                FailureKind.RateLimited ->
+                    if (message.isBlank()) ClaudexBundle.message("failure.rate.limited", provider)
+                    else ClaudexBundle.message("failure.rate.limited.reset", provider, escaped)
+                FailureKind.Timeout, FailureKind.Other -> null
             }
-            FailureKind.CliNotFound -> if (provider == CODEX) {
-                "Codex CLI not found. Install it (<code>npm i -g @openai/codex</code> or <code>brew install codex</code>) or set its path in Settings | Tools | Claudex Autocomplete."
-            } else {
-                "Claude Code CLI not found. Install it or set its path in Settings | Tools | Claudex Autocomplete."
-            }
-            FailureKind.InvalidModel -> "Invalid $provider model. Check the model name in Settings | Tools | Claudex Autocomplete. ${StringUtil.escapeXmlEntities(message)}"
-            FailureKind.RateLimited -> "$provider usage limit reached${if (message.isBlank()) "" else ", ${StringUtil.escapeXmlEntities(message)}"}."
-            FailureKind.Timeout, FailureKind.Other -> null
         }
     }
 }
