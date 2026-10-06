@@ -35,6 +35,10 @@ jobs:
             echo "::error::plugin.xml <change-notes> has no '<h4>${core}</h4>' entry"
             exit 1
           fi
+          if ! grep -qF "## [${core}]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${core}]' section"
+            exit 1
+          fi
           channel=default
           prerelease=false
           if [[ "$version" == *-* ]]; then

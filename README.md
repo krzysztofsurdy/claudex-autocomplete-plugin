@@ -39,7 +39,7 @@ Install from [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/34817-
 1. In the IDE: Settings | Plugins | Marketplace.
 2. Search for "Claudex Autocomplete" and click Install.
 
-Or install a local build from disk: run `./gradlew buildPlugin` (see [Building from source](#building-from-source)), then Settings | Plugins | gear icon | Install Plugin from Disk... and select `build/distributions/claudex-autocomplete-0.1.0.zip`.
+Or install a local build from disk: run `./gradlew buildPlugin` (see [Building from source](#building-from-source)), then Settings | Plugins | gear icon | Install Plugin from Disk... and select `build/distributions/claudex-autocomplete-<version>.zip`.
 
 ## Quick start
 
@@ -58,7 +58,6 @@ Or install a local build from disk: run `./gradlew buildPlugin` (see [Building f
 | Accept next word | Alt+Right (macOS), Ctrl+Right (Windows/Linux) |
 | Accept rest of line | Cmd+Right (macOS), End (Windows/Linux) |
 | Dismiss | Esc |
-| Trigger a completion manually | Shift+Alt+\ (Shift+Option+\ on macOS) |
 
 Word and line accept reuse your keymap's Next Word and Line End shortcuts. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) enables or disables the plugin.
 
@@ -135,3 +134,5 @@ Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for bug reports, setup, tests and commit conventions.
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.

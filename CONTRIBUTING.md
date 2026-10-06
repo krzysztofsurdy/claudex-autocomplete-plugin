@@ -96,6 +96,7 @@ Pull requests:
 - One logical change per PR.
 - `./gradlew test buildPlugin` must pass.
 - Contributions are accepted under the project's GNU GPL v3.0 license (see `LICENSE`).
+- Add a bullet under `## [Unreleased]` in `CHANGELOG.md` for every user-facing change, grouped as Added, Changed, Deprecated, Removed, Fixed or Security.
 - Update `README.md`, and the description and change notes in `src/main/resources/META-INF/plugin.xml`, when user-facing behaviour changes.
 
 ## Branch protection
@@ -106,18 +107,21 @@ Pull requests:
 
 Releases are driven by a version tag. The `Release` workflow tests, verifies, signs (when configured), creates the GitHub Release and publishes to JetBrains Marketplace.
 
-1. Add a `<h4>X.Y.Z</h4>` entry at the top of `<change-notes>` in `src/main/resources/META-INF/plugin.xml`, newest version first. The workflow fails early if the entry for the released version is missing.
-2. Merge the change to `main` through a pull request.
-3. Tag the merge commit and push only that tag (never `git push --tags`):
+1. In `CHANGELOG.md`, move the entries under `## [Unreleased]` into a new `## [X.Y.Z] - YYYY-MM-DD` section and update the link references at the bottom.
+2. Add a matching `<h4>X.Y.Z</h4>` entry at the top of `<change-notes>` in `src/main/resources/META-INF/plugin.xml`, newest version first. The workflow fails early if either the change-notes entry or the changelog section for the released version is missing.
+3. Merge the change to `main` through a pull request.
+4. Tag the merge commit and push only that tag (never `git push --tags`):
 
 ```
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The plugin version comes from the tag (`-PpluginVersion`); `build.gradle.kts` falls back to `0.1.0` for local builds.
+The release waits for approval in the `marketplace` environment before it publishes.
 
-A suffixed tag such as `v0.2.0-beta.1` is published as a GitHub pre-release and to the Marketplace channel named by the first suffix part (`beta`). Change notes are checked against the core version (`0.2.0`). Plain tags go to the default channel.
+The plugin version comes from the tag (`-PpluginVersion`); `build.gradle.kts` falls back to `1.0.0` for local builds.
+
+A suffixed tag such as `v0.2.0-beta.1` is published as a GitHub pre-release and to the Marketplace channel named by the first suffix part (`beta`). Change notes and the changelog are checked against the core version (`0.2.0`). Plain tags go to the default channel.
 
 The release job runs in the `marketplace` GitHub environment, where required reviewers can be configured for a manual approval step.
 

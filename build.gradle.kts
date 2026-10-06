@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "dev.ksurdy.claudeautocomplete"
-version = providers.gradleProperty("pluginVersion").getOrElse("0.1.0")
+version = providers.gradleProperty("pluginVersion").getOrElse("1.0.0")
 
 repositories {
     mavenCentral()
