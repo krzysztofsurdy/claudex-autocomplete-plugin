@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
@@ -55,6 +56,17 @@ kotlin {
 
 intellijPlatform {
     buildSearchableOptions = false
+    pluginVerification {
+        ides {
+            val localIdePath = providers.gradleProperty("localIdePath")
+            if (localIdePath.isPresent) {
+                local(localIdePath.get())
+            } else {
+                create(IntelliJPlatformType.PhpStorm, "2025.3.6.1")
+                create(IntelliJPlatformType.PhpStorm, "2026.2.3")
+            }
+        }
+    }
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "253"

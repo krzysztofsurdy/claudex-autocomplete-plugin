@@ -29,6 +29,6 @@ class PhpImportedClassesProvider : ImportedClassesProvider {
 
     private fun relatedFqns(phpClass: PhpClass): List<String> =
         listOfNotNull(phpClass.superClass?.fqn) +
-            phpClass.directImplementedInterfaces.map { it.fqn } +
+            phpClass.interfaceNames.toList() +
             phpClass.traits.map { it.fqn }
 }

@@ -37,7 +37,7 @@ object PhpClassOutline {
         parts += kind
         parts += phpClass.name
         phpClass.superFQN?.takeIf { it.isNotEmpty() && !phpClass.isInterface }?.let { parts += "extends ${shortName(it)}" }
-        val interfaces = phpClass.directImplementedInterfaces.map { it.name }
+        val interfaces = phpClass.interfaceNames.map { shortName(it) }
         if (interfaces.isNotEmpty()) parts += (if (phpClass.isInterface) "extends " else "implements ") + interfaces.joinToString(", ")
         return parts.joinToString(" ")
     }
