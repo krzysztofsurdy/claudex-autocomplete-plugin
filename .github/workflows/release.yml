@@ -1,0 +1,151 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      channel: ${{ steps.meta.outputs.channel }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate tag and change notes
+        id: meta
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' is not a semantic version (vX.Y.Z or vX.Y.Z-suffix)"
+            exit 1
+          fi
+          core="${version%%-*}"
+          if ! grep -qF "<h4>${core}</h4>" src/main/resources/META-INF/plugin.xml; then
+            echo "::error::plugin.xml <change-notes> has no '<h4>${core}</h4>' entry"
+            exit 1
+          fi
+          channel=default
+          prerelease=false
+          if [[ "$version" == *-* ]]; then
+            suffix="${version#*-}"
+            channel="${suffix%%.*}"
+            prerelease=true
+          fi
+          {
+            echo "version=$version"
+            echo "channel=$channel"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Test, build and verify
+        run: ./gradlew test buildPlugin verifyPluginProjectConfiguration -PpluginVersion=${{ needs.prepare.outputs.version }} --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: build/reports/tests
+          if-no-files-found: ignore
+
+  verify:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Verify plugin against target IDEs
+        run: ./gradlew verifyPlugin -PpluginVersion=${{ needs.prepare.outputs.version }} --stacktrace
+
+      - name: Upload verifier reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verifier-reports
+          path: build/reports/pluginVerifier
+          if-no-files-found: ignore
+
+  release:
+    needs: [prepare, test, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: marketplace
+    permissions:
+      contents: write
+    env:
+      CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+      PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Require publish token
+        run: |
+          if [ -z "$PUBLISH_TOKEN" ]; then
+            echo "::error::Secret PUBLISH_TOKEN is not set"
+            exit 1
+          fi
+
+      - name: Build and sign
+        run: ./gradlew buildPlugin signPlugin -PpluginVersion=${{ needs.prepare.outputs.version }} --stacktrace
+
+      - name: Select release artifact
+        id: artifact
+        run: |
+          zip=$(ls build/distributions/*-signed.zip 2>/dev/null || ls build/distributions/*-${{ needs.prepare.outputs.version }}.zip)
+          echo "Releasing $zip"
+          echo "path=$zip" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        run: |
+          flags=()
+          if [ "${{ needs.prepare.outputs.prerelease }}" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" "${{ steps.artifact.outputs.path }}" \
+            --title "$GITHUB_REF_NAME" --generate-notes --verify-tag "${flags[@]}"
+
+      - name: Publish to JetBrains Marketplace
+        run: ./gradlew publishPlugin -PpluginVersion=${{ needs.prepare.outputs.version }} -PpluginChannel=${{ needs.prepare.outputs.channel }} --stacktrace

@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "dev.ksurdy.claudeautocomplete"
-version = "0.1.0"
+version = providers.gradleProperty("pluginVersion").getOrElse("0.1.0")
 
 repositories {
     mavenCentral()
@@ -73,5 +73,14 @@ intellijPlatform {
             sinceBuild = "253"
             untilBuild = provider { null }
         }
+    }
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+        channels = providers.gradleProperty("pluginChannel").map { listOf(it) }.orElse(listOf("default"))
     }
 }
