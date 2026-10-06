@@ -12,14 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Codex CLI as a second completion provider, selectable next to Claude Code in settings.
-- Animated braille spinner with elapsed time while a suggestion is being generated.
-- Status bar widget showing request state and subscription usage windows, refreshed on startup, on demand and every 10 minutes.
-- Configurable file context: whole file or a number of lines around the caret.
+- Braille spinner with elapsed time while generating.
+- Status bar widget with request state and usage windows, refreshed after completions, on demand and via Test Connection.
+- File context: whole file or lines around the caret.
 - Context from open editor tabs.
 - Outlines of imported classes as context for PHP files.
 - Custom prompt additions in settings.
-- First-run consent notification. Completions stay off, and nothing is sent to Anthropic or OpenAI, until you enable them.
-- Tools | Trigger Claudex Autocomplete action to force a completion, including mid-line. Assign your own shortcut in Keymap.
+- First-run consent notification. Completions stay off until you enable them, nothing is sent before.
+- Tools | Trigger Claudex Autocomplete forces a completion, also mid-line. Assign a shortcut in Keymap.
 - Plugin settings are included in the Settings search.
 
 ### Changed
@@ -27,14 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed to Claudex Autocomplete with a new logo.
 - Claude Code runs as a persistent process for lower latency.
 - Usage windows are labelled from their actual duration, including weekly limits for Codex.
-- Settings, notifications and status bar texts follow the JetBrains UI guidelines and live in a message bundle.
-- The CLI is no longer started at IDE startup; it starts on first use after consent.
+- Settings, notification and status bar texts follow JetBrains UI guidelines.
+- CLI no longer starts at IDE startup, only on first use after consent.
 
 ### Fixed
 
 - Declining the consent prompt now stays declined.
-- Inline completion works in YAML files.
-- Compatibility with the JetBrains Plugin Verifier: internal PHP API usage removed.
+- Plugin Verifier compatibility: internal PHP API usage removed.
 
 ### Security
 

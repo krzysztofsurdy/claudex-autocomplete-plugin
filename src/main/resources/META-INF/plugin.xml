@@ -24,7 +24,7 @@
     <ol>
       <li>Log in: run <code>claude</code> and then <code>/login</code>, or run <code>codex login</code>.</li>
       <li>Choose Enable in the first-run notification, or turn on Enable completions in Settings | Tools | Claudex Autocomplete, and select the provider.</li>
-      <li>Start typing. Press Tab to accept, Esc to dismiss, or use Tools | Trigger Claudex Autocomplete to force a completion mid-line.</li>
+      <li>Start typing. Press Tab to accept, Esc to dismiss, Shift+Alt+\ (Shift+Option+\ on macOS) to trigger manually, or use Tools | Trigger Claudex Autocomplete to force a completion mid-line.</li>
     </ol>
     <h3>Privacy</h3>
     <p>The plugin runs your local CLI with your existing subscription login. Code context around the caret, and optionally from open tabs, is sent to Anthropic or OpenAI through that CLI and is subject to their terms. Files that look like secrets (such as .env, keys and credentials) and files ignored by VCS are never sent. Nothing is sent until you enable completions.</p>
