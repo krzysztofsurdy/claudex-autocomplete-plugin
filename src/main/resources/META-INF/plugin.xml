@@ -31,6 +31,16 @@
     <p>Claudex Autocomplete is an independent project and is not affiliated with, endorsed or sponsored by Anthropic or OpenAI. Claude is a trademark of Anthropic; Codex is a trademark of OpenAI.</p>
   ]]></description>
   <change-notes><![CDATA[
+    <h4>1.0.0</h4>
+    <ul>
+      <li>Codex CLI as a second provider next to Claude Code</li>
+      <li>Spinner with elapsed time and status bar with request state and usage windows</li>
+      <li>Configurable file context, open tabs and PHP imported-class outlines</li>
+      <li>Custom prompt additions and a manual trigger action in the Tools menu</li>
+      <li>First-run consent: nothing is sent and no CLI is started before you enable completions</li>
+      <li>Secret-like and VCS-ignored files are never sent as context</li>
+      <li>Persistent Claude Code process, searchable settings and Plugin Verifier fixes</li>
+    </ul>
     <h4>0.1.0</h4>
     <ul>
       <li>Initial release</li>

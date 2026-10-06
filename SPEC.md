@@ -1,172 +1,102 @@
-# Claudex Autocomplete for JetBrains - Spec
+# Claudex Autocomplete - Spec
 
-Copilot-style inline ghost-text completion for PhpStorm 2025.3+ (build 253+), backed by the local
-Claude Code CLI so it uses the user's Claude subscription (OAuth, no API key).
+Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the local Claude Code or Codex CLI. Uses the user's subscription login, no API key.
 
 ## Build
 
-- `export JAVA_HOME=/Users/krzysztof.surdy/Applications/PhpStorm.app/Contents/jbr/Contents/Home`
-- `./gradlew test`, `./gradlew buildPlugin` (zip in `build/distributions/`), `./gradlew runIde`
-- Kotlin 2.2.20, IntelliJ Platform Gradle Plugin 2.19.0, Gradle 9.8.0, JVM 21, `local(PhpStorm.app)`.
-- Never add a kotlinx-coroutines dependency (bundled by the platform). Tests: JUnit 5 + kotlin-test.
-- Base package: `dev.ksurdy.claudeautocomplete`. Plugin id: `dev.ksurdy.claudeautocomplete`.
-- Only `com.intellij.modules.platform` dependency (works in every JetBrains IDE, not only PhpStorm).
+- JDK 21, Kotlin 2.2.20, IntelliJ Platform Gradle Plugin 2.19.0, Gradle 9.8.0.
+- `./gradlew test`, `./gradlew buildPlugin`, `./gradlew runIde`. Set `localIdePath` to use a local IDE.
+- Base package and plugin id: `dev.ksurdy.claudeautocomplete`.
+- Only `com.intellij.modules.platform` is required. PHP support is an optional dependency (`claude-autocomplete-php.xml`).
+- No coroutines dependency, the platform bundles it. JSON goes through the bundled Gson.
 
-## Copilot behaviours to reproduce
+## Behaviour
 
-1. Gray text appears automatically after a pause in typing (debounce, default 250 ms).
-2. Tab accepts all; next-word / next-line partial accept and Esc dismiss come from the platform
-   (`InlineCompletion` action group) - do not reimplement.
-3. Typing characters that match the suggestion keeps it and trims it (platform default update manager).
-4. Every keystroke cancels the in-flight request (DebouncedInlineCompletionProvider + interrupt CLI).
-5. Manual trigger action `Alt+\` (Copilot's shortcut) - `ClaudeAutocomplete.Trigger`.
-6. Mid-line rules: only suggest when the text right of the caret on the current line is empty or
-   only closing chars / whitespace (`)]}>"';,` etc.). Otherwise no request.
-7. Single-line vs multi-line: multi-line only when the caret line is blank (only whitespace before
-   caret), or the caret is at end of line (rest only closers/whitespace) and the prefix ends (ignoring
-   spaces/tabs) with `{`, `[` or a python-style block `:` (not `::`); otherwise single-line (truncate
-   at first newline). `(`, `->`, `=>` and function signatures no longer count as openers.
-8. Strip overlap: if the completion ends with text that already follows the caret (suffix), trim
-   the duplicated tail; if the completion starts with text already left of the caret (model echoed
-   the prefix's last line), trim the echoed head.
-9. Small LRU cache (32 entries) keyed by hash(prefix tail + suffix head + model) so going back/forth
-   re-shows the same suggestion without a CLI call.
-10. Status bar widget: shows state (Ready / Thinking / Disabled / Error: not logged in). Click
-    toggles enabled globally. Tools menu action `ClaudeAutocomplete.Toggle`.
-11. Disabled per language list; no completions in read-only/viewer editors, in files larger than
-    the cap, or when a lookup popup is not the trigger.
-12. Error surfacing: one balloon notification (group `Claudex Autocomplete`) on "Not logged in"
-    (tell user to run `claude` then `/login` in a terminal), CLI not found, or invalid model.
-    Throttle to once per 5 minutes per error kind. Never spam.
+1. Suggestion shows after a pause in typing (debounce, default 250 ms).
+2. Accept, next word and dismiss come from the platform inline completion actions.
+3. A new keystroke cancels the in-flight request.
+4. Manual trigger: the platform's `CallInlineCompletionAction` (Shift+Alt+\). `Tools | Trigger Claudex Autocomplete` (`ClaudeAutocomplete.Trigger`) forces a completion mid-line, no default shortcut.
+5. Only suggest when the rest of the line is empty or closers/whitespace (`)]}>"';,` and backtick).
+6. Multi-line when the caret line is blank, or the rest of the line is closers and the prefix ends with `{`, `[` or `:` (not `::`). Otherwise single-line. Setting `multilineMode` overrides (auto/always/never).
+7. Post-processing: strip code fences, trim echoed head and overlapping tail, cut to single line or `maxCompletionLines`, trim trailing whitespace.
+8. LRU cache, 32 entries, 60 s TTL. Key: provider, model settings, file, language, mode, last 500 chars of prefix, first 200 of suffix, imported classes.
+9. No completions in read-only editors, files over 1,000,000 chars, or disabled languages.
+10. Nothing runs until the user consents (`consentGiven`). First-run notification: Enable / Settings / Not now.
+11. Failure notifications (group `Claude Autocomplete`): not logged in, CLI not found, invalid model, rate limited. Throttled to once per 5 min per provider and kind.
+12. Files matching `excludedFilePatterns`, VCS-ignored files and files excluded from the project are never sent as context.
 
-## Settings (app-level, `ClaudeAutocompleteSettings`, Settings > Tools > Claudex Autocomplete)
+## Settings
 
-| Field | Type | Default | Notes |
-|---|---|---|---|
-| enabled | Boolean | true | |
-| provider | String | "claude" | claude / codex; selects the backend (status bar menu can switch it) |
-| codexPath | String | "" | empty = auto-detect the `codex` binary |
-| codexModel | String | "gpt-5.3-codex" | editable combo |
-| codexReasoningEffort | String | "low" | none, minimal, low, medium, high |
-| claudePath | String | "" | empty = auto-detect: `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`, `~/.claude/local/claude`, then `$SHELL -lc 'command -v claude'` |
-| model | String | "haiku" | combo: haiku, sonnet, opus, fable, or any full model id (editable) |
-| fallbackModel | String | "" | passed as `--fallback-model` when non-empty |
-| effort | String | "low" | low, medium, high, xhigh, max -> `--effort` |
-| thinkingEnabled | Boolean | false | false -> env `MAX_THINKING_TOKENS=0` |
-| thinkingBudgetTokens | Int | 1024 | used as `MAX_THINKING_TOKENS` when thinking enabled |
-| debounceMs | Int | 250 | 0..2000 |
-| requestTimeoutMs | Int | 8000 | hard timeout per completion |
-| contextMode | String | "auto" | auto / wholeFile / linesAround |
-| wholeFileMaxLines | Int | 1000 | auto: send the whole file when it has at most this many lines |
-| linesAroundCursor | Int | 150 | lines above AND below the caret line when windowed (auto above the threshold, or linesAround) |
-| includeOpenTabs | Boolean | true | |
-| maxOpenTabsChars | Int | 6000 | total budget, split across tabs, most recently selected first |
-| includeImportedClasses | Boolean | true | PHP: outlines of classes imported via `use`, plus parent class/interfaces/traits |
-| maxImportedClassesChars | Int | 8000 | total budget for imported class outlines |
-| showInlineLoadingIndicator | Boolean | true | animated dots at line end while generating |
-| showUsageInStatusBar | Boolean | true | append 5h / 7d usage to the status bar widget |
-| multilineMode | String | "auto" | auto / always / never |
-| maxCompletionLines | Int | 12 | |
-| persistentProcess | Boolean | true | keep one CLI process alive (stream-json), else spawn per request |
-| customInstructions | String | "" | UI label "Custom prompt additions" (multi-line); appended to the system prompt |
-| disabledLanguages | String | "" | comma separated language ids, case-insensitive |
+App-level `ClaudeAutocompleteSettings`, stored in `claude-autocomplete.xml`. UI: Settings | Tools | Claudex Autocomplete.
 
-## What each request contains (user message)
+| Field | Default | Notes |
+|---|---|---|
+| enabled | true | Only active together with `consentGiven` (default false) |
+| provider | claude | claude / codex |
+| claudePath, codexPath | empty | Empty = auto-detect |
+| model | haiku | haiku, sonnet, opus, fable or a full id |
+| fallbackModel | empty | `--fallback-model` when set |
+| effort | low | `--effort` |
+| thinkingEnabled | false | false = `MAX_THINKING_TOKENS=0` |
+| thinkingBudgetTokens | 1024 | Used when thinking is on |
+| codexModel | gpt-5.3-codex | |
+| codexReasoningEffort | low | none, minimal, low, medium, high |
+| debounceMs | 250 | |
+| requestTimeoutMs | 8000 | |
+| contextMode | auto | auto / wholeFile / linesAround |
+| wholeFileMaxLines | 1000 | Auto sends the whole file up to this many lines |
+| linesAroundCursor | 150 | Lines above and below the caret when windowed |
+| includeOpenTabs, maxOpenTabsChars | true, 6000 | Budget split across tabs, newest first |
+| includeImportedClasses, maxImportedClassesChars | true, 8000 | PHP: imported classes, parent, interfaces, traits |
+| showInlineLoadingIndicator | true | Braille spinner with elapsed time |
+| showUsageInStatusBar | true | |
+| multilineMode | auto | |
+| maxCompletionLines | 12 | |
+| persistentProcess | true | Claude Code only |
+| customInstructions | empty | Appended to the system prompt |
+| disabledLanguages | empty | Comma-separated language ids |
+| excludedFilePatterns | `SensitiveFiles.DEFAULT_PATTERNS` | |
+
+## Request
+
+User message, built by `PromptBuilder`:
 
 ```
-<file path="src/Foo/Bar.php" language="PHP">
-...prefix...<CURSOR/>...suffix...   (whole file, or +-N lines around the caret; see contextMode. A hard cap of 200k chars always applies)
+<open_files>...</open_files>             only with open tabs
+<imported_classes>...</imported_classes> only for PHP with imports
+<file path="..." language="..." indent="...">
+prefix<CURSOR/>suffix
 </file>
-<imported_classes>  (only if includeImportedClasses and any; PHP outlines without method bodies)
-...
-</imported_classes>
-<open_files>  (only if includeOpenTabs and any)
-<file path="..." language="...">...truncated content...</file>
-</open_files>
-<mode>single-line|multi-line (max N lines)</mode>
+<mode>single-line | multi-line (max N lines)</mode>
 ```
-Plus a fixed system prompt (`--system-prompt`) describing the job: act as an inline code completion
-engine (fill-in-the-middle), output ONLY the raw text to insert at <CURSOR/>, no markdown fences, no
-explanations, never repeat text before the cursor or after it, keep indentation consistent, empty
-output if nothing sensible; plus customInstructions.
 
-## CLI invocation (verified on claude 2.1.289)
+The file is whole or a window around the caret, capped at 200k chars. A truncated side gets a `<!-- truncated -->` marker. The fixed system prompt makes the model a fill-in-the-middle engine: raw text only, no fences, no repeating text around the caret. `customInstructions` is appended.
 
-Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-mcp-config
---setting-sources "" --system-prompt <sys> --effort <e> [--fallback-model <f>]`
-- one-shot mode: add `--output-format json --disable-slash-commands`, prompt on stdin, parse
-  `{"type":"result","is_error":..,"result":"..."}`.
-- persistent mode: add `--input-format stream-json --output-format stream-json --verbose
-  --include-partial-messages` (NOT `--disable-slash-commands`, we need `/clear`). Per completion:
-  write `{"type":"user","message":{"role":"user","content":"/clear"}}` and wait for its `result`,
-  then write the prompt as a user message, collect `stream_event` -> `content_block_delta` ->
-  `delta.text_delta.text`, finish on `{"type":"result"}`. Cancel with
-  `{"type":"control_request","request_id":"<uuid>","request":{"subtype":"interrupt"}}` then drain
-  until `result`. One request at a time (Mutex). If the process dies or times out, kill it and
-  respawn lazily; if persistent mode fails twice in a row fall back to one-shot.
-  The system prompt is fixed per process; restart the process when settings change.
-- Never use `--bare` (breaks subscription auth).
-- Env: start from the IDE env, REMOVE `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDECODE`,
-  and every `CLAUDE_CODE_*` var; ADD `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`,
-  `DISABLE_TELEMETRY=1`, `MAX_THINKING_TOKENS` (see settings). Ensure PATH includes the claude
-  binary's dir plus `/opt/homebrew/bin:/usr/local/bin` (GUI apps get a minimal PATH).
-- Working dir: a private temp dir (never the project dir, so no CLAUDE.md is loaded).
-- Errors: exit 1 / `is_error:true`. Map result text containing "Not logged in" -> NotLoggedIn,
-  "issue with the selected model" -> InvalidModel, binary missing -> CliNotFound, else Other.
-- Expected latency: ~1 s one-shot, ~0.6 s persistent (haiku).
+## Claude Code CLI
 
-## Module layout and contracts (two agents work in parallel - stay in your files)
+Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-mcp-config --setting-sources "" --system-prompt <sys> --effort <e> [--fallback-model <f>]`
 
-### Backend (agent A) - `dev.ksurdy.claudeautocomplete.backend` + `...completion` pure logic
-No IntelliJ APIs except `com.intellij.openapi.diagnostic.Logger` and `kotlinx.coroutines`; fully unit-testable.
+- One-shot: `--output-format stream-json --verbose --disable-slash-commands`, prompt on stdin.
+- Persistent: `--input-format stream-json --output-format stream-json --verbose --include-partial-messages`. Per request: send `/clear`, wait for its `result`, send the prompt, collect text deltas until `result`. Cancel with a `control_request` of subtype `interrupt`. One request at a time (mutex).
+- On timeout or process death the process is killed and respawned lazily. After repeated persistent failures it falls back to one-shot. Config change restarts the process.
+- Never `--bare`, it breaks subscription auth.
+- Env: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDECODE` and `CLAUDE_CODE_*` removed. Added `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, `DISABLE_TELEMETRY=1`, `MAX_THINKING_TOKENS`. PATH gets the binary dir plus `/opt/homebrew/bin:/usr/local/bin`.
+- Working dir is a private temp dir, so no project `CLAUDE.md` is loaded.
 
-```kotlin
-data class CompletionContext(
-    val filePath: String, val languageId: String,
-    val prefix: String, val suffix: String,
-    val openFiles: List<OpenFileSnippet>, val multiline: Boolean, val maxLines: Int,
-)
-data class OpenFileSnippet(val path: String, val languageId: String, val content: String)
+## Codex CLI
 
-data class ClaudeConfig(
-    val claudePath: String, val model: String, val fallbackModel: String, val effort: String,
-    val thinkingEnabled: Boolean, val thinkingBudgetTokens: Int, val requestTimeoutMs: Int,
-    val persistentProcess: Boolean, val customInstructions: String,
-)
+- Completions: one `codex exec --json --skip-git-repo-check --ephemeral -s read-only -m <model>` per request, plus `-c` overrides (reasoning effort, developer instructions, no environment context, no web search). No persistent process.
+- Usage windows: `codex app-server`, read on refresh.
+- Env: `OPENAI_API_KEY`, `CODEX_API_KEY`, `CLAUDECODE` and `CLAUDE_CODE_*` removed.
 
-sealed interface CompletionResult {
-    data class Success(val text: String) : CompletionResult
-    data object Empty : CompletionResult
-    data class Failure(val kind: FailureKind, val message: String) : CompletionResult
-}
-enum class FailureKind { NotLoggedIn, CliNotFound, InvalidModel, Timeout, Other }
+## Failures
 
-interface CompletionBackend {            // cancellable: coroutine cancellation must interrupt the CLI
-    suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult
-    fun shutdown()
-}
-```
-Classes: `PromptBuilder` (system prompt + user message), `ClaudeCliLocator` (resolves binary),
-`ClaudeCommandBuilder` (args + env, pure), `StreamJsonParser` (line -> event), `OneShotClaudeBackend`,
-`PersistentClaudeBackend`, `ClaudeCliBackend` (facade choosing mode, restart on config change,
-fallback), `completion/CompletionPostProcessor` (strip fences, overlap trimming, single-line
-truncation, maxLines, trailing whitespace rules), `completion/CompletionCache` (LRU),
-`completion/TriggerRules` (mid-line rule + multiline decision from prefix/suffix strings).
-Use `kotlinx.serialization`? NO - not bundled guaranteed. Use the platform-bundled
-`com.fasterxml.jackson` ? NO. Write a minimal JSON reader/escaper yourself OR use
-`com.google.gson` which is bundled in the IntelliJ platform (verify it's on the compile classpath).
+`FailureKind`: NotLoggedIn, CliNotFound, InvalidModel, Timeout, RateLimited, Other. Mapped from CLI output by `FailureMapper` and `CodexFailureMapper`.
 
-### IDE integration (agent B) - `dev.ksurdy.claudeautocomplete` (+ `.settings`, `.ui`, `.actions`)
-`ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider`, `ContextCollector` (readAction,
-prefix/suffix caps, open tabs via FileEditorManager + FileDocumentManager.getCachedDocument),
-`ClaudeAutocompleteSettings` (SimplePersistentStateComponent, app service, `toClaudeConfig()`),
-`ClaudeAutocompleteConfigurable` (BoundSearchableConfigurable, UI DSL v2, "Test connection" button
-that runs one completion and shows latency/result), `StatusService` (app service holding
-state + listeners), status bar widget factory, `ToggleAction`, `TriggerAction` (Alt+\ ),
-`Notifier`, app service `BackendService` owning a `ClaudeCliBackend` (disposed on app shutdown),
-`plugin.xml`, plugin icon `META-INF/pluginIcon.svg`. Agent B calls agent A's interfaces exactly as
-specified above (`ClaudeCliBackend()` no-arg constructor implementing `CompletionBackend`;
-`TriggerRules.shouldTrigger(prefix, suffix): Boolean`, `TriggerRules.isMultiline(prefix, suffix, mode: String): Boolean`;
-`CompletionPostProcessor.process(raw: String, context: CompletionContext): String`;
-`CompletionCache(capacity: Int)` with `get(key: String): String?` / `put(key, value)`, and
-`CompletionCache.key(context, model): String`).
+## Layout
+
+- `backend/` - CLI processes, command builders, parsers, prompt, usage tracking, `CompletionRouter` (picks the provider).
+- `completion/` - `TriggerRules`, `CompletionPostProcessor`, `CompletionCache`. Pure logic.
+- `php/` - class outlines and imported-class context.
+- `actions/`, `ui/` - toggle and trigger actions, status bar widget.
+- top level - inline completion provider, settings, context collection, status service, consent prompt.
