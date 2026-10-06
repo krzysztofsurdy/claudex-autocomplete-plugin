@@ -151,6 +151,38 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertEquals(listOf("third", "second", "first"), fake.contexts.single().openFiles.map { it.content })
     }
 
+    fun testSecretFilesAreNotSentAsOpenTabs() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        withWriteAction {
+            val manager = FileEditorManager.getInstance(fixture.project)
+            manager.openFile(fixture.addFileToProject(".env", "API_KEY=abc").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("ok.txt", "fine").virtualFile, false)
+        }
+        init(PlainTextFileType.INSTANCE, "secret1 <caret>")
+        callInlineCompletion()
+        delay()
+        assertEquals(listOf("fine"), fake.contexts.single().openFiles.map { it.content })
+    }
+
+    fun testCurrentSecretFileSkipsCompletion() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        myFixture.configureByText(".env", "TOKEN=<caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(fake.contexts.isEmpty())
+    }
+
+    fun testCustomExcludedPatternsApply() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.excludedFilePatterns = "private.*"
+        withWriteAction {
+            val manager = FileEditorManager.getInstance(fixture.project)
+            manager.openFile(fixture.addFileToProject("private.txt", "hidden").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("public.txt", "shown").virtualFile, false)
+        }
+        init(PlainTextFileType.INSTANCE, "custom1 <caret>")
+        callInlineCompletion()
+        delay()
+        assertEquals(listOf("shown"), fake.contexts.single().openFiles.map { it.content })
+    }
+
     fun testManualTriggerIgnoresMidLineRule() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         init(PlainTextFileType.INSTANCE, "manual10(<caret>bar)")
         callAction("ClaudeAutocomplete.Trigger")

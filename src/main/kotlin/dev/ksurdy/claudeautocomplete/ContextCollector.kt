@@ -9,6 +9,9 @@ import com.intellij.application.options.CodeStyle
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.guessProjectDir
+import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.vcs.ProjectLevelVcsManager
+import com.intellij.openapi.vcs.changes.ChangeListManager
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
@@ -44,13 +47,15 @@ object ContextCollector {
 
         val project = editor.project
         val currentFile = request.file.virtualFile
+        val patterns = settings.excludedFilePatterns.orEmpty()
+        if (project != null && currentFile != null && isExcluded(project, currentFile, patterns)) return null
         return CompletionContext(
             filePath = currentFile?.let { relativePath(project, it) } ?: request.file.name,
             languageId = languageId,
             prefix = prefix,
             suffix = suffix,
             openFiles = if (settings.includeOpenTabs && project != null) {
-                openTabs(project, currentFile, settings.maxOpenTabsChars)
+                openTabs(project, currentFile, settings.maxOpenTabsChars, patterns)
             } else {
                 emptyList()
             },
@@ -75,7 +80,7 @@ object ContextCollector {
         return if (options.USE_TAB_CHARACTER) "tabs" else "${options.INDENT_SIZE} spaces"
     }
 
-    private fun openTabs(project: Project, current: VirtualFile?, budget: Int): List<OpenFileSnippet> {
+    private fun openTabs(project: Project, current: VirtualFile?, budget: Int, patterns: String): List<OpenFileSnippet> {
         val manager = FileEditorManager.getInstance(project)
         val documents = FileDocumentManager.getInstance()
         val open = manager.openFiles.toSet()
@@ -83,13 +88,20 @@ object ContextCollector {
         val ordered = (manager.selectedFiles.toList() + recent + open).distinct()
         val psiManager = PsiManager.getInstance(project)
         val snippets = ordered
-            .filter { it != current && it.isValid && !it.fileType.isBinary }
+            .filter { it != current && it.isValid && !it.fileType.isBinary && !isExcluded(project, it, patterns) }
             .mapNotNull { file ->
                 val content = documents.getCachedDocument(file)?.charsSequence ?: return@mapNotNull null
                 if (content.length > MAX_FILE_CHARS) return@mapNotNull null
                 OpenFileSnippet(relativePath(project, file), psiManager.findFile(file)?.language?.id ?: file.fileType.name, content.toString())
             }
         return ContextLimits.budget(snippets, budget)
+    }
+
+    fun isExcluded(project: Project, file: VirtualFile, patterns: String): Boolean {
+        if (SensitiveFiles.isSensitive(file.name, patterns)) return true
+        if (ProjectFileIndex.getInstance(project).isExcluded(file)) return true
+        return ProjectLevelVcsManager.getInstance(project).hasActiveVcss() &&
+            ChangeListManager.getInstance(project).isIgnoredFile(file)
     }
 
     private fun relativePath(project: Project?, file: VirtualFile): String {

@@ -43,4 +43,27 @@ class SettingsConsentTest {
         state.enabled = false
         kotlin.test.assertFalse(state.isActive)
     }
+
+    @Test
+    fun promptsOnlyWhileUndecided() {
+        val state = ClaudeAutocompleteSettings.State()
+        kotlin.test.assertTrue(state.needsConsentPrompt)
+        state.consentDeclined = true
+        kotlin.test.assertFalse(state.needsConsentPrompt)
+    }
+
+    @Test
+    fun grantingConsentClearsDecline() {
+        val settings = ClaudeAutocompleteSettings()
+        settings.declineConsent()
+        kotlin.test.assertTrue(settings.state.consentDeclined)
+        settings.grantConsent()
+        kotlin.test.assertFalse(settings.state.consentDeclined)
+        kotlin.test.assertTrue(settings.isActive)
+    }
+
+    @Test
+    fun excludedPatternsDefaultToSensitiveDefaults() {
+        kotlin.test.assertEquals(SensitiveFiles.DEFAULT_PATTERNS, ClaudeAutocompleteSettings.State().excludedFilePatterns)
+    }
 }

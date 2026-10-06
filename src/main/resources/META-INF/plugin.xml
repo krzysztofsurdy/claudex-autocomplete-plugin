@@ -27,7 +27,7 @@
       <li>Start typing. Press Tab to accept, Esc to dismiss, Shift+Alt+\ to trigger manually, or use Tools | Trigger Claudex Autocomplete to force a completion mid-line.</li>
     </ol>
     <h3>Privacy</h3>
-    <p>The plugin runs your local CLI with your existing subscription login. Code context around the caret, and optionally from open tabs, is sent to Anthropic or OpenAI through that CLI and is subject to their terms. Nothing is sent until you enable completions.</p>
+    <p>The plugin runs your local CLI with your existing subscription login. Code context around the caret, and optionally from open tabs, is sent to Anthropic or OpenAI through that CLI and is subject to their terms. Files that look like secrets (such as .env, keys and credentials) and files ignored by VCS are never sent. Nothing is sent until you enable completions.</p>
     <p>Claudex Autocomplete is an independent project and is not affiliated with, endorsed or sponsored by Anthropic or OpenAI. Claude is a trademark of Anthropic; Codex is a trademark of OpenAI.</p>
   ]]></description>
   <change-notes><![CDATA[
@@ -59,6 +59,8 @@
                             implementation="dev.ksurdy.claudeautocomplete.ui.ClaudeStatusBarWidgetFactory"/>
     <notificationGroup id="Claude Autocomplete" displayType="BALLOON" icon="/icons/claudex.svg"
                        displayName="Claudex Autocomplete"/>
+    <notificationGroup id="Claudex Autocomplete Consent" displayType="STICKY_BALLOON" icon="/icons/claudex.svg"
+                       displayName="Claudex Autocomplete consent"/>
     <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.ConsentPrompt"/>
   </extensions>
 

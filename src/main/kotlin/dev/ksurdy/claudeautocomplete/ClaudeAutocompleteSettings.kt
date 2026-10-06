@@ -44,13 +44,20 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var persistentProcess by property(true)
         var customInstructions by string("")
         var disabledLanguages by string("")
+        var excludedFilePatterns by string(SensitiveFiles.DEFAULT_PATTERNS)
+        var consentDeclined by property(false)
     }
 
     val isActive: Boolean get() = state.isActive
 
     fun grantConsent() {
         state.consentGiven = true
+        state.consentDeclined = false
         state.enabled = true
+    }
+
+    fun declineConsent() {
+        state.consentDeclined = true
     }
 
     fun toClaudeConfig(): ClaudeConfig = state.toClaudeConfig()
@@ -63,6 +70,8 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
 }
 
 val ClaudeAutocompleteSettings.State.isActive: Boolean get() = enabled && consentGiven
+
+val ClaudeAutocompleteSettings.State.needsConsentPrompt: Boolean get() = !consentGiven && !consentDeclined
 
 fun ClaudeAutocompleteSettings.State.toClaudeConfig(): ClaudeConfig = ClaudeConfig(
     claudePath = claudePath.orEmpty(),

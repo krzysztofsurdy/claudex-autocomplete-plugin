@@ -54,7 +54,7 @@ class ClaudeAutocompleteConfigurable :
             lateinit var providerCombo: Cell<ComboBox<String>>
             group("General") {
                 row {
-                    comment("Completions run your local Claude Code or Codex CLI. Code around the cursor and, if enabled below, open tabs and imported class outlines are sent to Anthropic or OpenAI through that CLI.")
+                    comment("Completions run your local Claude Code or Codex CLI. Code around the cursor and, if enabled below, open tabs and imported class outlines are sent to Anthropic or OpenAI through that CLI. Secret-like files and files ignored by VCS are never sent.")
                 }
                 row {
                     checkBox("Enable completions").bindSelected(
@@ -163,6 +163,11 @@ class ClaudeAutocompleteConfigurable :
                 row { imports = checkBox("Include classes imported via <code>use</code> statements (PHP)").bindSelected(state::includeImportedClasses) }
                 row("Imported classes char budget:") {
                     intTextField(0..200_000).bindIntText(state::maxImportedClassesChars).enabledIf(imports.component.selected)
+                }
+                row("Excluded file patterns:") {
+                    textField().align(AlignX.FILL)
+                        .bindText({ state.excludedFilePatterns.orEmpty() }, { state.excludedFilePatterns = it })
+                        .comment("Comma-separated file name patterns, e.g. .env, *.pem. Matching files, files ignored by VCS and files excluded from the project are never sent.")
                 }
             }
             row {
