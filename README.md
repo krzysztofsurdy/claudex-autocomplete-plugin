@@ -8,8 +8,6 @@
 </p>
 
 <p align="center">
-  <a href="https://plugins.jetbrains.com/plugin/34817-claudex-autocomplete"><img src="https://img.shields.io/jetbrains/plugin/v/34817?label=Marketplace" alt="JetBrains Marketplace version"></a>
-  <a href="https://plugins.jetbrains.com/plugin/34817-claudex-autocomplete"><img src="https://img.shields.io/jetbrains/plugin/d/34817" alt="JetBrains Marketplace downloads"></a>
   <a href="https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/actions/workflows/ci.yml"><img src="https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/krzysztofsurdy/claudex-autocomplete-plugin" alt="License: GPL-3.0"></a>
   <img src="https://img.shields.io/badge/JetBrains%20IDEs-2025.3%2B-000000?logo=jetbrains&logoColor=white" alt="JetBrains IDEs 2025.3+">
