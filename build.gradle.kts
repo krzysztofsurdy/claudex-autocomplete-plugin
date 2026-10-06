@@ -55,7 +55,6 @@ kotlin {
 }
 
 intellijPlatform {
-    buildSearchableOptions = false
     pluginVerification {
         ides {
             val localIdePath = providers.gradleProperty("localIdePath")
