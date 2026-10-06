@@ -3,7 +3,7 @@
 <h1 align="center">Claudex Autocomplete</h1>
 
 <p align="center">
-  Copilot-style inline ghost-text completions for PhpStorm and other JetBrains IDEs, powered by your local Claude Code CLI or Codex CLI.<br>
+  Inline ghost-text completions for PhpStorm and other JetBrains IDEs, powered by your local Claude Code CLI or Codex CLI.<br>
   It uses your existing Claude or ChatGPT subscription login. No API key needed.
 </p>
 
@@ -45,7 +45,7 @@ The plugin is not published on JetBrains Marketplace yet. Install from disk:
 1. Log in to a CLI in a terminal:
    - Claude: run `claude`, then `/login`.
    - Codex: `npm i -g @openai/codex` (or `brew install codex`), then `codex login`.
-2. Enable completions. They are off until you consent: choose Enable in the first-run notification (the other choices are Settings and Not now), or tick "Enable completions" in Settings | Tools | Claudex Autocomplete. Nothing is sent to Anthropic or OpenAI before that.
+2. Enable completions. They are off until you consent: choose Enable in the first-run notification (the other choices are Settings and Not now; after Not now the prompt is not shown again, enable later from Settings, the status bar menu or Tools | Toggle Claudex Autocomplete), or tick "Enable completions" in Settings | Tools | Claudex Autocomplete. Nothing is sent to Anthropic or OpenAI before that.
 3. In Settings | Tools | Claudex Autocomplete pick the Provider and click Test Connection.
 4. Start typing in an editor.
 
@@ -57,7 +57,7 @@ The plugin is not published on JetBrains Marketplace yet. Install from disk:
 | Accept next word | Alt+Right (macOS), Ctrl+Right (Windows/Linux) |
 | Accept rest of line | Cmd+Right (macOS), End (Windows/Linux) |
 | Dismiss | Esc |
-| Trigger a completion manually | Shift+Alt+\ |
+| Trigger a completion manually | Shift+Alt+\ (Shift+Option+\ on macOS) |
 
 Word and line accept reuse your keymap's Next Word and Line End shortcuts. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) enables or disables the plugin.
 
@@ -71,7 +71,7 @@ Settings | Tools | Claudex Autocomplete. The most useful options:
 |---|---|---|
 | Enable completions | off | Set by the first-run notification or this checkbox |
 | Provider | Claude Code | Claude Code or Codex |
-| Claude CLI path / Codex CLI path | empty | Empty = auto-detect common install locations |
+| Claude Code CLI path / Codex CLI path | empty | Empty = auto-detect common install locations |
 | Model (Claude) | haiku | haiku, sonnet, opus, fable or a full model id |
 | Model (Codex) | gpt-5.3-codex | Any model supported by your ChatGPT plan |
 | Effort / Reasoning effort | low | Lower is faster |
@@ -79,6 +79,7 @@ Settings | Tools | Claudex Autocomplete. The most useful options:
 | Request timeout (ms) | 8000 | |
 | Current file context | auto | Whole file up to 1000 lines, otherwise 150 lines around the caret |
 | Include open tabs | true | Character budget configurable |
+| Excluded file patterns | `.env`, `*.pem`, `id_rsa*`, ... | Comma-separated file name patterns; matching files, VCS-ignored files and files excluded from the project are never sent as context |
 | Include imported classes | true | PHP only, signatures only |
 | Multi-line mode | auto | auto / always / never |
 | Keep CLI process alive | true | Claude Code only; Codex starts a process per request |
@@ -97,7 +98,7 @@ Your code context is sent to Anthropic or OpenAI through the respective CLI, sub
 
 ## Status bar
 
-The widget shows `Claudex: Off` until completions are enabled. Afterwards it shows the provider and state, for example `Claude: Ready`, `Waiting...`, `Thinking... Ns`, the last latency, `Error` or `Limit reached`. Only the usage window closest to its limit is shown, for example `Claude: Ready · 5h 41%`; the tooltip lists both windows with reset times, plus the model. Click it for Enable/Disable, Provider, Open Settings and Refresh Usage.
+The widget shows `Claudex: Disabled` until completions are enabled; click it and choose Enable Completions. Afterwards it shows the provider and state, for example `Claude: Ready`, `Waiting…`, `Thinking… Ns`, the last latency, `Error` or `Limit reached`. Only the usage window closest to its limit is shown, for example `Claude: Ready · 5h 41%` (` high` is appended from 80%, for example `5h 92% high`); the tooltip lists both windows with reset times, plus the model. Click it for Enable/Disable, Provider, Open settings and Refresh Usage.
 
 No CLI process is started at IDE startup. Usage is refreshed after completions, via Refresh Usage, or Test Connection. When a usage limit is hit, requests pause until the reset time.
 

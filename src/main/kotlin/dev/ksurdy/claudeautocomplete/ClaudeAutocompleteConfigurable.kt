@@ -5,7 +5,12 @@ import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.options.BoundSearchableConfigurable
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.ComboBox
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.util.ui.NamedColorUtil
+import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBLabel
+import com.intellij.util.ui.UIUtil
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
@@ -22,10 +27,10 @@ import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import kotlinx.coroutines.runBlocking
-import javax.swing.JLabel
+import javax.swing.JButton
 
 class ClaudeAutocompleteConfigurable :
-    BoundSearchableConfigurable("Claudex Autocomplete", "claude.autocomplete.settings", "claude.autocomplete.settings") {
+    BoundSearchableConfigurable("Claudex Autocomplete", SETTINGS_ID, SETTINGS_ID) {
 
     private val persisted get() = ClaudeAutocompleteSettings.getInstance().state
     private val working = ClaudeAutocompleteSettings.State()
@@ -49,7 +54,7 @@ class ClaudeAutocompleteConfigurable :
     override fun createPanel(): DialogPanel {
         working.copyFrom(persisted)
         val state = working
-        val result = JLabel(" ")
+        val result = JBLabel(" ")
         return panel {
             lateinit var providerCombo: Cell<ComboBox<String>>
             group("General") {
@@ -72,14 +77,14 @@ class ClaudeAutocompleteConfigurable :
                 row("Disabled languages:") {
                     textField().align(AlignX.FILL)
                         .bindText({ state.disabledLanguages.orEmpty() }, { state.disabledLanguages = it })
-                        .comment("Comma-separated language IDs, e.g. Markdown, JSON")
+                        .comment("Comma-separated language IDs, for example Markdown, JSON.")
                 }
             }
             val isCodex = providerCombo.component.selectedValueIs(CODEX_LABEL)
             group("Claude Code") {
                 row("Claude Code CLI path:") {
                     textField().align(AlignX.FILL).bindText({ state.claudePath.orEmpty() }, { state.claudePath = it })
-                        .comment("Empty = auto-detect")
+                        .comment("Leave empty to auto-detect.")
                 }
                 row("Model:") {
                     comboBox(listOf("haiku", "sonnet", "opus", "fable")).applyToComponent { isEditable = true }
@@ -89,7 +94,7 @@ class ClaudeAutocompleteConfigurable :
                     textField().bindText({ state.fallbackModel.orEmpty() }, { state.fallbackModel = it.trim() })
                 }
                 row("Effort:") {
-                    comboBox(listOf("low", "medium", "high", "xhigh", "max"))
+                    comboBox(listOf("low", "medium", "high", "xhigh", "max"), optionRenderer())
                         .bindItem({ state.effort }, { state.effort = it ?: "low" })
                 }
                 row { checkBox("Enable thinking").bindSelected(state::thinkingEnabled) }
@@ -103,14 +108,14 @@ class ClaudeAutocompleteConfigurable :
             group("Codex") {
                 row("Codex CLI path:") {
                     textField().align(AlignX.FILL).bindText({ state.codexPath.orEmpty() }, { state.codexPath = it })
-                        .comment("Empty = auto-detect")
+                        .comment("Leave empty to auto-detect.")
                 }
                 row("Model:") {
                     comboBox(listOf("gpt-5.3-codex", "gpt-5.2", "gpt-5.1-codex-mini")).applyToComponent { isEditable = true }
                         .bindItem({ state.codexModel }, { state.codexModel = it.orEmpty().trim() })
                 }
                 row("Reasoning effort:") {
-                    comboBox(listOf("none", "minimal", "low", "medium", "high"))
+                    comboBox(listOf("none", "minimal", "low", "medium", "high"), optionRenderer())
                         .bindItem({ state.codexReasoningEffort }, { state.codexReasoningEffort = it ?: "low" })
                 }
                 row { comment("Uses your ChatGPT subscription: run <code>codex login</code> in a terminal.") }
@@ -123,7 +128,7 @@ class ClaudeAutocompleteConfigurable :
                 row("Custom prompt additions:") {
                     textArea().applyToComponent { rows = 5 }.align(AlignX.FILL)
                         .bindText({ state.customInstructions.orEmpty() }, { state.customInstructions = it })
-                        .comment("Appended to the system prompt, e.g. Follow PSR-12, prefer readonly properties")
+                        .comment("Appended to the system prompt, for example: Follow PSR-12, prefer readonly properties.")
                 }
             }
             group("Behavior") {
@@ -132,7 +137,7 @@ class ClaudeAutocompleteConfigurable :
                 row { checkBox("Show loading indicator in editor while generating").bindSelected(state::showInlineLoadingIndicator) }
                 row { checkBox("Show request state and usage in status bar").bindSelected(state::showUsageInStatusBar) }
                 row("Multi-line mode:") {
-                    comboBox(listOf("auto", "always", "never"))
+                    comboBox(listOf("auto", "always", "never"), optionRenderer())
                         .bindItem({ state.multilineMode }, { state.multilineMode = it ?: "auto" })
                 }
                 row("Max completion lines:") { intTextField(1..200).bindIntText(state::maxCompletionLines) }
@@ -159,27 +164,31 @@ class ClaudeAutocompleteConfigurable :
                 lateinit var tabs: Cell<JBCheckBox>
                 lateinit var imports: Cell<JBCheckBox>
                 row { tabs = checkBox("Include open tabs").bindSelected(state::includeOpenTabs) }
-                row("Open tabs char budget:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars).enabledIf(tabs.component.selected) }
+                row("Character budget for open tabs:") { intTextField(0..200_000).bindIntText(state::maxOpenTabsChars).enabledIf(tabs.component.selected) }
                 row { imports = checkBox("Include classes imported via <code>use</code> statements (PHP)").bindSelected(state::includeImportedClasses) }
-                row("Imported classes char budget:") {
+                row("Character budget for imported classes:") {
                     intTextField(0..200_000).bindIntText(state::maxImportedClassesChars).enabledIf(imports.component.selected)
                 }
                 row("Excluded file patterns:") {
                     textField().align(AlignX.FILL)
                         .bindText({ state.excludedFilePatterns.orEmpty() }, { state.excludedFilePatterns = it })
-                        .comment("Comma-separated file name patterns, e.g. .env, *.pem. Matching files, files ignored by VCS and files excluded from the project are never sent.")
+                        .comment("Comma-separated file name patterns, for example .env, *.pem. Matching files, files ignored by VCS and files excluded from the project are never sent.")
                 }
             }
             row {
-                button("Test Connection") { runTest(result) }
+                button("Test Connection") { event -> runTest(result, event.source as JButton) }
                 cell(result)
             }
         }.also { panelRef = it }
     }
 
-    private fun runTest(label: JLabel) {
+    private fun optionRenderer() = SimpleListCellRenderer.create<String>("") { OptionLabels.display(it) }
+
+    private fun runTest(label: JBLabel, button: JButton) {
         panelRef?.apply()
-        label.text = "Testing..."
+        button.isEnabled = false
+        label.foreground = UIUtil.getLabelForeground()
+        label.text = "Testing…"
         val config = working.toBackendConfig()
         ApplicationManager.getApplication().executeOnPooledThread {
             val started = System.nanoTime()
@@ -187,17 +196,26 @@ class ClaudeAutocompleteConfigurable :
                 BackendService.getInstance().ping(config).also { BackendService.getInstance().refreshUsage(config) }
             }
             val millis = (System.nanoTime() - started) / 1_000_000
+            val failure = outcome as? CompletionResult.Failure
+            if (failure != null) LOG.warn("Test connection failed: kind=${failure.kind} message=${failure.message.take(MAX_LOGGED_MESSAGE)}")
             val text = when (outcome) {
                 is CompletionResult.Success -> "OK in $millis ms: ${outcome.text.take(80).replace('\n', ' ')}"
                 CompletionResult.Empty -> "OK in $millis ms (empty completion)"
                 is CompletionResult.Failure -> "Failed (${outcome.kind.label()}): ${outcome.message.take(200)}"
             }
-            ApplicationManager.getApplication().invokeLater({ label.text = text }, ModalityState.any())
+            ApplicationManager.getApplication().invokeLater({
+                label.foreground = if (failure != null) NamedColorUtil.getErrorForeground() else UIUtil.getLabelForeground()
+                label.text = text
+                button.isEnabled = true
+            }, ModalityState.any())
         }
     }
 
-    private companion object {
-        const val CLAUDE_LABEL = "Claude Code"
-        const val CODEX_LABEL = "Codex"
+    companion object {
+        const val SETTINGS_ID = "dev.ksurdy.claudeautocomplete.settings"
+        private const val MAX_LOGGED_MESSAGE = 300
+        private val LOG = Logger.getInstance(ClaudeAutocompleteConfigurable::class.java)
+        private const val CLAUDE_LABEL = "Claude Code"
+        private const val CODEX_LABEL = "Codex"
     }
 }

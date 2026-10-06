@@ -11,6 +11,7 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.DumbAwareToggleAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
@@ -20,6 +21,7 @@ import com.intellij.util.Consumer
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteConfigurable
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
+import dev.ksurdy.claudeautocomplete.ConsentPrompt
 import dev.ksurdy.claudeautocomplete.activeModel
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.displayName
@@ -46,7 +48,7 @@ class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun canBeEnabledOn(statusBar: StatusBar): Boolean = true
 }
 
-class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.TextPresentation {
+class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
     private var statusBar: StatusBar? = null
     private val ticker = Timer(TICK_MS) { onStatusChanged() }.apply { isRepeats = true }
     private val listener: () -> Unit = {
@@ -55,7 +57,17 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
 
     override fun ID(): String = ID
 
-    override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
+    private val presentation = object : StatusBarWidget.TextPresentation {
+        override fun getText(): String = widgetText()
+
+        override fun getAlignment(): Float = 0.5f
+
+        override fun getTooltipText(): String = widgetTooltip()
+
+        override fun getClickConsumer(): Consumer<MouseEvent> = Consumer { event -> showMenu(event) }
+    }
+
+    override fun getPresentation(): StatusBarWidget.WidgetPresentation = presentation
 
     override fun install(statusBar: StatusBar) {
         this.statusBar = statusBar
@@ -68,7 +80,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
         statusBar = null
     }
 
-    override fun getText(): String {
+    private fun widgetText(): String {
         val state = settings().state
         return StatusFormatter.widgetText(
             enabled = state.isActive,
@@ -80,9 +92,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
         )
     }
 
-    override fun getAlignment(): Float = 0.5f
-
-    override fun getTooltipText(): String {
+    private fun widgetTooltip(): String {
         val service = StatusService.getInstance()
         val state = settings().state
         return StatusFormatter.tooltip(
@@ -94,10 +104,9 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
             now = Instant.now(),
             zone = ZoneId.systemDefault(),
             providerName = state.providerKind().displayName(),
+            consentGiven = state.consentGiven,
         )
     }
-
-    override fun getClickConsumer(): Consumer<MouseEvent> = Consumer { event -> showMenu(event) }
 
     private fun onStatusChanged() {
         val service = StatusService.getInstance()
@@ -108,18 +117,31 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
     private fun showMenu(event: MouseEvent) {
         val bar = statusBar ?: return
         val enabled = settings().isActive
+        val consented = settings().state.consentGiven
         val group = DefaultActionGroup(
-            action(if (enabled) "Disable Claudex Autocomplete" else "Enable Claudex Autocomplete") {
-                if (enabled) settings().state.enabled = false else settings().grantConsent()
+            action(if (enabled) "Disable Completions" else if (consented) "Enable Completions" else "Enable Completions…") {
+                when {
+                    enabled -> settings().state.enabled = false
+                    consented -> settings().grantConsent()
+                    askConsent() -> settings().grantConsent()
+                }
                 StatusService.getInstance().refresh()
             },
             DefaultActionGroup("Provider", true).apply {
                 ProviderKind.entries.forEach { add(providerAction(it)) }
             },
-            action("Open Settings") {
+            action("Open settings") {
                 ShowSettingsUtil.getInstance().showSettingsDialog(project, ClaudeAutocompleteConfigurable::class.java)
             },
-            action("Refresh Usage") { refreshUsage() },
+            object : DumbAwareAction("Refresh Usage") {
+                override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+                override fun update(e: AnActionEvent) {
+                    e.presentation.isEnabled = settings().state.consentGiven
+                }
+
+                override fun actionPerformed(e: AnActionEvent) = refreshUsage()
+            },
         )
         JBPopupFactory.getInstance()
             .createActionGroupPopup(
@@ -132,6 +154,15 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget, Sta
             .show(RelativePoint(event))
         bar.updateWidget(ID)
     }
+
+    private fun askConsent(): Boolean = Messages.showOkCancelDialog(
+        project,
+        ConsentPrompt.MESSAGE,
+        "Claudex Autocomplete",
+        "Enable",
+        "Cancel",
+        Messages.getInformationIcon(),
+    ) == Messages.OK
 
     private fun refreshUsage() {
         if (!settings().state.consentGiven) return

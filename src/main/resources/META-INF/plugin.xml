@@ -53,7 +53,7 @@
     <inline.completion.provider implementation="dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"/>
     <applicationConfigurable parentId="tools"
                              instance="dev.ksurdy.claudeautocomplete.ClaudeAutocompleteConfigurable"
-                             id="claude.autocomplete.settings"
+                             id="dev.ksurdy.claudeautocomplete.settings"
                              displayName="Claudex Autocomplete"/>
     <statusBarWidgetFactory id="ClaudeAutocompleteStatus"
                             implementation="dev.ksurdy.claudeautocomplete.ui.ClaudeStatusBarWidgetFactory"/>

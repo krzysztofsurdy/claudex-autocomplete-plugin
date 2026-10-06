@@ -47,9 +47,6 @@ object StatusFormatter {
         return "resets in ${duration(Duration.between(now, resetsAt))}, at ${clock(resetsAt, zone)}"
     }
 
-    fun isWarning(usage: UsageLimits?): Boolean =
-        listOfNotNull(usage?.fiveHour, usage?.sevenDay).any { it.utilization >= WARNING_THRESHOLD }
-
     fun longWindowLabel(provider: ProviderKind?, short: Boolean): String = when {
         provider == ProviderKind.Codex -> if (short) "wk" else "weekly"
         else -> "7d"
@@ -72,11 +69,12 @@ object StatusFormatter {
         )
         val (window, slot) = candidates.reduceOrNull { best, next -> if (next.first.utilization > best.first.utilization) next else best }
             ?: return ""
-        return " · ${windowLabel(window, slot, usage?.provider, true)} ${percent(window.utilization)}"
+        val high = if (window.utilization >= WARNING_THRESHOLD) " high" else ""
+        return " · ${windowLabel(window, slot, usage?.provider, true)} ${percent(window.utilization)}$high"
     }
 
     fun statusLabel(enabled: Boolean, status: ClaudeStatus, nowMs: Long): String = when {
-        !enabled -> "Off"
+        !enabled -> "Disabled"
         else -> when (status) {
             ClaudeStatus.Ready -> "Ready"
             is ClaudeStatus.Waiting -> if (nowMs - status.since < WAITING_EXPIRY_MS) "Waiting…" else "Ready"
@@ -102,10 +100,8 @@ object StatusFormatter {
         nowMs: Long,
         providerName: String = "Claude",
     ): String {
-        val warning = (showUsage && isWarning(usage)) || status is ClaudeStatus.LimitReached
-        val prefix = if (warning && enabled) "⚠ " else ""
         val suffix = if (showUsage) usageSuffix(usage) else ""
-        return "$prefix$providerName: ${statusLabel(enabled, status, nowMs)}$suffix"
+        return "$providerName: ${statusLabel(enabled, status, nowMs)}$suffix"
     }
 
     fun tooltip(
@@ -117,11 +113,12 @@ object StatusFormatter {
         now: Instant,
         zone: ZoneId,
         providerName: String = "Claude",
+        consentGiven: Boolean = true,
     ): String {
         val lines = ArrayList<String>()
         lines += "Provider: $providerName"
         when {
-            !enabled -> lines += "Disabled"
+            !enabled -> lines += if (consentGiven) "Completions are off" else "Click to enable completions"
             status is ClaudeStatus.Error -> lines += "Error: ${status.message}"
             status is ClaudeStatus.LimitReached -> lines += "Usage limit reached" +
                 (resets(status.resetsAt, now, zone)?.let { " ($it)" } ?: "")
@@ -134,7 +131,7 @@ object StatusFormatter {
         }
         lastLatencyMs?.let { lines += "Last request: ${latency(it)}" }
         model?.takeIf { it.isNotEmpty() }?.let { lines += "Model: $it" }
-        lines += "Click for menu"
+        if (consentGiven) lines += "Click for menu"
         return lines.joinToString("<br>", "<html>", "</html>")
     }
 

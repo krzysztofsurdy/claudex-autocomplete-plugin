@@ -15,7 +15,7 @@ class OneShotClaudeBackend(
 ) : CompletionBackend {
     override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
         val binary = locator.resolve(config.claudePath)
-            ?: return CompletionResult.Failure(FailureKind.CliNotFound, "Claude CLI not found")
+            ?: return CompletionResult.Failure(FailureKind.CliNotFound, "Claude Code CLI not found")
         val process = try {
             processFactory.start(binary, config, persistent = false)
         } catch (e: IOException) {

@@ -1,5 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
@@ -49,6 +50,7 @@ java {
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_21
+        jvmDefault = JvmDefaultMode.NO_COMPATIBILITY
         languageVersion = KotlinVersion.KOTLIN_2_2
         apiVersion = KotlinVersion.KOTLIN_2_2
     }

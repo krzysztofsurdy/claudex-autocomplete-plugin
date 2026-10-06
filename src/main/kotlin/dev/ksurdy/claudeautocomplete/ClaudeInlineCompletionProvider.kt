@@ -8,6 +8,8 @@ import com.intellij.codeInsight.inline.completion.elements.InlineCompletionGrayT
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSingleSuggestion
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSuggestion
 import com.intellij.openapi.application.readAction
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.diagnostic.debug
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
@@ -67,6 +69,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
             val startedAt = System.currentTimeMillis()
             publish(gen, ClaudeStatus.Thinking(startedAt))
             status.recordModel(config.activeModel())
+            LOG.debug { "Requesting completion: provider=${config.provider} model=${config.activeModel()} language=${context.languageId} manual=$manual" }
             val indicator = if (settings.state.showInlineLoadingIndicator) {
                 InlineLoadingIndicator.start(request.editor, request.endOffset)
             } else {
@@ -103,6 +106,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
     private fun handleFailure(gen: Long, failure: CompletionResult.Failure, provider: ProviderKind) {
         val status = StatusService.getInstance()
+        LOG.warn("Completion failed: provider=$provider kind=${failure.kind} message=${failure.message.take(MAX_LOGGED_MESSAGE)}")
         if (failure.kind != FailureKind.RateLimited) {
             publish(gen, ClaudeStatus.Error(failure.kind.label()))
             Notifier.getInstance().notifyFailure(failure.kind, failure.message, provider.displayName())
@@ -127,5 +131,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     companion object {
         const val ID = "dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"
         private const val CACHE_CAPACITY = 32
+        private const val MAX_LOGGED_MESSAGE = 300
+        private val LOG = Logger.getInstance(ClaudeInlineCompletionProvider::class.java)
     }
 }

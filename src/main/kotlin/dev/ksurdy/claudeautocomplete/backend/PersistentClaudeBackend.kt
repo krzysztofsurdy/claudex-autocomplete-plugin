@@ -58,7 +58,7 @@ class PersistentClaudeBackend(
             discard(existing)
         }
         val binary = locator.resolve(config.claudePath)
-            ?: return SessionStart.Failed(CompletionResult.Failure(FailureKind.CliNotFound, "Claude CLI not found"))
+            ?: return SessionStart.Failed(CompletionResult.Failure(FailureKind.CliNotFound, "Claude Code CLI not found"))
         return try {
             SessionStart.Ready(Session(processFactory.start(binary, config, persistent = true), key).also { session = it })
         } catch (e: IOException) {

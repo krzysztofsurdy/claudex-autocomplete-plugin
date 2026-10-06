@@ -24,6 +24,19 @@ class NotifierTextTest {
     }
 
     @Test
+    fun claudeMessagesNameTheClaudeCodeCli() {
+        assertTrue(Notifier.contentFor(Notifier.CLAUDE, FailureKind.NotLoggedIn, "")!!.startsWith("Claude Code CLI is not logged in"))
+        assertTrue(Notifier.contentFor(Notifier.CLAUDE, FailureKind.CliNotFound, "")!!.startsWith("Claude Code CLI not found"))
+    }
+
+    @Test
+    fun escapesRawCliMessages() {
+        val text = Notifier.contentFor(Notifier.CLAUDE, FailureKind.InvalidModel, "<b>bad</b> & worse")!!
+        assertFalse(text.contains("<b>bad"), text)
+        assertTrue(text.contains("&lt;b&gt;bad&lt;/b&gt; &amp; worse"), text)
+    }
+
+    @Test
     fun cliNotFoundShowsInstallHintForCodex() {
         assertTrue(Notifier.contentFor(Notifier.CODEX, FailureKind.CliNotFound, "")!!.contains("npm i -g @openai/codex"))
     }

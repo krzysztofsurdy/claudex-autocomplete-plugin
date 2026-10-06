@@ -51,15 +51,15 @@ class StatusFormatterTest {
 
     @Test
     fun warnsAtEightyPercent() {
-        assertFalse(StatusFormatter.isWarning(usage()))
-        assertTrue(StatusFormatter.isWarning(usage(seven = 0.8)))
-        assertTrue(StatusFormatter.widgetText(true, ClaudeStatus.Ready, usage(five = 0.9), true, 0).startsWith("⚠ Claude: Ready"))
+        assertFalse(StatusFormatter.usageSuffix(usage()).endsWith("high"))
+        assertEquals(" · 7d 80% high", StatusFormatter.usageSuffix(usage(seven = 0.8)))
+        assertEquals("Claude: Ready · 5h 90% high", StatusFormatter.widgetText(true, ClaudeStatus.Ready, usage(five = 0.9), true, 0))
     }
 
     @Test
     fun statusLabels() {
         val t = 10_000L
-        assertEquals("Off", StatusFormatter.statusLabel(false, ClaudeStatus.Thinking(0), t))
+        assertEquals("Disabled", StatusFormatter.statusLabel(false, ClaudeStatus.Thinking(0), t))
         assertEquals("Ready", StatusFormatter.statusLabel(true, ClaudeStatus.Ready, t))
         assertEquals("Waiting…", StatusFormatter.statusLabel(true, ClaudeStatus.Waiting(t - 100), t))
         assertEquals("Ready", StatusFormatter.statusLabel(true, ClaudeStatus.Waiting(t - 5_000), t))
@@ -124,7 +124,7 @@ class StatusFormatterTest {
     fun codexUsesWeeklyLabel() {
         val codex = usage().copy(provider = dev.ksurdy.claudeautocomplete.backend.ProviderKind.Codex)
         assertEquals(" \u00B7 5h 42%", StatusFormatter.usageSuffix(codex))
-        assertEquals(" \u00B7 wk 80%", StatusFormatter.usageSuffix(codex.copy(sevenDay = UsageWindow(0.8, null))))
+        assertEquals(" \u00B7 wk 80% high", StatusFormatter.usageSuffix(codex.copy(sevenDay = UsageWindow(0.8, null))))
         assertTrue(StatusFormatter.tooltip(true, ClaudeStatus.Ready, codex, null, null, now, zone, "Codex").contains("weekly: 18%"))
     }
 
@@ -134,5 +134,13 @@ class StatusFormatterTest {
         assertEquals(" \u00B7 wk 20%", StatusFormatter.usageSuffix(codex))
         val odd = UsageLimits(UsageWindow(0.1, null, 120), UsageWindow(0.2, null, 4_320), null, now)
         assertEquals(" \u00B7 3d 20%", StatusFormatter.usageSuffix(odd))
+    }
+
+    @Test
+    fun tooltipInvitesEnablingBeforeConsent() {
+        val tip = StatusFormatter.tooltip(false, ClaudeStatus.Ready, null, null, null, now, zone, "Claudex", consentGiven = false)
+        assertTrue(tip.contains("Click to enable completions"), tip)
+        val off = StatusFormatter.tooltip(false, ClaudeStatus.Ready, null, null, null, now, zone, "Claude", consentGiven = true)
+        assertTrue(off.contains("Completions are off"), off)
     }
 }

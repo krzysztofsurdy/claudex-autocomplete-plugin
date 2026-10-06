@@ -222,7 +222,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
             callAction("ClaudeAutocomplete.Toggle")
             assertFalse(ClaudeAutocompleteSettings.getInstance().state.enabled)
             assertEquals(1, refreshes)
-            assertEquals("Claude: Off", StatusFormatter.widgetText(false, StatusService.getInstance().status, null, true, 0))
+            assertEquals("Claude: Disabled", StatusFormatter.widgetText(false, StatusService.getInstance().status, null, true, 0))
         } finally {
             StatusService.getInstance().removeListener(listener)
         }

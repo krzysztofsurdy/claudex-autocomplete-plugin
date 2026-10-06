@@ -6,6 +6,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.util.text.StringUtil
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import java.util.concurrent.ConcurrentHashMap
 
@@ -19,7 +20,7 @@ class Notifier {
         NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
             .createNotification("Claudex Autocomplete", content, NotificationType.WARNING)
-            .addAction(openSettingsAction("Open Settings"))
+            .addAction(openSettingsAction("Open settings"))
             .notify(null)
     }
 
@@ -52,15 +53,15 @@ class Notifier {
             FailureKind.NotLoggedIn -> if (provider == CODEX) {
                 "Codex CLI is not logged in. Run <code>codex login</code> in a terminal."
             } else {
-                "Claude CLI is not logged in. Run <code>claude</code> in a terminal, then <code>/login</code>."
+                "Claude Code CLI is not logged in. Run <code>claude</code> in a terminal, then <code>/login</code>."
             }
             FailureKind.CliNotFound -> if (provider == CODEX) {
                 "Codex CLI not found. Install it (<code>npm i -g @openai/codex</code> or <code>brew install codex</code>) or set its path in Settings | Tools | Claudex Autocomplete."
             } else {
-                "Claude CLI not found. Install it or set its path in Settings | Tools | Claudex Autocomplete."
+                "Claude Code CLI not found. Install it or set its path in Settings | Tools | Claudex Autocomplete."
             }
-            FailureKind.InvalidModel -> "Invalid $provider model. Check the model name in Settings | Tools | Claudex Autocomplete. $message"
-            FailureKind.RateLimited -> "$provider usage limit reached${if (message.isBlank()) "" else ", $message"}."
+            FailureKind.InvalidModel -> "Invalid $provider model. Check the model name in Settings | Tools | Claudex Autocomplete. ${StringUtil.escapeXmlEntities(message)}"
+            FailureKind.RateLimited -> "$provider usage limit reached${if (message.isBlank()) "" else ", ${StringUtil.escapeXmlEntities(message)}"}."
             FailureKind.Timeout, FailureKind.Other -> null
         }
     }
