@@ -83,7 +83,7 @@ class CompletionPostProcessorTest {
 
     @Test
     fun `closing brace of own block is kept when suffix starts with brace`() {
-        val raw = "if (\$x) {\n    run();\n}"
+        val raw = "if (\$x) {\n        run();\n    }"
         assertEquals(raw, multi(raw, prefix = "function a() {\n    ", suffix = "\n}\n"))
     }
 
@@ -144,5 +144,28 @@ class CompletionPostProcessorTest {
     fun `output within the limit is not cut`() {
         val raw = "if (\$x) {\n    b();\n}"
         assertEquals(raw, multi(raw, maxLines = 3))
+    }
+
+    @Test
+    fun `continuation lines with relative indentation are shifted to the caret indent`() {
+        val raw = "\$a = 1;\n\nif (\$a) {\n    run();\n}"
+        val expected = "\$a = 1;\n\n        if (\$a) {\n            run();\n        }"
+        assertEquals(expected, multi(raw, prefix = "    function a() {\n        ", suffix = "\n    }\n"))
+    }
+
+    @Test
+    fun `continuation lines already at the caret indent are untouched`() {
+        val raw = "\$a = 1;\n        return \$a;"
+        assertEquals(raw, multi(raw, prefix = "    function a() {\n        ", suffix = "\n    }\n"))
+    }
+
+    @Test
+    fun `tab indentation is shifted with tabs`() {
+        assertEquals("a();\n\t\tb();", multi("a();\nb();", prefix = "\tfunction a() {\n\t\t", suffix = "\n\t}\n"))
+    }
+
+    @Test
+    fun `indentation is not shifted when the caret line has code`() {
+        assertEquals("\nb();", multi("\nb();", prefix = "    if (a) {"))
     }
 }
