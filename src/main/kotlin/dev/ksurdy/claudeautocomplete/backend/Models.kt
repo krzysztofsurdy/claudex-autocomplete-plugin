@@ -12,6 +12,7 @@ data class CompletionContext(
     val prefixTruncated: Boolean = false,
     val suffixTruncated: Boolean = false,
     val importedClasses: List<OpenFileSnippet> = emptyList(),
+    val emptyBody: Boolean = false,
 )
 
 data class OpenFileSnippet(val path: String, val languageId: String, val content: String)

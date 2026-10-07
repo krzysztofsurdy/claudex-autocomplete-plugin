@@ -27,9 +27,10 @@ fun testContext(
     prefixTruncated: Boolean = false,
     suffixTruncated: Boolean = false,
     importedClasses: List<OpenFileSnippet> = emptyList(),
+    emptyBody: Boolean = false,
 ) = CompletionContext(
     filePath, languageId, prefix, suffix, openFiles, multiline, maxLines, indent, prefixTruncated, suffixTruncated,
-    importedClasses,
+    importedClasses, emptyBody,
 )
 
 fun testCodexConfig(

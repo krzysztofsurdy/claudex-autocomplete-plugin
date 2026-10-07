@@ -17,8 +17,8 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 3. A new keystroke cancels the in-flight request.
 4. Manual trigger: the platform's `CallInlineCompletionAction` (Shift+Alt+\). `Tools | Trigger Claudex Autocomplete` (`ClaudeAutocomplete.Trigger`) forces a completion mid-line, no default shortcut.
 5. Only suggest when the rest of the line is empty or closers/whitespace (`)]}>"';,` and backtick).
-6. Multi-line when the caret line is blank, or the rest of the line is closers and the prefix ends with `{`, `[` or `:` (not `::`). Otherwise single-line. Setting `multilineMode` overrides (auto/always/never).
-7. Post-processing: strip code fences, trim echoed head and overlapping tail, cut to single line or `maxCompletionLines`, trim trailing whitespace.
+6. Multi-line when the caret line is blank, or the rest of the line is closers and the prefix ends with `{`, `[` or `:` (not `::`). Otherwise single-line. Setting `multilineMode` overrides (auto/always/never). A multi-line request in an empty block body (prefix ends with `{`, suffix starts with `}`) asks for the complete body.
+7. Post-processing: strip code fences, trim echoed head, cut to single line or `maxCompletionLines` (an over-long reply is cut at the last line where its brackets are balanced, hard cut only when there is none), shift continuation lines up to the caret indent on a blank caret line, trim overlapping tail and trailing whitespace.
 8. LRU cache, 32 entries, 60 s TTL. Key: provider, model settings, file, language, mode, last 500 chars of prefix, first 200 of suffix, imported classes.
 9. No completions in read-only editors, files over 1,000,000 chars, or disabled languages.
 10. Nothing runs until the user consents (`consentGiven`). First-run notification: Enable / Settings / Not now.
@@ -51,7 +51,7 @@ App-level `ClaudeAutocompleteSettings`, stored in `claude-autocomplete.xml`. UI:
 | showInlineLoadingIndicator | true | Braille spinner with elapsed time |
 | showUsageInStatusBar | true | |
 | multilineMode | auto | |
-| maxCompletionLines | 12 | |
+| maxCompletionLines | 30 | |
 | persistentProcess | true | Claude Code only |
 | customInstructions | empty | Appended to the system prompt |
 | disabledLanguages | empty | Comma-separated language ids |
@@ -67,7 +67,7 @@ User message, built by `PromptBuilder`:
 <file path="..." language="..." indent="...">
 prefix<CURSOR/>suffix
 </file>
-<mode>single-line | multi-line (max N lines)</mode>
+<mode>single-line | multi-line (max N lines) | body (max N lines)</mode>
 ```
 
 The file is whole or a window around the caret, capped at 200k chars. A truncated side gets a `<!-- truncated -->` marker. The fixed system prompt makes the model a fill-in-the-middle engine: raw text only, no fences, no repeating text around the caret. `customInstructions` is appended.

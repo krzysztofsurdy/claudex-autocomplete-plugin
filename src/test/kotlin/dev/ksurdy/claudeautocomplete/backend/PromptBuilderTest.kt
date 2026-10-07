@@ -25,6 +25,25 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `empty body mode asks for the complete body`() {
+        val message = PromptBuilder.userMessage(testContext(multiline = true, maxLines = 20, emptyBody = true))
+        assertTrue(message.endsWith("<mode>body (max 20 lines)</mode>"))
+    }
+
+    @Test
+    fun `empty body is ignored in single line mode`() {
+        assertTrue(PromptBuilder.userMessage(testContext(multiline = false, emptyBody = true)).endsWith("<mode>single-line</mode>"))
+    }
+
+    @Test
+    fun `system prompt explains body mode and shows a multi statement example`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "<mode>body (max N lines)</mode>")
+        assertContains(system, "Do not stop after the first statement")
+        assertContains(system, "<mode>body (max 20 lines)</mode>\n=> ")
+    }
+
+    @Test
     fun `open files block is omitted when there are none`() {
         assertFalse(PromptBuilder.userMessage(testContext()).contains("<open_files>"))
     }

@@ -40,7 +40,7 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var includeImportedClasses by property(true)
         var maxImportedClassesChars by property(8000)
         var multilineMode by string("auto")
-        var maxCompletionLines by property(12)
+        var maxCompletionLines by property(30)
         var persistentProcess by property(true)
         var customInstructions by string("")
         var disabledLanguages by string("")

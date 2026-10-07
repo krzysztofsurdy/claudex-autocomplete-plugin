@@ -12,6 +12,9 @@ object TriggerRules {
         else -> isBlankCaretLine(prefix) || (restOfLineIsClosers(suffix) && endsWithBlockOpener(prefix))
     }
 
+    fun isEmptyBody(prefix: String, suffix: String): Boolean =
+        prefix.trimEnd().endsWith("{") && suffix.trimStart().startsWith("}")
+
     private fun restOfLineIsClosers(suffix: String): Boolean =
         suffix.substringBefore('\n').all { it.isWhitespace() || it in CLOSING_CHARS }
 
