@@ -14,6 +14,7 @@ object CompletionPostProcessor {
         var text = stripFences(raw.replace("\r\n", "\n"))
         text = trimEchoedHead(text, context.prefix)
         text = limitLines(text, context)
+        text = alignToCaretIndent(text, context)
         text = trimOverlappingTail(text, context.suffix)
         return text.trimEnd()
     }
@@ -81,6 +82,18 @@ object CompletionPostProcessor {
             }
         }
         return this
+    }
+
+    private fun alignToCaretIndent(text: String, context: CompletionContext): String {
+        val caretIndent = context.prefix.substringAfterLast('\n')
+        if (!context.multiline || caretIndent.isEmpty() || caretIndent.isNotBlank()) return text
+        val lines = text.lines()
+        val continuation = lines.drop(1).filter { it.isNotBlank() }
+        if (continuation.isEmpty()) return text
+        val minIndent = continuation.minOf { line -> line.takeWhile { it == ' ' || it == '\t' }.length }
+        if (minIndent >= caretIndent.length) return text
+        val shift = caretIndent.take(caretIndent.length - minIndent)
+        return (listOf(lines.first()) + lines.drop(1).map { if (it.isBlank()) it else shift + it }).joinToString("\n")
     }
 
     private fun keepAtMostOneLeadingBreak(text: String): String {

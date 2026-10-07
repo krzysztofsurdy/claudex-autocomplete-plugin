@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.
+- Continuation lines returned without indentation are shifted to the caret indent.
 
 ## [1.0.0] - 2026-10-06
 
