@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.
+
 ## [1.0.0] - 2026-10-06
 
 ### Added

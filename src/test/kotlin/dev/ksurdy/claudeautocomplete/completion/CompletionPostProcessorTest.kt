@@ -121,4 +121,28 @@ class CompletionPostProcessorTest {
     fun `non blank caret line keeps one leading newline`() {
         assertEquals("\nreturn 1;", multi("\n\nreturn 1;", prefix = "function a() {"))
     }
+
+    @Test
+    fun `over long output is cut at the last balanced line instead of inside a block`() {
+        val raw = "a();\n\nif (\$x) {\n    b();\n    c();\n}\nd();"
+        assertEquals("a();", multi(raw, maxLines = 5))
+        assertEquals("a();\n\nif (\$x) {\n    b();\n    c();\n}", multi(raw, maxLines = 6))
+    }
+
+    @Test
+    fun `over long output without a balanced line falls back to a hard cut`() {
+        assertEquals("if (\$x) {\n    b();", multi("if (\$x) {\n    b();\n    c();\n}", maxLines = 2))
+    }
+
+    @Test
+    fun `brackets in strings and line comments do not affect the balanced cut`() {
+        val raw = "a('(');\n// don't stop {\nb();\nif (\$x) {\n    c();\n}"
+        assertEquals("a('(');\n// don't stop {\nb();", multi(raw, maxLines = 4))
+    }
+
+    @Test
+    fun `output within the limit is not cut`() {
+        val raw = "if (\$x) {\n    b();\n}"
+        assertEquals(raw, multi(raw, maxLines = 3))
+    }
 }

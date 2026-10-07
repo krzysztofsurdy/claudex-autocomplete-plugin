@@ -42,7 +42,45 @@ object CompletionPostProcessor {
         val blankCaretLine = context.prefix.substringAfterLast('\n').isBlank()
         if (!context.multiline) return text.trimStart('\n').lineSequence().firstOrNull().orEmpty()
         val withoutLeadingBreaks = if (blankCaretLine) text.trimStart('\n') else keepAtMostOneLeadingBreak(text)
-        return withoutLeadingBreaks.trimEnd().lines().take(context.maxLines.coerceAtLeast(1)).joinToString("\n")
+        val lines = withoutLeadingBreaks.trimEnd().lines()
+        val maxLines = context.maxLines.coerceAtLeast(1)
+        if (lines.size <= maxLines) return lines.joinToString("\n")
+        return lines.take(balancedLineCount(lines, maxLines) ?: maxLines).joinToString("\n")
+    }
+
+    private fun balancedLineCount(lines: List<String>, maxLines: Int): Int? {
+        var depth = 0
+        var balanced: Int? = null
+        for (index in 0 until maxLines) {
+            depth += bracketBalance(lines[index])
+            if (depth <= 0) balanced = index + 1
+        }
+        return balanced
+    }
+
+    private fun bracketBalance(line: String): Int {
+        val scan = scanBrackets(line.substringBeforeLineComment())
+        return scan.depth - scan.unmatched
+    }
+
+    private fun String.substringBeforeLineComment(): String {
+        var quote: Char? = null
+        var escaped = false
+        for ((index, char) in withIndex()) {
+            if (quote != null) {
+                when {
+                    escaped -> escaped = false
+                    char == '\\' -> escaped = true
+                    char == quote -> quote = null
+                }
+                continue
+            }
+            when {
+                char == '"' || char == '\'' || char == '`' -> quote = char
+                char == '/' && getOrNull(index + 1) == '/' -> return substring(0, index)
+            }
+        }
+        return this
     }
 
     private fun keepAtMostOneLeadingBreak(text: String): String {
@@ -69,7 +107,11 @@ object CompletionPostProcessor {
         return candidate.all { it in CLOSING_PUNCTUATION || it.isWhitespace() }
     }
 
-    private fun unmatchedClosers(text: String): Int {
+    private class BracketScan(val depth: Int, val unmatched: Int)
+
+    private fun unmatchedClosers(text: String): Int = scanBrackets(text).unmatched
+
+    private fun scanBrackets(text: String): BracketScan {
         var depth = 0
         var unmatched = 0
         var quote: Char? = null
@@ -89,6 +131,6 @@ object CompletionPostProcessor {
                 in CLOSERS -> if (depth > 0) depth-- else unmatched++
             }
         }
-        return unmatched
+        return BracketScan(depth, unmatched)
     }
 }
