@@ -5,3 +5,5 @@ build/
 *.iml
 .kotlin/
 .DS_Store
+out/
+allure-results/

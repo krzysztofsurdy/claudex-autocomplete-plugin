@@ -41,6 +41,12 @@ CLAUDE_IT=1 ./gradlew test
 CODEX_IT=1 ./gradlew test
 ```
 
+UI tests start a real PhpStorm with the built plugin (IntelliJ Starter + Driver), open the project in `src/uiTest/resources/php-project`, type in the editor and check the accepted suggestion. They call the real Claude CLI, so they are opt-in too. The first run downloads PhpStorm:
+
+```
+CLAUDE_IT=1 ./gradlew uiTest -PuiTestIdeVersion=2025.3
+```
+
 Failing test first, then the code. Keep pure logic in `completion/` and `backend/`.
 
 ## Layout
