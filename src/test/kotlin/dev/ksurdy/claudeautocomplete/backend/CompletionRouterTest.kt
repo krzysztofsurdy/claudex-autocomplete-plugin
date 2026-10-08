@@ -9,7 +9,7 @@ class CompletionRouterTest {
     private class FakeBackend(var text: String) : CompletionBackend {
         var calls = 0
         var shutdowns = 0
-        override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
+        override suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit): CompletionResult {
             calls++
             return CompletionResult.Success(text)
         }

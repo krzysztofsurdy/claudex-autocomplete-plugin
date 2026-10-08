@@ -22,10 +22,10 @@ class CompletionRouter(
             ProviderKind.Codex -> codex.lastUsage
         }
 
-    suspend fun complete(context: CompletionContext, config: BackendConfig): CompletionResult {
+    suspend fun complete(context: CompletionContext, config: BackendConfig, onText: (String) -> Unit = {}): CompletionResult {
         activate(config.provider)
         return when (config.provider) {
-            ProviderKind.Claude -> claude.complete(context, config.claude)
+            ProviderKind.Claude -> claude.complete(context, config.claude, onText)
             ProviderKind.Codex -> codex.complete(context, config.codex)
         }
     }

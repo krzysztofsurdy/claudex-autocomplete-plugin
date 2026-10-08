@@ -7,7 +7,7 @@ import dev.ksurdy.claudeautocomplete.backend.CompletionRouter
 import dev.ksurdy.claudeautocomplete.backend.UsageLimits
 
 interface CompletionEngine {
-    suspend fun complete(context: CompletionContext, config: BackendConfig): CompletionResult
+    suspend fun complete(context: CompletionContext, config: BackendConfig, onText: (String) -> Unit = {}): CompletionResult
 
     suspend fun refreshUsage(config: BackendConfig): UsageLimits?
 
@@ -18,8 +18,8 @@ class RouterEngine(
     private val router: CompletionRouter,
     private val onCompleted: () -> Unit = {},
 ) : CompletionEngine {
-    override suspend fun complete(context: CompletionContext, config: BackendConfig): CompletionResult =
-        router.complete(context, config).also { onCompleted() }
+    override suspend fun complete(context: CompletionContext, config: BackendConfig, onText: (String) -> Unit): CompletionResult =
+        router.complete(context, config, onText).also { onCompleted() }
 
     override suspend fun refreshUsage(config: BackendConfig): UsageLimits? = router.refreshUsage(config)
 

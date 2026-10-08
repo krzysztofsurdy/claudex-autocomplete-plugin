@@ -53,6 +53,13 @@ class PersistentClaudeBackendTest {
     }
 
     @Test
+    fun `streamed text is reported as it grows`() = runBlocking {
+        val seen = mutableListOf<String>()
+        backend(echoProcess("abc")).complete(testContext(), testConfig()) { seen += it }
+        assertEquals(listOf("a", "abc"), seen)
+    }
+
+    @Test
     fun `later requests clear context first`() = runBlocking {
         val process = echoProcess()
         val backend = backend(process)

@@ -42,7 +42,7 @@ sealed interface CompletionResult {
 enum class FailureKind { NotLoggedIn, CliNotFound, InvalidModel, Timeout, RateLimited, Other }
 
 interface CompletionBackend {
-    suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult
+    suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit = {}): CompletionResult
     fun shutdown()
 }
 

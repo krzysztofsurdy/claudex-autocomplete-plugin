@@ -33,6 +33,11 @@ class ClaudeCommandBuilderTest {
     }
 
     @Test
+    fun `one shot streams partial messages`() {
+        assertContains(ClaudeCommandBuilder.command(binary, testConfig(), persistent = false), "--include-partial-messages")
+    }
+
+    @Test
     fun `persistent uses stream json and keeps slash commands`() {
         val args = ClaudeCommandBuilder.command(binary, testConfig(), persistent = true)
         assertEquals("stream-json", valueAfter(args, "--output-format"))
