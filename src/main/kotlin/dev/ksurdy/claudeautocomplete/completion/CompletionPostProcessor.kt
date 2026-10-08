@@ -28,7 +28,7 @@ object CompletionPostProcessor {
     private fun trimEchoedHead(text: String, prefix: String): String {
         val linePrefix = prefix.substringAfterLast('\n')
         if (linePrefix.isEmpty()) return text
-        if (linePrefix.isBlank()) return text.removePrefix(linePrefix)
+        if (linePrefix.isBlank()) return text.trimStart('\n').trimStart(' ', '\t')
         val trimmedText = text.trimStart()
         val trimmedLine = linePrefix.trimStart()
         if (trimmedText.startsWith(trimmedLine)) return trimmedText.removePrefix(trimmedLine)

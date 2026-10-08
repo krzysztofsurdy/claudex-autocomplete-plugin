@@ -118,6 +118,17 @@ class CompletionPostProcessorTest {
     }
 
     @Test
+    fun `blank caret line drops echoed indentation that follows a leading newline`() {
+        assertEquals("return 1;\n    return 2;", multi("\n    return 1;\n    return 2;", prefix = "function a() {\n    "))
+    }
+
+    @Test
+    fun `first line starts at the caret on an indented blank line whatever indent the model adds`() {
+        assertEquals("\$form = 1;\n        return 2;", multi("       \$form = 1;\n        return 2;", prefix = "    function a() {\n        "))
+        assertEquals("\$form = 1;", multi("               \$form = 1;", prefix = "    function a() {\n        "))
+    }
+
+    @Test
     fun `non blank caret line keeps one leading newline`() {
         assertEquals("\nreturn 1;", multi("\n\nreturn 1;", prefix = "function a() {"))
     }
