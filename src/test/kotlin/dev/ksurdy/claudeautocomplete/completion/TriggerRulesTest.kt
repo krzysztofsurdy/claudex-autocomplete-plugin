@@ -53,6 +53,20 @@ class TriggerRulesTest {
     }
 
     @Test
+    fun `empty block body is detected`() {
+        assertTrue(TriggerRules.isEmptyBody("    ): Response {\n        ", "\n    }\n}\n"))
+        assertTrue(TriggerRules.isEmptyBody("function a() {\n", "}"))
+        assertTrue(TriggerRules.isEmptyBody("function a() {", "}"))
+    }
+
+    @Test
+    fun `block with existing statements is not an empty body`() {
+        assertFalse(TriggerRules.isEmptyBody("function a() {\n    \$x = 1;\n    ", "\n}"))
+        assertFalse(TriggerRules.isEmptyBody("function a() {\n    ", "\n    return 1;\n}"))
+        assertFalse(TriggerRules.isEmptyBody("\$a = [\n    ", "\n];"))
+    }
+
+    @Test
     fun `auto opener needs caret at end of line`() {
         assertFalse(TriggerRules.isMultiline("if (a) {", "foo();", "auto"))
         assertTrue(TriggerRules.isMultiline("if (a) {", "}", "auto"))

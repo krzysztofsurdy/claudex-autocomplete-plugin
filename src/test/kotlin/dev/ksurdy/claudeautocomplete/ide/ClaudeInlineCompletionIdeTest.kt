@@ -410,6 +410,19 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertInlineElements { gray("world") }
     }
 
+    fun testEnterInEmptyPhpMethodSendsTheIndentedCaretAndInsertsBodyOnce() = myFixture.testInlineCompletion(timeout = 60.seconds) {
+        fake.result = CompletionResult.Success("\$a = 1;\n        return \$a;")
+        init(PhpFileType.INSTANCE, "<?php\nclass Foo\n{\n    public function bar(): int\n    {<caret>\n    }\n}\n")
+        typeChar('\n')
+        delay()
+        val context = fake.contexts.last()
+        assertTrue(context.prefix, context.prefix.endsWith("    {\n        "))
+        assertTrue(context.suffix, context.suffix.startsWith("\n    }"))
+        assertTrue(context.emptyBody)
+        insert()
+        assertFileContent("<?php\nclass Foo\n{\n    public function bar(): int\n    {\n        \$a = 1;\n        return \$a;<caret>\n    }\n}\n")
+    }
+
     fun testProviderSettingRoutesToSelectedProvider() = myFixture.testInlineCompletion(timeout = 30.seconds) {
         ClaudeAutocompleteSettings.getInstance().state.provider = "codex"
         init(PlainTextFileType.INSTANCE, "route19 <caret>")

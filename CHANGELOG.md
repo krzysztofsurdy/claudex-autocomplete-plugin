@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default max completion lines raised from 12 to 30, so whole method bodies fit.
+
 ### Fixed
 
+- In an empty function or method body the suggestion is the complete body, not just the first statement.
 - Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.
 - Continuation lines returned without indentation are shifted to the caret indent.
 

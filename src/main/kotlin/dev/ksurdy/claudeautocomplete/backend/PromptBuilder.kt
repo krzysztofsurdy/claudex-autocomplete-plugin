@@ -17,6 +17,7 @@ object PromptBuilder {
         - Prefer using identifiers, methods and types visible in this file or in <open_files> over inventing new ones.
         - <mode>single-line</mode>: output exactly one line, no newline. Complete the current statement or expression only.
         - <mode>multi-line (max N lines)</mode>: output a coherent unit (the statement, block or next few statements), at most N lines, stop at a natural boundary. Do not write the remainder of the file.
+        - <mode>body (max N lines)</mode>: the cursor sits in an empty function, method or block body. Write the complete body, every statement through the final return, at most N lines. Do not stop after the first statement. Base it on the signature, the parameters and similar code in the file.
         - <imported_classes> shows signatures of classes the current file imports; use their real method and property names.
         - If nothing sensible can be inserted, output nothing at all.
 
@@ -28,6 +29,16 @@ object PromptBuilder {
           <CURSOR/>
         }</file><mode>multi-line (max 12 lines)</mode>
         => return a + b;
+
+        <file language="JavaScript">async function loadUser(id) {
+          <CURSOR/>
+        }</file><mode>body (max 20 lines)</mode>
+        => const response = await fetch(`/api/users/${'$'}{id}`);
+          if (!response.ok) {
+            throw new Error(`Failed to load user ${'$'}{id}`);
+          }
+
+          return response.json();
     """.trimIndent()
 
     fun systemPrompt(customInstructions: String): String {
@@ -53,8 +64,11 @@ object PromptBuilder {
         append(escape(context.prefix)).append("<CURSOR/>").append(escape(context.suffix)).append('\n')
         if (context.suffixTruncated) append(TRUNCATED_MARKER).append('\n')
         append("</file>\n")
-        if (context.multiline) append("<mode>multi-line (max ${context.maxLines} lines)</mode>")
-        else append("<mode>single-line</mode>")
+        when {
+            !context.multiline -> append("<mode>single-line</mode>")
+            context.emptyBody -> append("<mode>body (max ${context.maxLines} lines)</mode>")
+            else -> append("<mode>multi-line (max ${context.maxLines} lines)</mode>")
+        }
     }
 
     private fun StringBuilder.appendSnippet(file: OpenFileSnippet) {
