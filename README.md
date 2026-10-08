@@ -56,7 +56,7 @@ From a local build: `./gradlew buildPlugin`, then Settings | Plugins | gear icon
 
 Word and line accept reuse your keymap's Next Word and Line End. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) turns the plugin on and off.
 
-Tools | Trigger Claudex Autocomplete forces a completion even mid-line. No default shortcut, assign one in Keymap.
+Suggestions also appear mid-line, with code right of the caret, but not inside a word. Tools | Trigger Claudex Autocomplete forces a completion anywhere, even inside a word. No default shortcut, assign one in Keymap.
 
 ## Settings
 

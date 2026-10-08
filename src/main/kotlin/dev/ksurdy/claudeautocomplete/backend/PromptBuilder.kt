@@ -16,6 +16,7 @@ object PromptBuilder {
         - Match the file's indentation (tabs or spaces, width), naming, quote style and conventions. Continuation lines carry their full absolute indentation. The first line must not repeat the whitespace already before the cursor.
         - Prefer using identifiers, methods and types visible in this file or in <open_files> over inventing new ones.
         - <mode>single-line</mode>: output exactly one line, no newline. Complete the current statement or expression only.
+        - When code follows the cursor on the same line, output only what belongs between the cursor and that code, so that both sides join into valid code.
         - <mode>multi-line (max N lines)</mode>: output a coherent unit (the statement, block or next few statements), at most N lines, stop at a natural boundary. Do not write the remainder of the file.
         - <mode>body (max N lines)</mode>: the cursor sits in an empty function, method or block body. Write the complete body, every statement through the final return, at most N lines. Do not stop after the first statement. Base it on the signature, the parameters and similar code in the file.
         - <imported_classes> shows signatures of classes the current file imports; use their real method and property names.

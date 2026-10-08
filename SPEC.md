@@ -16,7 +16,7 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 2. Accept, next word and dismiss come from the platform inline completion actions.
 3. A new keystroke cancels the in-flight request.
 4. Manual trigger: the platform's `CallInlineCompletionAction` (Shift+Alt+\). `Tools | Trigger Claudex Autocomplete` (`ClaudeAutocomplete.Trigger`) forces a completion mid-line, no default shortcut.
-5. Only suggest when the rest of the line is empty or closers/whitespace (`)]}>"';,` and backtick).
+5. Suggest at the end of a line and mid-line, but not inside a word (letters, digits, `_` or `$` on both sides of the caret). Mid-line suggestions are single-line; an echoed rest of the line is trimmed and trailing spaces before it are kept.
 6. Multi-line when the caret line is blank, or the rest of the line is closers and the prefix ends with `{`, `[` or `:` (not `::`). Otherwise single-line. Setting `multilineMode` overrides (auto/always/never). A multi-line request in an empty block body (prefix ends with `{`, suffix starts with `}`) asks for the complete body.
 7. Post-processing: strip code fences, trim echoed head, cut to single line or `maxCompletionLines` (an over-long reply is cut at the last line where its brackets are balanced, hard cut only when there is none), shift continuation lines up to the caret indent on a blank caret line, trim overlapping tail and trailing whitespace.
 8. LRU cache, 32 entries, 60 s TTL. Key: provider, model settings, file, language, mode, last 500 chars of prefix, first 200 of suffix, imported classes.

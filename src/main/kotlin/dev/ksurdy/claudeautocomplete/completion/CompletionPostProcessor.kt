@@ -15,8 +15,17 @@ object CompletionPostProcessor {
         text = trimEchoedHead(text, context.prefix)
         text = limitLines(text, context)
         text = alignToCaretIndent(text, context)
+        val restOfLine = context.suffix.substringBefore('\n')
+        text = trimEchoedRestOfLine(text, restOfLine)
         text = trimOverlappingTail(text, context.suffix)
-        return text.trimEnd()
+        return if (restOfLine.isBlank()) text.trimEnd() else text.trimEnd('\n')
+    }
+
+    private fun trimEchoedRestOfLine(text: String, restOfLine: String): String {
+        val rest = restOfLine.trim()
+        if (rest.all { it in CLOSERS || it in CLOSING_PUNCTUATION || it.isWhitespace() }) return text
+        val trimmed = text.trimEnd()
+        return if (trimmed.length > rest.length && trimmed.endsWith(rest)) trimmed.dropLast(rest.length) else text
     }
 
     private fun stripFences(text: String): String {

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Mid-line suggestions with code right of the caret, but not inside a word.
+
 ### Changed
 
 - Default max completion lines raised from 12 to 30, so whole method bodies fit.
