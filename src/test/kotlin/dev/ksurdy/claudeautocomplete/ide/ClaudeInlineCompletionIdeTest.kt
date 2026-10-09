@@ -239,6 +239,84 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         }
     }
 
+    fun testAlternativesAreRequestedOnlyWhenTheUserCyclesToThem() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.queued += listOf(
+            CompletionResult.Success("first"),
+            CompletionResult.Success("second"),
+            CompletionResult.Success("third"),
+        )
+        init(PlainTextFileType.INSTANCE, "alt22 <caret>")
+        callInlineCompletion()
+        delay()
+        assertInlineRender("first")
+        assertEquals(1, fake.contexts.size)
+        callAction("NextInlineCompletionSuggestionAction")
+        delay()
+        assertInlineRender("second")
+        assertEquals(2, fake.contexts.size)
+        assertEquals(listOf("first"), fake.contexts.last().alternativeTo)
+        callAction("PrevInlineCompletionSuggestionAction")
+        delay()
+        assertInlineRender("first")
+        assertEquals(2, fake.contexts.size)
+        callAction("NextInlineCompletionSuggestionAction")
+        delay()
+        assertInlineRender("third")
+        assertEquals(3, fake.contexts.size)
+        assertEquals(setOf("first", "second"), fake.contexts.last().alternativeTo.toSet())
+    }
+
+    fun testAlternativesStopAtThreeAndKeepCycling() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.queued += listOf(
+            CompletionResult.Success("first"),
+            CompletionResult.Success("second"),
+            CompletionResult.Success("third"),
+        )
+        init(PlainTextFileType.INSTANCE, "alt23 <caret>")
+        callInlineCompletion()
+        delay()
+        assertInlineRender("first")
+        callAction("NextInlineCompletionSuggestionAction")
+        delay()
+        assertEquals(2, fake.contexts.size)
+        assertInlineRender("second")
+        callAction("NextInlineCompletionSuggestionAction")
+        delay()
+        assertInlineRender("first")
+        callAction("NextInlineCompletionSuggestionAction")
+        delay()
+        assertEquals(3, fake.contexts.size)
+        assertInlineRender("third")
+        repeat(4) {
+            callAction("NextInlineCompletionSuggestionAction")
+            delay()
+        }
+        assertEquals(3, fake.contexts.size)
+        assertInlineRender("second")
+    }
+
+    fun testAlternativesNeverTouchTheCache() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.queued += listOf(CompletionResult.Success("first"), CompletionResult.Success("second"))
+        init(PlainTextFileType.INSTANCE, "alt24 <caret>")
+        callInlineCompletion()
+        delay()
+        callAction("NextInlineCompletionSuggestionAction")
+        delay()
+        assertInlineRender("second")
+        escape()
+        callInlineCompletion()
+        delay()
+        assertInlineRender("first")
+        assertEquals(2, fake.contexts.size)
+    }
+
+    fun testSwitchingVariantsWithoutASessionRequestsNothing() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        init(PlainTextFileType.INSTANCE, "alt25 <caret>")
+        callAction("NextInlineCompletionSuggestionAction")
+        assertInlineHidden()
+        assertEquals(0, fake.contexts.size)
+    }
+
     fun testWarmUpStartsTheBackendOnlyAfterConsent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         ClaudeAutocompleteSettings.getInstance().state.consentGiven = false
         BackendService.getInstance().warmUpIfActive()?.join()

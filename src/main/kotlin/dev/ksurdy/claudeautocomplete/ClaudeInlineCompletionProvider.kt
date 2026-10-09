@@ -12,6 +12,8 @@ import com.intellij.openapi.application.readAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.util.UserDataHolderBase
+import dev.ksurdy.claudeautocomplete.alternatives.AlternativeRequest
+import dev.ksurdy.claudeautocomplete.alternatives.AlternativeSuggestion
 import dev.ksurdy.claudeautocomplete.backend.BackendConfig
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
@@ -41,6 +43,9 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     override fun isEnabled(event: InlineCompletionEvent): Boolean =
         ClaudeAutocompleteSettings.getInstance().isActive && isSupported(event)
 
+    override fun restartOn(event: InlineCompletionEvent): Boolean =
+        event is InlineCompletionEvent.DirectCall && AlternativeRequest.isPending(event.editor)
+
     override suspend fun getDebounceDelay(request: InlineCompletionRequest): Duration {
         val gen = generation.incrementAndGet()
         if (request.event is InlineCompletionEvent.DirectCall || request.event is InlineCompletionEvent.ManualCall) {
@@ -55,6 +60,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         val settings = ClaudeAutocompleteSettings.getInstance()
         val manual = request.event is InlineCompletionEvent.ManualCall
         val gen = generation.get()
+        val alternative = AlternativeRequest.take(request.editor)
         val status = StatusService.getInstance()
         if (status.isBlocked(Instant.now())) {
             publish(gen, ClaudeStatus.LimitReached(status.blockedUntil))
@@ -67,13 +73,17 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         }
 
         val config = settings.toBackendConfig()
+        val indicatorShown = settings.state.showInlineLoadingIndicator
+        if (alternative != null) {
+            val fresh = streamCompletion(request, context.copy(alternativeTo = alternative.previousTexts), config, null, gen, indicatorShown)
+            return AlternativeSuggestion(fresh, alternative.previousTexts)
+        }
         val cacheKey = CompletionCache.key(context, config)
         val cached = if (manual) null else cache.get(cacheKey)
         if (cached != null) {
             publish(gen, ClaudeStatus.Ready)
             return InlineCompletionSingleSuggestion.build { emit(InlineCompletionGrayTextElement(cached)) }
         }
-        val indicatorShown = settings.state.showInlineLoadingIndicator
         return InlineCompletionSingleSuggestion.build(UserDataHolderBase(), streamCompletion(request, context, config, cacheKey, gen, indicatorShown))
     }
 
@@ -81,7 +91,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         request: InlineCompletionRequest,
         context: CompletionContext,
         config: BackendConfig,
-        cacheKey: String,
+        cacheKey: String?,
         gen: Long,
         indicatorShown: Boolean,
     ): Flow<InlineCompletionElement> = channelFlow {
@@ -111,7 +121,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
                     val firstShownMs = if (firstShownAt == 0L) finishedAt - startedAt else firstShownAt - startedAt
                     logReceived(context, result.text, stream.text, finishedAt - startedAt, firstShownMs)
                     if (delta.isNotEmpty()) send(InlineCompletionGrayTextElement(delta))
-                    if (stream.text.isNotEmpty()) cache.put(cacheKey, stream.text)
+                    if (stream.text.isNotEmpty()) cacheKey?.let { cache.put(it, stream.text) }
                 }
                 CompletionResult.Empty -> publish(gen, ClaudeStatus.Ready)
                 is CompletionResult.Failure -> handleFailure(gen, result, config.provider)

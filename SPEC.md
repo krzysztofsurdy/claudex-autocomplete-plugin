@@ -25,6 +25,7 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 11. Nothing runs until the user consents (`consentGiven`). First-run notification: Enable / Settings / Not now.
 12. Failure notifications (group `Claude Autocomplete`): not logged in, CLI not found, invalid model, rate limited. Throttled to once per 5 min per provider and kind.
 13. Files matching `excludedFilePatterns`, VCS-ignored files and files excluded from the project are never sent as context.
+14. Alternatives: the platform's Next/Previous suggestion actions (Alt+] / Alt+[) cycle between up to 3 suggestions. Next on the last suggestion asks the model for another one (`alternativeTo` carries the texts already shown, rendered as `<shown_suggestions>`), bypassing the cache. The new suggestion comes first, the earlier ones follow as finished variants, so cycling back costs nothing. Nothing is requested before the user switches. Done by `NextAlternativeHandler`, an `editorActionHandler` wrapping the platform action; other providers' sessions go to the original handler.
 
 ## Settings
 
@@ -68,6 +69,7 @@ User message, built by `PromptBuilder`:
 <file path="..." language="..." indent="...">
 prefix<CURSOR/>suffix
 </file>
+<shown_suggestions>...</shown_suggestions>  only for alternatives
 <mode>single-line | multi-line (max N lines) | body (max N lines)</mode>
 ```
 
@@ -100,5 +102,6 @@ Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-
 - `backend/` - CLI processes, command builders, parsers, prompt, usage tracking, `CompletionRouter` (picks the provider).
 - `completion/` - `TriggerRules`, `CompletionPostProcessor`, `CompletionCache`. Pure logic.
 - `php/` - class outlines and imported-class context.
+- `alternatives/` - Next-suggestion handler, pending alternative request, multi-variant suggestion.
 - `actions/`, `ui/` - toggle and trigger actions, status bar widget.
 - top level - inline completion provider, settings, context collection, status service, consent prompt.
