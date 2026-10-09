@@ -87,7 +87,15 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
                 is CompletionResult.Success -> {
                     val finishedAt = System.currentTimeMillis()
                     publish(gen, ClaudeStatus.Done(finishedAt - startedAt, finishedAt))
-                    CompletionPostProcessor.process(result.text, context).also { if (it.isNotEmpty()) cache.put(cacheKey, it) }
+                    CompletionPostProcessor.process(result.text, context).also { processed ->
+                        LOG.debug {
+                            "Completion received: ms=${finishedAt - startedAt} multiline=${context.multiline} emptyBody=${context.emptyBody} " +
+                                "maxLines=${context.maxLines} rawLines=${result.text.lines().size} shownLines=${processed.lines().size} " +
+                                "caretColumn=${context.prefix.substringAfterLast('\n').length} " +
+                                "rawLead=${result.text.takeWhile { it.isWhitespace() }.length} shownLead=${processed.takeWhile { it.isWhitespace() }.length}"
+                        }
+                        if (processed.isNotEmpty()) cache.put(cacheKey, processed)
+                    }
                 }
                 CompletionResult.Empty -> {
                     publish(gen, ClaudeStatus.Ready)
