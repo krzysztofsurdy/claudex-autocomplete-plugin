@@ -76,6 +76,8 @@
     <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.BackendWarmUp"/>
     <editorActionHandler action="NextInlineCompletionSuggestionAction"
                          implementationClass="dev.ksurdy.claudeautocomplete.alternatives.NextAlternativeHandler"/>
+    <editorActionHandler action="PrevInlineCompletionSuggestionAction"
+                         implementationClass="dev.ksurdy.claudeautocomplete.alternatives.PrevAlternativeHandler"/>
   </extensions>
 
   <actions>

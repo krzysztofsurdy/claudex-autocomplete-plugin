@@ -250,23 +250,27 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         delay()
         assertInlineRender("first")
         assertEquals(1, fake.contexts.size)
-        callAction("NextInlineCompletionSuggestionAction")
+        callAction(NEXT_SUGGESTION)
         delay()
         assertInlineRender("second")
         assertEquals(2, fake.contexts.size)
         assertEquals(listOf("first"), fake.contexts.last().alternativeTo)
-        callAction("PrevInlineCompletionSuggestionAction")
+        callAction(PREV_SUGGESTION)
         delay()
         assertInlineRender("first")
         assertEquals(2, fake.contexts.size)
-        callAction("NextInlineCompletionSuggestionAction")
+        callAction(NEXT_SUGGESTION)
+        delay()
+        assertInlineRender("second")
+        assertEquals(2, fake.contexts.size)
+        callAction(NEXT_SUGGESTION)
         delay()
         assertInlineRender("third")
         assertEquals(3, fake.contexts.size)
         assertEquals(setOf("first", "second"), fake.contexts.last().alternativeTo.toSet())
     }
 
-    fun testAlternativesStopAtThreeAndKeepCycling() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+    fun testAlternativesKeepArrivalOrderAndWrapAtThree() = myFixture.testInlineCompletion(timeout = 30.seconds) {
         fake.queued += listOf(
             CompletionResult.Success("first"),
             CompletionResult.Success("second"),
@@ -276,23 +280,23 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         callInlineCompletion()
         delay()
         assertInlineRender("first")
-        callAction("NextInlineCompletionSuggestionAction")
-        delay()
-        assertEquals(2, fake.contexts.size)
-        assertInlineRender("second")
-        callAction("NextInlineCompletionSuggestionAction")
-        delay()
-        assertInlineRender("first")
-        callAction("NextInlineCompletionSuggestionAction")
-        delay()
-        assertEquals(3, fake.contexts.size)
-        assertInlineRender("third")
-        repeat(4) {
-            callAction("NextInlineCompletionSuggestionAction")
+        repeat(2) {
+            callAction(NEXT_SUGGESTION)
             delay()
         }
         assertEquals(3, fake.contexts.size)
+        assertInlineRender("third")
+        callAction(PREV_SUGGESTION)
         assertInlineRender("second")
+        callAction(PREV_SUGGESTION)
+        assertInlineRender("first")
+        callAction(PREV_SUGGESTION)
+        assertInlineRender("third")
+        callAction(NEXT_SUGGESTION)
+        assertInlineRender("first")
+        callAction(NEXT_SUGGESTION)
+        assertInlineRender("second")
+        assertEquals(3, fake.contexts.size)
     }
 
     fun testAlternativesNeverTouchTheCache() = myFixture.testInlineCompletion(timeout = 30.seconds) {
@@ -300,7 +304,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         init(PlainTextFileType.INSTANCE, "alt24 <caret>")
         callInlineCompletion()
         delay()
-        callAction("NextInlineCompletionSuggestionAction")
+        callAction(NEXT_SUGGESTION)
         delay()
         assertInlineRender("second")
         escape()
@@ -312,7 +316,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
 
     fun testSwitchingVariantsWithoutASessionRequestsNothing() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         init(PlainTextFileType.INSTANCE, "alt25 <caret>")
-        callAction("NextInlineCompletionSuggestionAction")
+        callAction(NEXT_SUGGESTION)
         assertInlineHidden()
         assertEquals(0, fake.contexts.size)
     }
@@ -569,5 +573,10 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         callInlineCompletion()
         delay()
         assertEquals(listOf(ProviderKind.Claude, ProviderKind.Codex), fake.configs.map { it.provider })
+    }
+
+    private companion object {
+        const val NEXT_SUGGESTION = "NextInlineCompletionSuggestionAction"
+        const val PREV_SUGGESTION = "PrevInlineCompletionSuggestionAction"
     }
 }
