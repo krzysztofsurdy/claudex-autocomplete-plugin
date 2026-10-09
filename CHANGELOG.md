@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Mid-line suggestions with code right of the caret, but not inside a word.
+- Multi-line suggestions stream in while the model writes: each finished, bracket-balanced line shows up at once.
 
 ### Changed
 

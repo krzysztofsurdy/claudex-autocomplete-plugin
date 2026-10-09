@@ -19,11 +19,12 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 5. Suggest at the end of a line and mid-line, but not inside a word (letters, digits, `_` or `$` on both sides of the caret). Mid-line suggestions are single-line; an echoed rest of the line is trimmed and trailing spaces before it are kept.
 6. Multi-line when the caret line is blank, or the rest of the line is closers and the prefix ends with `{`, `[` or `:` (not `::`). Otherwise single-line. Setting `multilineMode` overrides (auto/always/never). A multi-line request in an empty block body (prefix ends with `{`, suffix starts with `}`) asks for the complete body.
 7. Post-processing: strip code fences, trim echoed head, cut to single line or `maxCompletionLines` (an over-long reply is cut at the last line where its brackets are balanced, hard cut only when there is none), shift continuation lines up to the caret indent on a blank caret line, trim overlapping tail and trailing whitespace.
-8. LRU cache, 32 entries, 60 s TTL. Key: provider, model settings, file, language, mode, last 500 chars of prefix, first 200 of suffix, imported classes.
-9. No completions in read-only editors, files over 1,000,000 chars, or disabled languages.
-10. Nothing runs until the user consents (`consentGiven`). First-run notification: Enable / Settings / Not now.
-11. Failure notifications (group `Claude Autocomplete`): not logged in, CLI not found, invalid model, rate limited. Throttled to once per 5 min per provider and kind.
-12. Files matching `excludedFilePatterns`, VCS-ignored files and files excluded from the project are never sent as context.
+8. Streaming: the CLI reports text deltas (`--include-partial-messages`, persistent and one-shot). Multi-line suggestions show complete lines up to the last point where brackets are balanced; the rest appears with the final result. Text already shown is never changed. Codex shows the final result only.
+9. LRU cache, 32 entries, 60 s TTL. Key: provider, model settings, file, language, mode, last 500 chars of prefix, first 200 of suffix, imported classes.
+10. No completions in read-only editors, files over 1,000,000 chars, or disabled languages.
+11. Nothing runs until the user consents (`consentGiven`). First-run notification: Enable / Settings / Not now.
+12. Failure notifications (group `Claude Autocomplete`): not logged in, CLI not found, invalid model, rate limited. Throttled to once per 5 min per provider and kind.
+13. Files matching `excludedFilePatterns`, VCS-ignored files and files excluded from the project are never sent as context.
 
 ## Settings
 

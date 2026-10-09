@@ -4,19 +4,27 @@ import com.intellij.codeInsight.inline.completion.DebouncedInlineCompletionProvi
 import com.intellij.codeInsight.inline.completion.InlineCompletionEvent
 import com.intellij.codeInsight.inline.completion.InlineCompletionProviderID
 import com.intellij.codeInsight.inline.completion.InlineCompletionRequest
+import com.intellij.codeInsight.inline.completion.elements.InlineCompletionElement
 import com.intellij.codeInsight.inline.completion.elements.InlineCompletionGrayTextElement
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSingleSuggestion
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSuggestion
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
+import com.intellij.openapi.util.UserDataHolderBase
+import dev.ksurdy.claudeautocomplete.backend.BackendConfig
+import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
-import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
+import dev.ksurdy.claudeautocomplete.completion.StreamingCompletion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
@@ -52,64 +60,75 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
             publish(gen, ClaudeStatus.LimitReached(status.blockedUntil))
             return InlineCompletionSuggestion.Empty
         }
-        val snapshot = readAction {
-            ContextCollector.collect(request, settings.state, force = manual)?.let { it to request.document.modificationStamp }
-        }
-        if (snapshot == null) {
+        val context = readAction { ContextCollector.collect(request, settings.state, force = manual) }
+        if (context == null) {
             publish(gen, ClaudeStatus.Ready)
             return InlineCompletionSuggestion.Empty
         }
-        val (context, stamp) = snapshot
 
         val config = settings.toBackendConfig()
         val cacheKey = CompletionCache.key(context, config)
         val cached = if (manual) null else cache.get(cacheKey)
-        if (cached != null) publish(gen, ClaudeStatus.Ready)
-        val text = cached ?: run {
-            val startedAt = System.currentTimeMillis()
-            publish(gen, ClaudeStatus.Thinking(startedAt))
-            status.recordModel(config.activeModel())
-            LOG.debug { "Requesting completion: provider=${config.provider} model=${config.activeModel()} language=${context.languageId} manual=$manual" }
-            val indicator = if (settings.state.showInlineLoadingIndicator) {
-                InlineLoadingIndicator.start(request.editor, request.endOffset)
-            } else {
-                null
-            }
-            val result = try {
-                withContext(Dispatchers.IO) { BackendService.getInstance().engine.complete(context, config) }
-            } catch (e: CancellationException) {
-                publish(gen, ClaudeStatus.Ready)
-                throw e
-            } finally {
-                indicator?.stop()
+        if (cached != null) {
+            publish(gen, ClaudeStatus.Ready)
+            return InlineCompletionSingleSuggestion.build { emit(InlineCompletionGrayTextElement(cached)) }
+        }
+        val indicatorShown = settings.state.showInlineLoadingIndicator
+        return InlineCompletionSingleSuggestion.build(UserDataHolderBase(), streamCompletion(request, context, config, cacheKey, gen, indicatorShown))
+    }
+
+    private fun streamCompletion(
+        request: InlineCompletionRequest,
+        context: CompletionContext,
+        config: BackendConfig,
+        cacheKey: String,
+        gen: Long,
+        indicatorShown: Boolean,
+    ): Flow<InlineCompletionElement> = channelFlow {
+        val startedAt = System.currentTimeMillis()
+        publish(gen, ClaudeStatus.Thinking(startedAt))
+        StatusService.getInstance().recordModel(config.activeModel())
+        LOG.debug { "Requesting completion: provider=${config.provider} model=${config.activeModel()} language=${context.languageId}" }
+        val indicator = if (indicatorShown) InlineLoadingIndicator.start(request.editor, request.endOffset) else null
+        val stream = StreamingCompletion(context)
+        var firstShownAt = 0L
+        try {
+            val result = withContext(Dispatchers.IO) {
+                BackendService.getInstance().engine.complete(context, config) { raw ->
+                    val delta = stream.onPartial(raw)
+                    if (delta.isNotEmpty()) {
+                        if (firstShownAt == 0L) firstShownAt = System.currentTimeMillis()
+                        indicator?.stop()
+                        trySend(InlineCompletionGrayTextElement(delta))
+                    }
+                }
             }
             when (result) {
                 is CompletionResult.Success -> {
                     val finishedAt = System.currentTimeMillis()
                     publish(gen, ClaudeStatus.Done(finishedAt - startedAt, finishedAt))
-                    CompletionPostProcessor.process(result.text, context).also { processed ->
-                        LOG.debug {
-                            "Completion received: ms=${finishedAt - startedAt} multiline=${context.multiline} emptyBody=${context.emptyBody} " +
-                                "maxLines=${context.maxLines} rawLines=${result.text.lines().size} shownLines=${processed.lines().size} " +
-                                "caretColumn=${context.prefix.substringAfterLast('\n').length} " +
-                                "rawLead=${result.text.takeWhile { it.isWhitespace() }.length} shownLead=${processed.takeWhile { it.isWhitespace() }.length}"
-                        }
-                        if (processed.isNotEmpty()) cache.put(cacheKey, processed)
-                    }
+                    val delta = stream.onFinal(result.text)
+                    val firstShownMs = if (firstShownAt == 0L) finishedAt - startedAt else firstShownAt - startedAt
+                    logReceived(context, result.text, stream.text, finishedAt - startedAt, firstShownMs)
+                    if (delta.isNotEmpty()) send(InlineCompletionGrayTextElement(delta))
+                    if (stream.text.isNotEmpty()) cache.put(cacheKey, stream.text)
                 }
-                CompletionResult.Empty -> {
-                    publish(gen, ClaudeStatus.Ready)
-                    ""
-                }
-                is CompletionResult.Failure -> {
-                    handleFailure(gen, result, config.provider)
-                    ""
-                }
+                CompletionResult.Empty -> publish(gen, ClaudeStatus.Ready)
+                is CompletionResult.Failure -> handleFailure(gen, result, config.provider)
             }
+        } catch (e: CancellationException) {
+            publish(gen, ClaudeStatus.Ready)
+            throw e
+        } finally {
+            indicator?.stop()
         }
+    }.buffer(Channel.UNLIMITED)
 
-        if (text.isEmpty() || request.document.modificationStamp != stamp) return InlineCompletionSuggestion.Empty
-        return InlineCompletionSingleSuggestion.build { emit(InlineCompletionGrayTextElement(text)) }
+    private fun logReceived(context: CompletionContext, raw: String, shown: String, ms: Long, firstShownMs: Long) = LOG.debug {
+        "Completion received: ms=$ms firstShownMs=$firstShownMs multiline=${context.multiline} emptyBody=${context.emptyBody} " +
+            "maxLines=${context.maxLines} rawLines=${raw.lines().size} shownLines=${shown.lines().size} " +
+            "caretColumn=${context.prefix.substringAfterLast('\n').length} " +
+            "rawLead=${raw.takeWhile { it.isWhitespace() }.length} shownLead=${shown.takeWhile { it.isWhitespace() }.length}"
     }
 
     private fun handleFailure(gen: Long, failure: CompletionResult.Failure, provider: ProviderKind) {
