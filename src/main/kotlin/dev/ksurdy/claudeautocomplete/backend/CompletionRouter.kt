@@ -30,6 +30,11 @@ class CompletionRouter(
         }
     }
 
+    suspend fun warmUp(config: BackendConfig) {
+        activate(config.provider)
+        if (config.provider == ProviderKind.Claude) claude.warmUp(config.claude)
+    }
+
     suspend fun refreshUsage(config: BackendConfig): UsageLimits? {
         activate(config.provider)
         return when (config.provider) {

@@ -10,6 +10,12 @@ import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.CompletionRouter
 import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import dev.ksurdy.claudeautocomplete.backend.UsageLimits
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
@@ -28,6 +34,8 @@ class BackendService : Disposable {
     var engine: CompletionEngine = RouterEngine(router, onCompleted = ::refreshUsageIfStale)
 
     private val refreshing = AtomicBoolean(false)
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
     private var lastRefreshAttempt: Instant? = null
@@ -67,6 +75,13 @@ class BackendService : Disposable {
         }
     }
 
+    fun warmUpIfActive(): Job? {
+        val settings = ClaudeAutocompleteSettings.getInstance()
+        if (!settings.isActive) return null
+        val config = settings.toBackendConfig()
+        return scope.launch { engine.warmUp(config) }
+    }
+
     suspend fun ping(config: BackendConfig): CompletionResult {
         val result = pingBackend(config)
         val status = StatusService.getInstance()
@@ -97,6 +112,7 @@ class BackendService : Disposable {
         )
 
     override fun dispose() {
+        scope.cancel()
         engine.shutdown()
     }
 

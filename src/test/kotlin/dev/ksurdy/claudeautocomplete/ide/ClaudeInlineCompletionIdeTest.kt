@@ -239,6 +239,15 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         }
     }
 
+    fun testWarmUpStartsTheBackendOnlyAfterConsent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.consentGiven = false
+        BackendService.getInstance().warmUpIfActive()?.join()
+        assertEquals(0, fake.warmUps.get())
+        ClaudeAutocompleteSettings.getInstance().state.consentGiven = true
+        BackendService.getInstance().warmUpIfActive()?.join()
+        assertEquals(1, fake.warmUps.get())
+    }
+
     fun testNoBackendCallWithoutConsent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         ClaudeAutocompleteSettings.getInstance().state.consentGiven = false
         init(PlainTextFileType.INSTANCE, "noconsent <caret>")

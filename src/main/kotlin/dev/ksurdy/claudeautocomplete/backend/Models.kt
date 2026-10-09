@@ -43,6 +43,7 @@ enum class FailureKind { NotLoggedIn, CliNotFound, InvalidModel, Timeout, RateLi
 
 interface CompletionBackend {
     suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit = {}): CompletionResult
+    suspend fun warmUp(config: ClaudeConfig) = Unit
     fun shutdown()
 }
 

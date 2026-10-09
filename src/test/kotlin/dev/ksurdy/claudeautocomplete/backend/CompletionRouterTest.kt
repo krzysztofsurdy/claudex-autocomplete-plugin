@@ -9,6 +9,12 @@ class CompletionRouterTest {
     private class FakeBackend(var text: String) : CompletionBackend {
         var calls = 0
         var shutdowns = 0
+        var warmUps = 0
+
+        override suspend fun warmUp(config: ClaudeConfig) {
+            warmUps++
+        }
+
         override suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit): CompletionResult {
             calls++
             return CompletionResult.Success(text)
@@ -45,6 +51,15 @@ class CompletionRouterTest {
     )
 
     private fun config(provider: ProviderKind) = BackendConfig(provider, testConfig(), testCodexConfig())
+
+    @Test
+    fun `warm up starts claude only`() = runBlocking {
+        router.warmUp(config(ProviderKind.Codex))
+        assertEquals(0, claudeFake.warmUps)
+        assertEquals(0, codexExecs)
+        router.warmUp(config(ProviderKind.Claude))
+        assertEquals(1, claudeFake.warmUps)
+    }
 
     @Test
     fun `routes to the selected provider`() = runBlocking {
