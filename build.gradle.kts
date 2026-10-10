@@ -12,6 +12,15 @@ plugins {
 group = "dev.ksurdy.claudeautocomplete"
 version = providers.gradleProperty("pluginVersion").getOrElse("1.0.0")
 
+sourceSets {
+    create("uiTest") {
+        compileClasspath += sourceSets.main.get().output
+        runtimeClasspath += sourceSets.main.get().output
+    }
+}
+
+val uiTestImplementation by configurations.getting
+
 repositories {
     mavenCentral()
     intellijPlatform {
@@ -31,15 +40,38 @@ dependencies {
         bundledPlugin("com.jetbrains.php")
         bundledPlugin("org.jetbrains.plugins.yaml")
         testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.Starter, configurationName = uiTestImplementation.name)
     }
     testImplementation(kotlin("test-junit5"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("junit:junit:4.13.2")
+    uiTestImplementation(kotlin("test-junit5"))
+    uiTestImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    uiTestImplementation("org.kodein.di:kodein-di-jvm:7.20.2")
+    uiTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.1")
+    "uiTestRuntimeOnly"("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.test {
     useJUnitPlatform()
+}
+
+val uiTest by intellijPlatformTesting.testIdeUi.registering {
+    task {
+        val uiTestSourceSet = sourceSets.getByName("uiTest")
+        testClassesDirs = uiTestSourceSet.output.classesDirs
+        classpath = uiTestSourceSet.runtimeClasspath
+        useJUnitPlatform()
+        dependsOn(tasks.buildPlugin)
+        systemProperty("path.to.build.plugin", tasks.buildPlugin.get().archiveFile.get().asFile.absolutePath)
+        systemProperty("ui.test.project", layout.projectDirectory.dir("src/uiTest/resources/php-project").asFile.absolutePath)
+        providers.gradleProperty("uiTestIdeVersion").orNull?.let { systemProperty("ui.test.ide.version", it) }
+        testLogging {
+            showStandardStreams = true
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        }
+    }
 }
 
 java {
