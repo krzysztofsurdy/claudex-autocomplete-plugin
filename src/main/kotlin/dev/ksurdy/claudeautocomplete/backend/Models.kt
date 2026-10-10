@@ -1,5 +1,7 @@
 package dev.ksurdy.claudeautocomplete.backend
 
+import dev.ksurdy.claudeautocomplete.nextedit.NextEditInput
+
 data class CompletionContext(
     val filePath: String,
     val languageId: String,
@@ -14,6 +16,7 @@ data class CompletionContext(
     val importedClasses: List<OpenFileSnippet> = emptyList(),
     val emptyBody: Boolean = false,
     val alternativeTo: List<String> = emptyList(),
+    val nextEdit: NextEditInput? = null,
 )
 
 data class OpenFileSnippet(val path: String, val languageId: String, val content: String)
