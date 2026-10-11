@@ -46,6 +46,7 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var disabledLanguages by string("")
         var excludedFilePatterns by string(SensitiveFiles.DEFAULT_PATTERNS)
         var consentDeclined by property(false)
+        var nextEditSuggestions by property(false)
     }
 
     val isActive: Boolean get() = state.isActive
@@ -70,6 +71,8 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
 }
 
 val ClaudeAutocompleteSettings.State.isActive: Boolean get() = enabled && consentGiven
+
+val ClaudeAutocompleteSettings.State.isNextEditActive: Boolean get() = isActive && nextEditSuggestions
 
 val ClaudeAutocompleteSettings.State.needsConsentPrompt: Boolean get() = !consentGiven && !consentDeclined
 

@@ -72,6 +72,13 @@
                        bundle="messages.ClaudexBundle" key="notification.group.main"/>
     <notificationGroup id="Claudex Autocomplete Consent" displayType="STICKY_BALLOON" icon="/icons/claudex.svg"
                        bundle="messages.ClaudexBundle" key="notification.group.consent"/>
+    <editorFactoryListener implementation="dev.ksurdy.claudeautocomplete.nextedit.NextEditEditorListener"/>
+    <editorActionHandler action="EditorTab"
+                         implementationClass="dev.ksurdy.claudeautocomplete.nextedit.NextEditTabHandler"
+                         id="claudex.nextEdit.tab" order="first"/>
+    <editorActionHandler action="EditorEscape"
+                         implementationClass="dev.ksurdy.claudeautocomplete.nextedit.NextEditEscapeHandler"
+                         id="claudex.nextEdit.escape" order="before inline.completion.escape"/>
     <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.ConsentPrompt"/>
     <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.BackendWarmUp"/>
     <editorActionHandler action="NextInlineCompletionSuggestionAction"

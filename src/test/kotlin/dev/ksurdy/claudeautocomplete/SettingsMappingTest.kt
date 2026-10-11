@@ -67,3 +67,22 @@ class SettingsConsentTest {
         kotlin.test.assertEquals(SensitiveFiles.DEFAULT_PATTERNS, ClaudeAutocompleteSettings.State().excludedFilePatterns)
     }
 }
+
+class SettingsNextEditTest {
+    @Test
+    fun offByDefault() {
+        val state = ClaudeAutocompleteSettings.State().apply { consentGiven = true }
+        kotlin.test.assertFalse(state.nextEditSuggestions)
+        kotlin.test.assertFalse(state.isNextEditActive)
+    }
+
+    @Test
+    fun needsTheSettingAndConsentAndEnabled() {
+        val state = ClaudeAutocompleteSettings.State().apply { nextEditSuggestions = true }
+        kotlin.test.assertFalse(state.isNextEditActive)
+        state.consentGiven = true
+        kotlin.test.assertTrue(state.isNextEditActive)
+        state.enabled = false
+        kotlin.test.assertFalse(state.isNextEditActive)
+    }
+}
