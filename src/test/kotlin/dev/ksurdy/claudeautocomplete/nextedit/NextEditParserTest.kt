@@ -71,14 +71,14 @@ class NextEditParserTest {
 
     @Test
     fun `strips echoed line numbers when they match the range`() {
-        val raw = "<edit start_line=\"10\" end_line=\"11\">10| a\n11|     b</edit>"
+        val raw = "<edit start_line=\"10\" end_line=\"11\">10|a\n11|    b</edit>"
         assertEquals(ParsedEdit(10, 11, "a\n    b"), NextEditParser.parse(raw))
     }
 
     @Test
     fun `keeps text that only looks like a line number`() {
-        val raw = "<edit start_line=\"10\" end_line=\"10\">3| a</edit>"
-        assertEquals(ParsedEdit(10, 10, "3| a"), NextEditParser.parse(raw))
+        val raw = "<edit start_line=\"10\" end_line=\"10\">3|a</edit>"
+        assertEquals(ParsedEdit(10, 10, "3|a"), NextEditParser.parse(raw))
     }
 
     @Test

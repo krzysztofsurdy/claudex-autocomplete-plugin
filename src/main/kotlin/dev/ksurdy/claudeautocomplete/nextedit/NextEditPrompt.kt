@@ -16,7 +16,7 @@ object NextEditPrompt {
         if (context.indent.isNotEmpty()) append(" indent=\"").append(context.indent).append('"')
         append(">\n")
         input.windowText.split('\n').forEachIndexed { index, line ->
-            append(input.firstLine + index).append("| ").append(escape(line)).append('\n')
+            append(input.firstLine + index).append("|").append(escape(line)).append('\n')
         }
         append("</numbered_file>\n")
         append("<caret line=\"").append(input.caretLine).append("\"/>\n")

@@ -2,6 +2,10 @@ package dev.ksurdy.claudeautocomplete.backend
 
 import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
 import dev.ksurdy.claudeautocomplete.completion.TriggerRules
+import dev.ksurdy.claudeautocomplete.nextedit.EditHunk
+import dev.ksurdy.claudeautocomplete.nextedit.NextEditInput
+import dev.ksurdy.claudeautocomplete.nextedit.NextEditParser
+import dev.ksurdy.claudeautocomplete.nextedit.NextEditTarget
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
@@ -90,6 +94,48 @@ class ClaudeCliBackendIntegrationTest {
     fun `php array literal`() {
         enabled()
         realistic("array-literal", phpClass + "    public function roles(): array\n    {\n        return [\n            ", "\n        ];\n    }\n}\n")
+    }
+
+    private fun nextEditCase(name: String, file: String, edits: List<EditHunk>, caretLine: Int, expectedLine: Int?) = runBlocking {
+        val input = NextEditInput(edits, file, 1, caretLine)
+        val context = testContext(indent = "4 spaces").copy(nextEdit = input)
+        val backend = ClaudeCliBackend()
+        try {
+            val config = testConfig(claudePath = "", requestTimeoutMs = 30000)
+            var result: CompletionResult? = null
+            val ms = measureTimeMillis { result = backend.complete(context, config) }
+            val raw = (result as? CompletionResult.Success)?.text
+            val parsed = raw?.let { NextEditParser.parse(it) }
+            val target = NextEditTarget.choose(parsed, file, caretLine)
+            println("IT next-edit case=$name ms=$ms raw=<<$raw>> parsed=$parsed target=$target")
+            assertIs<CompletionResult.Success>(result)
+            if (expectedLine != null) {
+                assertTrue(target != null && target.startLine == expectedLine, "expected an edit at line $expectedLine, got $target")
+            }
+        } finally {
+            backend.shutdown()
+        }
+    }
+
+    @Test
+    fun `next edit renames the other usage of a renamed parameter`() {
+        enabled()
+        val file = "<?php\n\nclass Calc\n{\n    public function add(int \$bar): int\n    {\n        \$total = \$a + 1;\n        return \$total;\n    }\n}"
+        nextEditCase("rename-param", file, listOf(EditHunk(5, "    public function add(int \$a): int", "    public function add(int \$bar): int")), 5, 7)
+    }
+
+    @Test
+    fun `next edit updates the constructor after a new field`() {
+        enabled()
+        val file = "<?php\n\nclass User\n{\n    private string \$name;\n    private string \$email;\n\n    public function __construct(string \$name)\n    {\n        \$this->name = \$name;\n    }\n}"
+        nextEditCase("new-field", file, listOf(EditHunk(6, "", "    private string \$email;")), 6, null)
+    }
+
+    @Test
+    fun `next edit says none when nothing follows`() {
+        enabled()
+        val file = "<?php\n\n// TODO\nfunction ping(): string\n{\n    return 'pong';\n}"
+        nextEditCase("nothing", file, listOf(EditHunk(3, "// todo", "// TODO")), 3, null)
     }
 
     @Test

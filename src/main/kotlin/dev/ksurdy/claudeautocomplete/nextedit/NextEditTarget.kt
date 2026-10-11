@@ -22,10 +22,26 @@ object NextEditTarget {
         val lineStart = lineStarts[parsed.startLine - 1]
         val lineEnd = if (parsed.endLine < lineStarts.size) lineStarts[parsed.endLine] - 1 else content.length
         val oldText = content.substring(lineStart, lineEnd)
-        if (parsed.replacement == oldText) return null
-        val (start, end) = if (parsed.replacement.isEmpty()) withNewline(content, lineStart, lineEnd) else lineStart to lineEnd
-        return NextEdit(parsed.startLine, parsed.endLine, start, end, content.substring(start, end), parsed.replacement)
+        val replacement = restoreIndent(oldText, parsed.replacement)
+        if (replacement == oldText) return null
+        val (start, end) = if (replacement.isEmpty()) withNewline(content, lineStart, lineEnd) else lineStart to lineEnd
+        return NextEdit(parsed.startLine, parsed.endLine, start, end, content.substring(start, end), replacement)
     }
+
+    private fun restoreIndent(oldText: String, replacement: String): String {
+        val oldLines = oldText.lines()
+        val newLines = replacement.lines()
+        val oldIndent = oldLines.first().takeWhile { it == ' ' || it == '\t' }
+        if (oldIndent.isEmpty() || newLines.first().firstOrNull()?.isWhitespace() != false) return replacement
+        val lost = if (newLines.size > 1) {
+            newLines[1].takeWhile { it == ' ' || it == '\t' }.length >= oldIndent.length
+        } else {
+            firstWord(newLines.first()) == firstWord(oldLines.first())
+        }
+        return if (lost) oldIndent + replacement else replacement
+    }
+
+    private fun firstWord(line: String): String = line.trim().takeWhile { !it.isWhitespace() && it != '(' }
 
     private fun withNewline(content: String, start: Int, end: Int): Pair<Int, Int> = when {
         end < content.length -> start to end + 1
