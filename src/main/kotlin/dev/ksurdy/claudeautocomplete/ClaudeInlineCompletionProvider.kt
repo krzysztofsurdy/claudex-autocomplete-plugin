@@ -19,6 +19,7 @@ import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
+import dev.ksurdy.claudeautocomplete.completion.ReplySource
 import dev.ksurdy.claudeautocomplete.completion.StreamingCompletion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -118,14 +119,19 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
                     val delta = stream.onFinal(result.text)
                     val firstShownMs = if (firstShownAt == 0L) finishedAt - startedAt else firstShownAt - startedAt
                     logReceived(context, result.text, stream.text, finishedAt - startedAt, firstShownMs)
+                    if (stream.text.isEmpty()) logEmptied(result.text, stream)
                     if (delta.isNotEmpty()) send(InlineCompletionGrayTextElement(delta))
                     if (stream.text.isNotEmpty()) cacheKey?.let { cache.put(it, stream.text) }
                 }
-                CompletionResult.Empty -> publish(gen, ClaudeStatus.Ready)
+                CompletionResult.Empty -> {
+                    publish(gen, ClaudeStatus.Ready)
+                    LOG.debug { "Completion empty: backend returned blank text rawLength=0 ms=${System.currentTimeMillis() - startedAt}" }
+                }
                 is CompletionResult.Failure -> handleFailure(gen, result, config.provider)
             }
         } catch (e: CancellationException) {
             publish(gen, ClaudeStatus.Ready)
+            LOG.debug { "Completion cancelled: ms=${System.currentTimeMillis() - startedAt} shownLength=${stream.text.length}" }
             throw e
         } finally {
             indicator?.stop()
@@ -137,6 +143,16 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
             "maxLines=${context.maxLines} rawLines=${raw.lines().size} shownLines=${shown.lines().size} " +
             "caretColumn=${context.prefix.substringAfterLast('\n').length} " +
             "rawLead=${raw.takeWhile { it.isWhitespace() }.length} shownLead=${shown.takeWhile { it.isWhitespace() }.length}"
+    }
+
+    private fun logEmptied(raw: String, stream: StreamingCompletion) = LOG.debug {
+        val processed = stream.processed
+        val cause = when {
+            processed.source == ReplySource.ProseRejected -> "prose guard"
+            processed.extractedLength == 0 -> "empty completion block"
+            else -> "post-processing"
+        }
+        "Completion emptied: cause=$cause source=${processed.source} rawLength=${raw.length} extractedLength=${processed.extractedLength}"
     }
 
     private fun handleFailure(gen: Long, failure: CompletionResult.Failure, provider: ProviderKind) =
