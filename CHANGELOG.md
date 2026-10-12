@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The model's explanations were sometimes inserted as code ("The cursor sits inside ...", "Wait, that's not right"). The model now wraps the insertion in `<completion>` tags and everything outside is ignored. Replies without tags go through a prose guard, and streaming shows only the text inside the tags.
 - In an empty function or method body the suggestion is the complete body, not just the first statement.
 - Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.
 - Continuation lines returned without indentation are shifted to the caret indent.
