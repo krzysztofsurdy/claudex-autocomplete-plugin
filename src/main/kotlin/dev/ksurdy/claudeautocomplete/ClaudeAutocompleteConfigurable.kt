@@ -136,6 +136,10 @@ class ClaudeAutocompleteConfigurable :
                 row(ClaudexBundle.message("settings.timeout")) { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
                 row { checkBox(ClaudexBundle.message("settings.loading.indicator")).bindSelected(state::showInlineLoadingIndicator) }
                 row { checkBox(ClaudexBundle.message("settings.status.usage")).bindSelected(state::showUsageInStatusBar) }
+                row {
+                    checkBox(ClaudexBundle.message("settings.next.edit")).bindSelected(state::nextEditSuggestions)
+                        .comment(ClaudexBundle.message("settings.next.edit.comment"))
+                }
                 row(ClaudexBundle.message("settings.multiline")) {
                     comboBox(listOf("auto", "always", "never"), optionRenderer())
                         .bindItem({ state.multilineMode }, { state.multilineMode = it ?: "auto" })

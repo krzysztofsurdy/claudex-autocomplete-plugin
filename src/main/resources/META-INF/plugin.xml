@@ -8,6 +8,7 @@
     <ul>
       <li>Inline gray-text suggestions as you type</li>
       <li>Choose Claude Code or Codex as the provider</li>
+      <li>Next edit suggestions (opt-in): predicts your next edit elsewhere in the file, Tab jumps to it and Tab again applies it</li>
       <li>Accept the whole suggestion, the next word or the rest of the line</li>
       <li>Context from the current file, open tabs and, for PHP, imported classes</li>
       <li>Persistent Claude Code process for lower latency</li>

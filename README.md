@@ -21,6 +21,7 @@
 - Accept all, next word or rest of the line.
 - Context: current file (whole or around the caret), open tabs, and for PHP outlines of imported classes, parent, interfaces and traits.
 - Multi-line suggestions stream in line by line while the model writes.
+- Next edit suggestions (opt-in): after an edit, predicts the next one elsewhere in the file, e.g. the other usages of a renamed parameter. Tab jumps to it, Tab again applies it.
 - Spinner with elapsed time until the first line arrives.
 - Status bar widget with state, last latency and 5h / 7d usage.
 - Custom prompt additions, e.g. "Follow PSR-12".
@@ -55,6 +56,8 @@ From a local build: `./gradlew buildPlugin`, then Settings | Plugins | gear icon
 | Trigger a completion manually | Shift+Alt+\ (Shift+Option+\ on macOS) |
 | Next / previous suggestion | Alt+] / Alt+[ (Option+] / Option+[ on macOS) |
 | Dismiss | Esc |
+| Next edit suggestion: jump to it, then apply it | Tab, Tab (only while one is shown) |
+| Next edit suggestion: dismiss | Esc or keep typing |
 
 Word and line accept reuse your keymap's Next Word and Line End. Next and previous suggestion cycle through up to three alternatives; the model is asked for another one only when you press Next on the newest suggestion. Suggestions stay in the order they arrived and wrap at the ends. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) turns the plugin on and off.
 
@@ -79,6 +82,7 @@ Settings | Tools | Claudex Autocomplete. Main options:
 | Excluded file patterns | `.env`, `*.pem`, `id_rsa*`, ... | Comma-separated. Matching files, VCS-ignored files and files excluded from the project are never sent |
 | Include imported classes | true | PHP only, signatures only |
 | Multi-line mode | auto | auto / always / never |
+| Next edit suggestions | off | Extra request after each edit and pause, uses more quota |
 | Keep CLI process alive | true | Claude Code only, Codex starts a process per request |
 | Custom prompt additions | empty | Appended to the system prompt |
 | Disabled languages | empty | Comma-separated language ids |
@@ -90,6 +94,8 @@ Test Connection runs one completion with the values in the form, without saving.
 After you pause, the plugin sends the CLI the code before and after the caret, the file window, optionally other open tabs and (PHP) imported class outlines. The reply shows as ghost text.
 
 It only asks when the rest of the line is empty or closing characters, and never in read-only editors or files over 1,000,000 characters. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` are removed from the CLI environment, so your subscription login is used.
+
+With next edit suggestions on, a request is also sent after you edit and pause: the last few small edits and the file window go to the CLI, and a suggestion on another line shows up highlighted with the new text below it. Tab jumps the caret there, Tab again applies it as one undo step, Esc or typing dismisses it. Nothing shows when a ghost-text suggestion is visible, and Tab behaves as usual when no next edit suggestion is shown.
 
 Your code context goes to Anthropic or OpenAI through the CLI, under your account's terms.
 
