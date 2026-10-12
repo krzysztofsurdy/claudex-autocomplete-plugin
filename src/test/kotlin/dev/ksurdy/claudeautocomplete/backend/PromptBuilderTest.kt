@@ -44,6 +44,11 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `system prompt explains mid line insertions`() {
+        assertContains(PromptBuilder.systemPrompt(""), "When code follows the cursor on the same line, output only what belongs between the cursor and that code")
+    }
+
+    @Test
     fun `open files block is omitted when there are none`() {
         assertFalse(PromptBuilder.userMessage(testContext()).contains("<open_files>"))
     }

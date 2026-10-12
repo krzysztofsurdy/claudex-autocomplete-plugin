@@ -4,7 +4,11 @@ object TriggerRules {
     private const val CLOSING_CHARS = ")]}>\"';,`"
     private val BLOCK_OPENERS = listOf("{", "[", ":")
 
-    fun shouldTrigger(prefix: String, suffix: String): Boolean = restOfLineIsClosers(suffix)
+    fun shouldTrigger(prefix: String, suffix: String): Boolean {
+        val before = prefix.lastOrNull() ?: return true
+        val after = suffix.firstOrNull() ?: return true
+        return !(isWordChar(before) && isWordChar(after))
+    }
 
     fun isMultiline(prefix: String, suffix: String, mode: String): Boolean = when (mode.lowercase()) {
         "always" -> true
@@ -17,6 +21,8 @@ object TriggerRules {
 
     private fun restOfLineIsClosers(suffix: String): Boolean =
         suffix.substringBefore('\n').all { it.isWhitespace() || it in CLOSING_CHARS }
+
+    private fun isWordChar(char: Char): Boolean = char.isLetterOrDigit() || char == '_' || char == '$'
 
     private fun isBlankCaretLine(prefix: String): Boolean = prefix.substringAfterLast('\n').isBlank()
 

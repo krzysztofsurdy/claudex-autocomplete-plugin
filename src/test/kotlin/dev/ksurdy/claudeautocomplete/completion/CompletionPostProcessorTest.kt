@@ -62,6 +62,18 @@ class CompletionPostProcessorTest {
     }
 
     @Test
+    fun `echoed rest of the line is trimmed mid line`() {
+        assertEquals("\$a, ", single("\$a, \$b)", prefix = "foo(", suffix = "\$b)"))
+        assertEquals("\$repo->", single("\$repo->find(\$id);", prefix = "\$x = ", suffix = "find(\$id);\nnext();"))
+    }
+
+    @Test
+    fun `mid line suggestion keeps its trailing space before the rest of the line`() {
+        assertEquals("\$a, ", single("\$a, ", prefix = "foo(", suffix = "\$b)"))
+        assertEquals("x = 1;", single("x = 1;  ", prefix = "", suffix = ""))
+    }
+
+    @Test
     fun `no overlap leaves text untouched`() {
         assertEquals("abc", single("abc", prefix = "p", suffix = ")"))
     }

@@ -61,9 +61,20 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertInlineElements { gray("world") }
     }
 
-    fun testMidLineWithCodeRightOfCaretIsSuppressed() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testMidLineWithCodeRightOfCaretSuggestsSingleLine() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("baz, bar)")
         init(PlainTextFileType.INSTANCE, "foo(<caret>bar)")
-        callInlineCompletion()
+        typeChar('(')
+        delay()
+        assertFalse(fake.contexts.single().multiline)
+        assertInlineElements { gray("baz, ") }
+        insert()
+        assertFileContent("foo((baz, <caret>bar)")
+    }
+
+    fun testInsideAWordIsSuppressed() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        init(PlainTextFileType.INSTANCE, "fo<caret>bar")
+        typeChar('o')
         delay()
         assertInlineHidden()
         assertEquals(0, fake.contexts.size)

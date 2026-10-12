@@ -18,9 +18,23 @@ class TriggerRulesTest {
     }
 
     @Test
-    fun `does not trigger with code right of caret`() {
-        assertFalse(TriggerRules.shouldTrigger("foo(", "\$a, \$b)"))
-        assertFalse(TriggerRules.shouldTrigger("\$x = ", "bar();"))
+    fun `triggers mid line when code right of caret starts after a separator`() {
+        assertTrue(TriggerRules.shouldTrigger("foo(", "\$a, \$b)"))
+        assertTrue(TriggerRules.shouldTrigger("\$x = ", "bar();"))
+        assertTrue(TriggerRules.shouldTrigger("foo(\$a, ", " \$c)"))
+    }
+
+    @Test
+    fun `does not trigger inside a word`() {
+        assertFalse(TriggerRules.shouldTrigger("\$this->us", "ers;"))
+        assertFalse(TriggerRules.shouldTrigger("fo", "o();"))
+        assertFalse(TriggerRules.shouldTrigger("\$a", "\$b"))
+    }
+
+    @Test
+    fun `auto mid line with code right of caret is single line`() {
+        assertFalse(TriggerRules.isMultiline("if (a) {", "foo();", "auto"))
+        assertFalse(TriggerRules.isMultiline("foo(", "\$b)", "auto"))
     }
 
     @Test
