@@ -49,6 +49,21 @@ final class LearningTeamController extends AbstractController
         return $this->redirectToRoute('admin_learning_team_edit', ['id' => $id]);
     }
 
+    #[Route('/admin/learning-team/{teamId}/archive', name: 'admin_learning_team_archive')]
+    public function archiveAction(
+        LearningTeamParticipantRepository $learningTeamParticipantRepository,
+        int $teamId
+    ): Response {
+        $participant = $learningTeamParticipantRepository->find($teamId);
+        if (null === $participant) {
+            throw $this->createNotFoundException('Participant not found.');
+        }
+
+        $this->addFlash('success', "Archived $teamId");
+
+        return $this->redirectToRoute('admin_learning_team_edit', ['id' => $teamId]);
+    }
+
     #[Route('/admin/learning-team/participant/{participantId}', name: 'admin_learning_team_participant')]
     public function showParticipantAction(
         LearningTeamParticipantRepository $learningTeamParticipantRepository,

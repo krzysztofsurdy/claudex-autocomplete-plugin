@@ -10,36 +10,19 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.seconds
 
-class Observation(
-    val logLine: String?,
-    val before: String,
-    val after: String,
-    val caretOffset: Int,
-    val newLogLines: List<String>,
-) {
-    val received: Boolean get() = logLine?.contains(COMPLETION_RECEIVED) == true
-
-    val inserted: String get() = after.substring(caretOffset, caretOffset + after.length - before.length)
-
-    fun caretLineAfter(): String {
-        val start = after.lastIndexOf('\n', caretOffset - 1) + 1
-        val end = after.indexOf('\n', caretOffset).takeIf { it >= 0 } ?: after.length
-        return after.substring(start, end)
-    }
-
-    fun report(shown: String = inserted): String =
-        "inserted=<<\n${shown.replace(" ", "·")}>>\nlog:\n${newLogLines.joinToString("\n").ifEmpty { "(no plugin log lines)" }}"
-}
-
 class ScenarioRunner(private val ide: BackgroundRun, private val log: PluginLog, private val original: String) {
     fun verify(name: String, seed: Seed, trigger: (JEditorUiComponent, Driver) -> Unit, check: (Observation) -> String?) {
         val attempts = mutableListOf<Observation>()
-        var problem: String? = "not run"
-        while (problem != null && attempts.size < MAX_ATTEMPTS) {
-            if (attempts.isNotEmpty()) Thread.sleep(CACHE_EXPIRY_MS)
+        var problem: String? = null
+        for (number in 1..MAX_ATTEMPTS) {
             val seen = observe(seed, trigger)
             attempts += seen
-            problem = if (seen.received) check(seen) else "the plugin did not receive a completion"
+            if (seen.outcome != Outcome.Received) {
+                problem = "no suggestion was shown: ${seen.outcome}"
+                continue
+            }
+            problem = proseProblem(seen.inserted) ?: check(seen)
+            break
         }
         val report = attempts.withIndex().joinToString("\n") { (index, seen) -> "attempt ${index + 1}: ${seen.report()}" }
         println("UI result $name\n$report")
@@ -57,15 +40,17 @@ class ScenarioRunner(private val ide: BackgroundRun, private val log: PluginLog,
                     val finishedBefore = log.finished().size
                     val linesBefore = log.lines().size
                     trigger(this, this@with)
-                    val logLine = awaitCompletion(finishedBefore)
+                    val lastFinished = awaitCompletion(finishedBefore)
                     Thread.sleep(RENDER_SETTLE_MS)
                     val before = text
                     val caretOffset = interact { getCaretModel().getOffset() }
-                    if (logLine?.contains(COMPLETION_RECEIVED) == true) {
+                    val newLogLines = log.lines().drop(linesBefore)
+                    val outcome = outcomeOf(lastFinished, newLogLines)
+                    if (outcome == Outcome.Received) {
                         invokeAction(ACCEPT_ACTION, true, component)
                         Thread.sleep(RENDER_SETTLE_MS)
                     }
-                    observation = Observation(logLine, before, text, caretOffset, log.lines().drop(linesBefore))
+                    observation = Observation(outcome, before, text, caretOffset, newLogLines)
                 }
             }
         }
@@ -74,32 +59,31 @@ class ScenarioRunner(private val ide: BackgroundRun, private val log: PluginLog,
 
     fun enter(editor: JEditorUiComponent) = ide.driver.invokeAction(ENTER_ACTION, true, editor.component)
 
-    private fun awaitQuiet() {
+    fun awaitQuiet() {
         Thread.sleep(QUIET_SETTLE_MS)
         val deadline = System.nanoTime() + QUIET_TIMEOUT.inWholeNanoseconds
         while (System.nanoTime() < deadline && log.requested() > log.finished().size) Thread.sleep(POLL_MS)
         Thread.sleep(QUIET_SETTLE_MS)
     }
 
-    private fun awaitCompletion(finishedBefore: Int): String? {
+    fun awaitCompletion(finishedBefore: Int): String? {
         val deadline = System.nanoTime() + SUGGESTION_TIMEOUT.inWholeNanoseconds
         while (System.nanoTime() < deadline) {
             val finished = log.finished()
-            if (finished.size > finishedBefore) return finished.last()
+            if (finished.size > finishedBefore && log.requested() <= finished.size) return finished.last()
             Thread.sleep(POLL_MS)
         }
         return null
     }
 
-    private companion object {
-        const val MAX_ATTEMPTS = 3
-        const val CACHE_EXPIRY_MS = 61_000L
+    companion object {
         const val ENTER_ACTION = "EditorEnter"
         const val ACCEPT_ACTION = "InsertInlineCompletionAction"
-        const val POLL_MS = 250L
         const val RENDER_SETTLE_MS = 700L
-        const val QUIET_SETTLE_MS = 1000L
-        val SUGGESTION_TIMEOUT = 40.seconds
-        val QUIET_TIMEOUT = 20.seconds
+        private const val MAX_ATTEMPTS = 2
+        private const val POLL_MS = 250L
+        private const val QUIET_SETTLE_MS = 1000L
+        private val SUGGESTION_TIMEOUT = 40.seconds
+        private val QUIET_TIMEOUT = 20.seconds
     }
 }
