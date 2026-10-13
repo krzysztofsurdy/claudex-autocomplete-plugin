@@ -2,6 +2,7 @@ package dev.ksurdy.claudeautocomplete.nextedit
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 class NextEditTargetTest {
@@ -105,5 +106,25 @@ class NextEditTargetTest {
     fun `keeps an unindented single line that starts differently`() {
         val edit = NextEditTarget.choose(ParsedEdit(6, 6, "echo 1;"), indented, caretLine = 1)!!
         assertEquals("echo 1;", edit.newText)
+    }
+
+    private fun dropped(parsed: ParsedEdit?, caretLine: Int = 1, maxLines: Int = NextEditTarget.MAX_LINES): DropReason =
+        assertIs<TargetOutcome.Dropped>(NextEditTarget.evaluate(parsed, text, caretLine, maxLines)).reason
+
+    @Test
+    fun `evaluate names the reason an edit is dropped`() {
+        assertEquals(DropReason.Unparsable, dropped(null))
+        assertEquals(DropReason.OutsideFile, dropped(ParsedEdit(6, 6, "x")))
+        assertEquals(DropReason.OutsideFile, dropped(ParsedEdit(4, 9, "x")))
+        assertEquals(DropReason.TooLong, dropped(ParsedEdit(1, 4, "x"), maxLines = 3))
+        assertEquals(DropReason.CaretLine, dropped(ParsedEdit(2, 4, "x"), caretLine = 3))
+        assertEquals(DropReason.NoOp, dropped(ParsedEdit(3, 3, "three")))
+    }
+
+    @Test
+    fun `evaluate returns the same edit as choose when nothing is dropped`() {
+        val parsed = ParsedEdit(3, 3, "THREE")
+        val outcome = assertIs<TargetOutcome.Chosen>(NextEditTarget.evaluate(parsed, text, caretLine = 1))
+        assertEquals(NextEditTarget.choose(parsed, text, caretLine = 1), outcome.edit)
     }
 }

@@ -9,24 +9,36 @@ data class NextEdit(
     val newText: String,
 )
 
+enum class DropReason { Unparsable, OutsideFile, TooLong, CaretLine, NoOp }
+
+sealed interface TargetOutcome {
+    data class Chosen(val edit: NextEdit) : TargetOutcome
+    data class Dropped(val reason: DropReason) : TargetOutcome
+}
+
 object NextEditTarget {
     const val MAX_LINES = 20
 
-    fun choose(parsed: ParsedEdit?, text: CharSequence, caretLine: Int, maxLines: Int = MAX_LINES): NextEdit? {
-        if (parsed == null) return null
+    fun choose(parsed: ParsedEdit?, text: CharSequence, caretLine: Int, maxLines: Int = MAX_LINES): NextEdit? =
+        (evaluate(parsed, text, caretLine, maxLines) as? TargetOutcome.Chosen)?.edit
+
+    fun evaluate(parsed: ParsedEdit?, text: CharSequence, caretLine: Int, maxLines: Int = MAX_LINES): TargetOutcome {
+        if (parsed == null) return dropped(DropReason.Unparsable)
         val content = text.toString()
         val lineStarts = lineStarts(content)
-        if (parsed.startLine < 1 || parsed.endLine > lineStarts.size) return null
-        if (parsed.endLine - parsed.startLine + 1 > maxLines) return null
-        if (caretLine in parsed.startLine..parsed.endLine) return null
+        if (parsed.startLine < 1 || parsed.endLine > lineStarts.size) return dropped(DropReason.OutsideFile)
+        if (parsed.endLine - parsed.startLine + 1 > maxLines) return dropped(DropReason.TooLong)
+        if (caretLine in parsed.startLine..parsed.endLine) return dropped(DropReason.CaretLine)
         val lineStart = lineStarts[parsed.startLine - 1]
         val lineEnd = if (parsed.endLine < lineStarts.size) lineStarts[parsed.endLine] - 1 else content.length
         val oldText = content.substring(lineStart, lineEnd)
         val replacement = restoreIndent(oldText, parsed.replacement)
-        if (replacement == oldText) return null
+        if (replacement == oldText) return dropped(DropReason.NoOp)
         val (start, end) = if (replacement.isEmpty()) withNewline(content, lineStart, lineEnd) else lineStart to lineEnd
-        return NextEdit(parsed.startLine, parsed.endLine, start, end, content.substring(start, end), replacement)
+        return TargetOutcome.Chosen(NextEdit(parsed.startLine, parsed.endLine, start, end, content.substring(start, end), replacement))
     }
+
+    private fun dropped(reason: DropReason): TargetOutcome = TargetOutcome.Dropped(reason)
 
     private fun restoreIndent(oldText: String, replacement: String): String {
         val oldLines = oldText.lines()
