@@ -15,9 +15,12 @@ class FakeCompletionBackend(var result: CompletionResult) : CompletionEngine {
     @Volatile
     var gate: CompletableDeferred<Unit>? = null
 
-    override suspend fun complete(context: CompletionContext, config: BackendConfig): CompletionResult {
+    var partials: List<String> = emptyList()
+
+    override suspend fun complete(context: CompletionContext, config: BackendConfig, onText: (String) -> Unit): CompletionResult {
         contexts += context
         configs += config
+        partials.forEach(onText)
         gate?.await()
         return result
     }
