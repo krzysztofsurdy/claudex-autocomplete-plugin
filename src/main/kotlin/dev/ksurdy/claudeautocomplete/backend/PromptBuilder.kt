@@ -4,6 +4,8 @@ import dev.ksurdy.claudeautocomplete.nextedit.NextEditPrompt
 
 object PromptBuilder {
     private const val TRUNCATED_MARKER = "<!-- truncated -->"
+    private const val DISTINCT_RETRY_NOTE =
+        "<retry>Your previous reply was identical to a shown suggestion. Reply with a clearly different completion, not a reformatting of one.</retry>"
 
     private val BASE_SYSTEM_PROMPT = """
         You are the engine behind an IDE's inline code completion (like GitHub Copilot). You are not a chat assistant.
@@ -30,6 +32,7 @@ object PromptBuilder {
           Replace whole lines only: to insert, replace a neighbouring line with itself plus the new lines; to delete lines, leave the replacement empty.
         - <imported_classes> shows signatures of classes the current file imports; use their real method and property names.
         - <shown_suggestions> lists suggestions the user already rejected for this cursor position. Offer a different one that is still correct, never repeat them.
+        - <retry> means your previous reply repeated a shown suggestion. Reply with a clearly different completion, never a reformatted copy of one.
         - <completion></completion> means nothing fits, for example the file is finished or the caret sits where no code can go. It is almost never right on a blank line inside a class, interface, trait or function body: there propose the most likely next member or statement, matching the neighbouring code (a method after a method, a statement after a statement).
 
         Examples (input shows the cursor; output is the full reply):
@@ -103,6 +106,7 @@ object PromptBuilder {
             append("<shown_suggestions>\n")
             for (shown in context.alternativeTo) append("<suggestion>").append(escape(shown)).append("</suggestion>\n")
             append("</shown_suggestions>\n")
+            if (context.distinctRetry) append(DISTINCT_RETRY_NOTE).append('\n')
         }
         when {
             !context.multiline -> append("<mode>single-line</mode>")

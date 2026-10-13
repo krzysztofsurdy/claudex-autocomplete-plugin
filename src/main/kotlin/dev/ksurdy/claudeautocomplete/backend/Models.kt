@@ -16,6 +16,7 @@ data class CompletionContext(
     val importedClasses: List<OpenFileSnippet> = emptyList(),
     val emptyBody: Boolean = false,
     val alternativeTo: List<String> = emptyList(),
+    val distinctRetry: Boolean = false,
     val nextEdit: NextEditInput? = null,
 )
 
