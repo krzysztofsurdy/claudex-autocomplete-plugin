@@ -13,8 +13,8 @@ fun proseProblem(text: String): String? = when {
 fun outcomeOf(lastFinished: String?, newLogLines: List<String>): Outcome = when {
     lastFinished == null -> Outcome.TimedOut
     COMPLETION_FAILED in lastFinished -> Outcome.Failed
-    COMPLETION_CANCELLED in lastFinished -> Outcome.Cancelled
-    COMPLETION_EMPTY in lastFinished -> Outcome.Empty
+    COMPLETION_CANCELLED in lastFinished || ALTERNATIVE_CANCELLED in lastFinished -> Outcome.Cancelled
+    COMPLETION_EMPTY in lastFinished || ALTERNATIVE_DROPPED in lastFinished -> Outcome.Empty
     newLogLines.any { COMPLETION_EMPTIED in it } -> Outcome.Emptied
     else -> Outcome.Received
 }
