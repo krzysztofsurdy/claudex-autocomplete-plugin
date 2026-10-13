@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In an empty function or method body the suggestion is the complete body, not just the first statement.
 - Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.
 - Continuation lines returned without indentation are shifted to the caret indent.
+- A blank line between two methods sometimes got no suggestion because the model answered with an empty completion. The prompt now asks for the most likely next member or statement there.
 
 ## [1.0.0] - 2026-10-06
 

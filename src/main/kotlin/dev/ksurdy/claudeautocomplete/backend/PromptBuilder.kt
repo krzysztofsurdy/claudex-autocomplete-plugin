@@ -30,7 +30,7 @@ object PromptBuilder {
           Replace whole lines only: to insert, replace a neighbouring line with itself plus the new lines; to delete lines, leave the replacement empty.
         - <imported_classes> shows signatures of classes the current file imports; use their real method and property names.
         - <shown_suggestions> lists suggestions the user already rejected for this cursor position. Offer a different one that is still correct, never repeat them.
-        - If nothing sensible can be inserted, output <completion></completion>.
+        - <completion></completion> means nothing fits, for example the file is finished or the caret sits where no code can go. It is almost never right on a blank line inside a class, interface, trait or function body: there propose the most likely next member or statement, matching the neighbouring code (a method after a method, a statement after a statement).
 
         Examples (input shows the cursor; output is the full reply):
         <file language="PHP">${'$'}user = ${'$'}this->users-><CURSOR/>;</file><mode>single-line</mode>
@@ -50,6 +50,25 @@ object PromptBuilder {
           }
 
           return response.json();</completion>
+
+        <file language="PHP">class Cart
+        {
+            public function add(Item ${'$'}item): void
+            {
+                ${'$'}this->items[] = ${'$'}item;
+            }
+
+            <CURSOR/>
+
+            public function count(): int
+            {
+                return count(${'$'}this->items);
+            }
+        }</file><mode>multi-line (max 20 lines)</mode>
+        => <completion>public function clear(): void
+            {
+                ${'$'}this->items = [];
+            }</completion>
     """.trimIndent()
 
     fun systemPrompt(customInstructions: String): String {

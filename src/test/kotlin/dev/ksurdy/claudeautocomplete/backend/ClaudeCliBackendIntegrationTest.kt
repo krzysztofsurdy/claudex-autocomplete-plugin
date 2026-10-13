@@ -191,6 +191,32 @@ class ClaudeCliBackendIntegrationTest {
     }
 
     @Test
+    fun `blank line between two methods proposes a member in most runs`() {
+        enabled()
+        val prefix = controller.trimEnd('\n') + "\n    "
+        val suffix = "\n\n    #[Route('/admin/learning-team/delete', name: 'admin_learning_team_delete')]\n    public function delete(int \$id): Response\n    {\n        return \$this->redirectToRoute('team_index');\n    }\n}\n"
+        val context = testContext(prefix = prefix, suffix = suffix, multiline = TriggerRules.isMultiline(prefix, suffix, "auto"), indent = "4 spaces")
+        assertTrue(context.multiline)
+        val runs = System.getenv("CLAUDE_IT_RUNS")?.toIntOrNull() ?: 5
+        runBlocking {
+            val backend = ClaudeCliBackend()
+            try {
+                val config = testConfig(claudePath = "", requestTimeoutMs = 30000)
+                val hits = (0 until runs).count { index ->
+                    val raw = (backend.complete(context, config) as? CompletionResult.Success)?.text.orEmpty()
+                    val processed = CompletionPostProcessor.interpret(raw, context)
+                    println("IT between-methods run=$index source=${processed.source} raw=<<$raw>> processed=<<${processed.text}>>")
+                    processed.text.isNotBlank()
+                }
+                println("IT between-methods hits=$hits runs=$runs")
+                assertTrue(hits * 2 > runs, "only $hits of $runs requests proposed a member")
+            } finally {
+                backend.shutdown()
+            }
+        }
+    }
+
+    @Test
     fun `refresh usage returns fresh limits`() {
         enabled()
         runBlocking {
