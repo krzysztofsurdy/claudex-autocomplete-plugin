@@ -3,6 +3,7 @@ package dev.ksurdy.claudeautocomplete
 import com.intellij.codeInsight.inline.completion.DebouncedInlineCompletionProvider
 import com.intellij.codeInsight.inline.completion.InlineCompletionEvent
 import com.intellij.codeInsight.inline.completion.InlineCompletionProviderID
+import com.intellij.codeInsight.inline.completion.InlineCompletionProviderPresentation
 import com.intellij.codeInsight.inline.completion.InlineCompletionRequest
 import com.intellij.codeInsight.inline.completion.elements.InlineCompletionElement
 import com.intellij.codeInsight.inline.completion.elements.InlineCompletionGrayTextElement
@@ -37,6 +38,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     override val id = InlineCompletionProviderID(ID)
+    override val providerPresentation: InlineCompletionProviderPresentation = SuggestionHint()
 
     private val cache = CompletionCache(CACHE_CAPACITY)
     private val generation = AtomicLong()
