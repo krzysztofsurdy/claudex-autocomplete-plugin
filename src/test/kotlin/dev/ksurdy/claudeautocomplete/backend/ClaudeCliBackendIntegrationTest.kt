@@ -217,6 +217,40 @@ class ClaudeCliBackendIntegrationTest {
     }
 
     @Test
+    fun `archive action signature continues the parameter list and writes real code`() {
+        enabled()
+        val prefix = controller + "    public function approveAction(int \$id): Response\n    {\n" +
+            "        \$participant = \$this->learningTeamParticipantRepository->find(\$id);\n" +
+            "        \$participant->approve();\n        \$this->learningTeamParticipantRepository->save(\$participant);\n\n" +
+            "        return \$this->redirectToRoute('team_show', ['id' => \$id]);\n    }\n\n" +
+            "    #[Route('/admin/learning-team/{id}/archive', name: 'admin_learning_team_archive')]\n    public function archiveAction("
+        val suffix = "\n\n    #[Route('/admin/learning-team/{id}/delete', name: 'admin_learning_team_delete')]\n" +
+            "    public function deleteAction(int \$id): Response\n    {\n" +
+            "        \$participant = \$this->learningTeamParticipantRepository->find(\$id);\n" +
+            "        \$this->learningTeamParticipantRepository->remove(\$participant);\n\n" +
+            "        return \$this->redirectToRoute('team_index');\n    }\n}\n"
+        val context = testContext(prefix = prefix, suffix = suffix, multiline = TriggerRules.isMultiline(prefix, suffix, "auto"), indent = "4 spaces")
+        val stub = Regex("not implemented|TODO|FIXME|throw new \\\\?LogicException|\\{\\s*\\}", RegexOption.IGNORE_CASE)
+        val runs = System.getenv("CLAUDE_IT_RUNS")?.toIntOrNull() ?: 3
+        runBlocking {
+            val backend = ClaudeCliBackend()
+            try {
+                val config = testConfig(claudePath = "", requestTimeoutMs = 30000)
+                val hits = (0 until runs).count { index ->
+                    val raw = (backend.complete(context, config) as? CompletionResult.Success)?.text.orEmpty()
+                    val processed = CompletionPostProcessor.interpret(raw, context).text
+                    println("IT archive run=$index raw=<<$raw>> processed=<<$processed>>")
+                    processed.isNotBlank() && !stub.containsMatchIn(processed) && !processed.trimStart().startsWith(")")
+                }
+                println("IT archive hits=$hits runs=$runs")
+                assertTrue(hits * 2 > runs, "only $hits of $runs requests wrote real code that continues the parameter list")
+            } finally {
+                backend.shutdown()
+            }
+        }
+    }
+
+    @Test
     fun `refresh usage returns fresh limits`() {
         enabled()
         runBlocking {
