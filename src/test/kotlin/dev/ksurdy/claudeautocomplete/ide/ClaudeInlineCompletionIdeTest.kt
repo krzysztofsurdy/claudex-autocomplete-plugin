@@ -286,6 +286,37 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertEquals(expected, loadingInlays())
     }
 
+    private fun shownText(): String? {
+        var text: String? = null
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait {
+            text = com.intellij.codeInsight.inline.completion.session.InlineCompletionContext.getOrNull(myFixture.editor)?.textToInsert()
+        }
+        return text
+    }
+
+    private suspend fun com.intellij.codeInsight.inline.completion.InlineCompletionLifecycleTestDSL.awaitShownText(expected: String) {
+        repeat(100) {
+            if (shownText() == expected) return
+            delay(50)
+        }
+        assertEquals(expected, shownText())
+    }
+
+    fun testStreamedLinesAppearBeforeTheReplyFinishes() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        val gate = CompletableDeferred<Unit>()
+        fake.gate = gate
+        fake.partials = listOf("a();\n", "a();\nb();\nc")
+        fake.result = CompletionResult.Success("a();\nb();\nc();")
+        init(PlainTextFileType.INSTANCE, "stream21 {\n<caret>\n}")
+        callInlineCompletion()
+        awaitShownText("a();\nb();")
+        gate.complete(Unit)
+        delay()
+        assertInlineRender("a();\nb();\nc();")
+        insert()
+        assertFileContent("stream21 {\na();\nb();\nc();<caret>\n}")
+    }
+
     fun testLoadingIndicatorShownWhileInFlightAndRemovedOnCompletion() = myFixture.testInlineCompletion(timeout = 30.seconds) {
         val gate = CompletableDeferred<Unit>()
         fake.gate = gate

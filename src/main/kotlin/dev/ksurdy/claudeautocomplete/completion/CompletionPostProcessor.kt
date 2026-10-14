@@ -28,6 +28,18 @@ object CompletionPostProcessor {
         return if (trimmed.length > rest.length && trimmed.endsWith(rest)) trimmed.dropLast(rest.length) else text
     }
 
+    fun balancedPrefix(text: String): String {
+        val lines = text.lines()
+        var depth = 0
+        var balanced = 0
+        for ((index, line) in lines.withIndex()) {
+            depth += bracketBalance(line)
+            if (depth < 0) break
+            if (depth == 0) balanced = index + 1
+        }
+        return lines.take(balanced).joinToString("\n")
+    }
+
     private fun stripFences(text: String): String {
         if (!text.trimStart().startsWith("```")) return text
         val withoutOpening = OPENING_FENCE.replaceFirst(text, "")

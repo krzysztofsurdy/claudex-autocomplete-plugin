@@ -20,7 +20,8 @@
 - Claude Code (`claude`) or Codex (`codex`), switch in settings or the status bar.
 - Accept all, next word or rest of the line.
 - Context: current file (whole or around the caret), open tabs, and for PHP outlines of imported classes, parent, interfaces and traits.
-- Spinner with elapsed time while generating.
+- Multi-line suggestions stream in line by line while the model writes.
+- Spinner with elapsed time until the first line arrives.
 - Status bar widget with state, last latency and 5h / 7d usage.
 - Custom prompt additions, e.g. "Follow PSR-12".
 
