@@ -135,7 +135,6 @@ class ClaudeAutocompleteConfigurable :
                 row(ClaudexBundle.message("settings.debounce")) { intTextField(0..2000).bindIntText(state::debounceMs) }
                 row(ClaudexBundle.message("settings.timeout")) { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
                 row { checkBox(ClaudexBundle.message("settings.loading.indicator")).bindSelected(state::showInlineLoadingIndicator) }
-                row { checkBox(ClaudexBundle.message("settings.status.usage")).bindSelected(state::showUsageInStatusBar) }
                 row {
                     checkBox(ClaudexBundle.message("settings.next.edit")).bindSelected(state::nextEditSuggestions)
                         .comment(ClaudexBundle.message("settings.next.edit.comment"))

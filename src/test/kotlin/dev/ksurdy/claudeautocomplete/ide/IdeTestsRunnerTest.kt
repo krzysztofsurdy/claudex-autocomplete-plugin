@@ -7,7 +7,7 @@ import org.junit.runner.JUnitCore
 class IdeTestsRunnerTest {
     @Test
     fun platformTestsPass() {
-        val result = JUnitCore().run(ClaudeInlineCompletionIdeTest::class.java, NextEditIdeTest::class.java, NextEditInlineCompletionIdeTest::class.java, AlternativesIdeTest::class.java)
+        val result = JUnitCore().run(ClaudeInlineCompletionIdeTest::class.java, NextEditIdeTest::class.java, NextEditInlineCompletionIdeTest::class.java, AlternativesIdeTest::class.java, StatusBarWidgetIdeTest::class.java)
         val report = result.failures.joinToString("\n\n") { it.testHeader + "\n" + it.trace }
         assertTrue(result.wasSuccessful(), report)
     }

@@ -23,7 +23,7 @@
 - Multi-line suggestions stream in line by line while the model writes.
 - Next edit suggestions (opt-in): after an edit, predicts the next one elsewhere in the file, e.g. the other usages of a renamed parameter. Tab jumps to it, Tab again applies it.
 - Spinner with elapsed time until the first line arrives.
-- Status bar widget with state, last latency and 5h / 7d usage.
+- Status bar icon: grey when off, coloured when ready, blinking while a request runs. The tooltip has the state, last latency, model and 5h / 7d usage.
 - Custom prompt additions, e.g. "Follow PSR-12".
 
 ## Requirements
@@ -101,7 +101,7 @@ Your code context goes to Anthropic or OpenAI through the CLI, under your accoun
 
 ## Status bar
 
-Shows `Claudex: Disabled` until you enable completions - click it and choose Enable Completions. Then provider and state, e.g. `Claude: Ready`, `Waiting…`, `Thinking… Ns`, last latency, `Error` or `Limit reached`. Only the usage window closest to its limit is shown, e.g. `Claude: Ready · 5h 41%` (` high` from 80%). The tooltip has both windows with reset times and the model. Click for Enable/Disable, Provider, Open settings and Refresh Usage.
+An icon, no text. Grey while completions are off (until you enable them: click it and choose Enable Completions), after an error such as not logged in or CLI not found, and at a usage limit. Coloured when ready. It blinks (colour and grey, twice a second) while a request is running. The tooltip has the provider, state, last latency, model and both usage windows with reset times. Click for Enable/Disable, Provider, Open settings and Refresh Usage.
 
 No CLI starts at IDE startup. Usage refreshes after completions, on Refresh Usage and on Test Connection. At a usage limit, requests pause until the reset.
 

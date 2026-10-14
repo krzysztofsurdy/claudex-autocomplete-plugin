@@ -9,7 +9,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
 import dev.ksurdy.claudeautocomplete.ClaudeStatus
-import dev.ksurdy.claudeautocomplete.StatusFormatter
+import dev.ksurdy.claudeautocomplete.StatusIcon
+import dev.ksurdy.claudeautocomplete.StatusIconState
 import dev.ksurdy.claudeautocomplete.StatusService
 import dev.ksurdy.claudeautocomplete.CompletionEngine
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
@@ -233,7 +234,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
             callAction("ClaudeAutocomplete.Toggle")
             assertFalse(ClaudeAutocompleteSettings.getInstance().state.enabled)
             assertEquals(1, refreshes)
-            assertEquals("Claude: Disabled", StatusFormatter.widgetText(false, StatusService.getInstance().status, null, true, 0))
+            assertEquals(StatusIconState.Off, StatusIcon.state(false, true, StatusService.getInstance().status))
         } finally {
             StatusService.getInstance().removeListener(listener)
         }

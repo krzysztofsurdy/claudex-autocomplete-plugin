@@ -11,7 +11,6 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 object StatusFormatter {
-    const val WARNING_THRESHOLD = 0.8
     const val WAITING_EXPIRY_MS = 3_000L
     const val DONE_DISPLAY_MS = 4_000L
     const val DEFAULT_BLOCK_MINUTES = 5L
@@ -47,30 +46,16 @@ object StatusFormatter {
         return "resets in ${duration(Duration.between(now, resetsAt))}, at ${clock(resetsAt, zone)}"
     }
 
-    fun longWindowLabel(provider: ProviderKind?, short: Boolean): String = when {
-        provider == ProviderKind.Codex -> if (short) "wk" else "weekly"
-        else -> "7d"
-    }
+    fun longWindowLabel(provider: ProviderKind?): String = if (provider == ProviderKind.Codex) "weekly" else "7d"
 
-    fun windowLabel(window: UsageWindow, slotDefaultMinutes: Int, provider: ProviderKind?, short: Boolean): String {
+    fun windowLabel(window: UsageWindow, slotDefaultMinutes: Int, provider: ProviderKind?): String {
         val minutes = window.windowMinutes ?: slotDefaultMinutes
         return when {
-            minutes == WEEK_MINUTES -> longWindowLabel(provider, short)
+            minutes == WEEK_MINUTES -> longWindowLabel(provider)
             minutes % DAY_MINUTES == 0 && minutes >= DAY_MINUTES -> "${minutes / DAY_MINUTES}d"
             minutes % HOUR_MINUTES == 0 -> "${minutes / HOUR_MINUTES}h"
             else -> "${minutes}m"
         }
-    }
-
-    fun usageSuffix(usage: UsageLimits?): String {
-        val candidates = listOfNotNull(
-            usage?.fiveHour?.let { it to FIVE_HOUR_MINUTES },
-            usage?.sevenDay?.let { it to WEEK_MINUTES },
-        )
-        val (window, slot) = candidates.reduceOrNull { best, next -> if (next.first.utilization > best.first.utilization) next else best }
-            ?: return ""
-        val high = if (window.utilization >= WARNING_THRESHOLD) " high" else ""
-        return " · ${windowLabel(window, slot, usage?.provider, true)} ${percent(window.utilization)}$high"
     }
 
     fun statusLabel(enabled: Boolean, status: ClaudeStatus, nowMs: Long): String = when {
@@ -83,25 +68,6 @@ object StatusFormatter {
             is ClaudeStatus.Error -> "Error"
             is ClaudeStatus.LimitReached -> "Limit reached"
         }
-    }
-
-    fun isAnimating(enabled: Boolean, status: ClaudeStatus, nowMs: Long): Boolean = enabled && when (status) {
-        is ClaudeStatus.Thinking -> true
-        is ClaudeStatus.Waiting -> nowMs - status.since < WAITING_EXPIRY_MS
-        is ClaudeStatus.Done -> nowMs - status.at < DONE_DISPLAY_MS
-        else -> false
-    }
-
-    fun widgetText(
-        enabled: Boolean,
-        status: ClaudeStatus,
-        usage: UsageLimits?,
-        showUsage: Boolean,
-        nowMs: Long,
-        providerName: String = "Claude",
-    ): String {
-        val suffix = if (showUsage) usageSuffix(usage) else ""
-        return "$providerName: ${statusLabel(enabled, status, nowMs)}$suffix"
     }
 
     fun tooltip(
@@ -122,10 +88,12 @@ object StatusFormatter {
             status is ClaudeStatus.Error -> lines += "Error: ${status.message}"
             status is ClaudeStatus.LimitReached -> lines += "Usage limit reached" +
                 (resets(status.resetsAt, now, zone)?.let { " ($it)" } ?: "")
+            status is ClaudeStatus.Done -> lines += "State: Done"
+            else -> lines += "State: ${statusLabel(true, status, now.toEpochMilli())}"
         }
         usage?.let {
-            it.fiveHour?.let { w -> lines += windowLine(windowLabel(w, FIVE_HOUR_MINUTES, it.provider, false), w, now, zone) }
-            it.sevenDay?.let { w -> lines += windowLine(windowLabel(w, WEEK_MINUTES, it.provider, false), w, now, zone) }
+            it.fiveHour?.let { w -> lines += windowLine(windowLabel(w, FIVE_HOUR_MINUTES, it.provider), w, now, zone) }
+            it.sevenDay?.let { w -> lines += windowLine(windowLabel(w, WEEK_MINUTES, it.provider), w, now, zone) }
             it.status?.let { s -> lines += "Status: $s" }
             lines += "Usage updated: ${clock(it.observedAt, zone)}"
         }
