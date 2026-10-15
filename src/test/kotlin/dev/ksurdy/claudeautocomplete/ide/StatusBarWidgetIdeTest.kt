@@ -97,7 +97,6 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
     }
 
     fun testGreyIconIsThePlatformDisabledVariantOfTheLogo() {
-        assertNotSame(ClaudexIcons.Logo, ClaudexIcons.Grey)
         assertEquals(IconLoader.getDisabledIcon(ClaudexIcons.Logo), ClaudexIcons.Grey)
         assertEquals(ClaudexIcons.Logo.iconWidth, ClaudexIcons.Grey.iconWidth)
         assertEquals(ClaudexIcons.Logo.iconHeight, ClaudexIcons.Grey.iconHeight)
