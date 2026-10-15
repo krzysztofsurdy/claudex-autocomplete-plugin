@@ -8,8 +8,8 @@ class CompletionPostProcessorTest {
     private fun single(raw: String, prefix: String = "x = ", suffix: String = "") =
         CompletionPostProcessor.process(raw, testContext(prefix = prefix, suffix = suffix, multiline = false))
 
-    private fun multi(raw: String, prefix: String = "if (a) {\n", suffix: String = "", maxLines: Int = 12) =
-        CompletionPostProcessor.process(raw, testContext(prefix = prefix, suffix = suffix, multiline = true, maxLines = maxLines))
+    private fun multi(raw: String, prefix: String = "if (a) {\n", suffix: String = "", maxLines: Int = 12, declaration: Boolean = false) =
+        CompletionPostProcessor.process(raw, testContext(prefix = prefix, suffix = suffix, multiline = true, maxLines = maxLines, declaration = declaration))
 
     @Test
     fun `strips markdown fences with language`() {
@@ -153,8 +153,42 @@ class CompletionPostProcessorTest {
     }
 
     @Test
-    fun `over long output without a balanced line falls back to a hard cut`() {
-        assertEquals("if (\$x) {\n    b();", multi("if (\$x) {\n    b();\n    c();\n}", maxLines = 2))
+    fun `over long output without a balanced line falls back to a hard cut when the suffix closes the block`() {
+        assertEquals("if (\$x) {\n    b();", multi("if (\$x) {\n    b();\n    c();\n}", suffix = "\n}", maxLines = 2))
+    }
+
+    @Test
+    fun `over long output keeps the whole block when nothing below closes it`() {
+        assertEquals("if (\$x) {\n    b();\n    c();\n}", multi("if (\$x) {\n    b();\n    c();\n}\nd();", suffix = "\n\nfoo();", maxLines = 2))
+    }
+
+    private val signaturePrefix = "class A\n{\n    public function archiveAction("
+    private val signatureSuffix = "\n\n    public function deleteAction(int \$id): Response\n    {\n        return \$this->redirect();\n    }\n}\n"
+    private val wholeMethod = "int \$id): Response\n    {\n        \$participant = \$this->repository->find(\$id);\n" +
+        "        \$participant->archive();\n        \$this->repository->save(\$participant);\n\n" +
+        "        return \$this->redirectToRoute('team_show', ['id' => \$id]);\n    }"
+
+    @Test
+    fun `a whole method completed from an open signature is kept`() {
+        assertEquals(wholeMethod, multi(wholeMethod, prefix = signaturePrefix, suffix = signatureSuffix, maxLines = 30, declaration = true))
+    }
+
+    @Test
+    fun `a whole method over the line limit is kept up to its closing brace`() {
+        val raw = "$wholeMethod\n\n    public function extra(): void\n    {\n    }"
+        assertEquals(wholeMethod, multi(raw, prefix = signaturePrefix, suffix = signatureSuffix, maxLines = 4, declaration = true))
+    }
+
+    @Test
+    fun `a whole method with the brace on the signature line is kept`() {
+        val raw = "int \$id): Response {\n    \$x = 1;\n    return \$x;\n}"
+        assertEquals(raw, multi(raw, prefix = "    public function a(", suffix = "\n}", maxLines = 30, declaration = true))
+    }
+
+    @Test
+    fun `the closing brace of a completed method is not trimmed as the class closer`() {
+        val raw = "int \$id): Response\n    {\n        return \$this->render('a');\n    }"
+        assertEquals(raw, multi(raw, prefix = "class A\n{\n    public function a(", suffix = "\n}\n", declaration = true))
     }
 
     @Test

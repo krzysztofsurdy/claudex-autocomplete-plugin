@@ -2,7 +2,11 @@ package dev.ksurdy.claudeautocomplete.completion
 
 object TriggerRules {
     private const val CLOSING_CHARS = ")]}>\"';,`"
-    private val BLOCK_OPENERS = listOf("{", "[", ":")
+    private val BLOCK_OPENERS = listOf("{", "[", ":", "(")
+    private val OPEN_DECLARATION = Regex(
+        """^[^=(.;]*\b(function|fun|def|func|fn)\b[^=;]*\(\s*$""" + "|" +
+            """^\s*(?:(?:public|private|protected|internal|static|abstract|final|override|open|suspend|async|export|default|virtual|inline|synchronized)\s+)+[^=;(]*\(\s*$""",
+    )
 
     fun shouldTrigger(prefix: String, suffix: String): Boolean {
         val before = prefix.lastOrNull() ?: return true
@@ -18,6 +22,9 @@ object TriggerRules {
 
     fun isEmptyBody(prefix: String, suffix: String): Boolean =
         prefix.trimEnd().endsWith("{") && suffix.trimStart().startsWith("}")
+
+    fun isOpenDeclaration(prefix: String, suffix: String): Boolean =
+        suffix.substringBefore('\n').isBlank() && OPEN_DECLARATION.containsMatchIn(prefix.substringAfterLast('\n'))
 
     private fun restOfLineIsClosers(suffix: String): Boolean =
         suffix.substringBefore('\n').all { it.isWhitespace() || it in CLOSING_CHARS }

@@ -27,6 +27,7 @@ object PromptBuilder {
         - When code follows the cursor on the same line, output only what belongs between the cursor and that code, so that both sides join into valid code.
         - <mode>multi-line (max N lines)</mode>: output a coherent unit (the statement, block or next few statements), at most N lines, stop at a natural boundary. Do not write the remainder of the file.
         - <mode>body (max N lines)</mode>: the cursor sits in an empty function, method or block body. Write the complete body, every statement through the final return, at most N lines. Do not stop after the first statement. Base it on the signature, the parameters and similar code in the file.
+        - <mode>declaration (max N lines)</mode>: the cursor sits at the end of an open function or method signature, inside its parameter list. Write the rest of the parameter list, the return type, the opening brace, the complete body and the closing brace, at most N lines. Never stop after the signature. Base the parameters and the body on the method name, the neighbouring methods and similar code in the file.
         - <mode>next-edit</mode>: the message has no <CURSOR/>. Predict the user's NEXT edit elsewhere in the file instead of completing at a caret. In this mode the raw-output and insert-at-cursor rules above do not apply.
           <recent_edits> lists the latest edits as before/after hunks (line numbers are current). <numbered_file> shows the file with each line prefixed "N|" with the line's own text, including its indentation, right after the bar (the prefix is never part of the code). <caret line="N"/> is the caret line.
           Reply with exactly one element and nothing else: <edit start_line="N" end_line="M">replacement</edit>, or <none/> when no follow-up edit is likely.
@@ -65,8 +66,22 @@ object PromptBuilder {
             }
 
             public function archive(<CURSOR/>
-        }</file><mode>single-line</mode>
-        => <completion>int ${'$'}id): Response</completion>
+
+            public function delete(int ${'$'}id): Response
+            {
+                ${'$'}this->users->remove(${'$'}this->users->find(${'$'}id));
+
+                return ${'$'}this->redirectToRoute('user_index');
+            }
+        }</file><mode>declaration (max 30 lines)</mode>
+        => <completion>int ${'$'}id): Response
+            {
+                ${'$'}user = ${'$'}this->users->find(${'$'}id);
+                ${'$'}user->archive();
+                ${'$'}this->users->save(${'$'}user);
+
+                return ${'$'}this->redirectToRoute('user_show', ['id' => ${'$'}id]);
+            }</completion>
 
         <file language="PHP">class Cart
         {
@@ -124,6 +139,7 @@ object PromptBuilder {
         }
         when {
             !context.multiline -> append("<mode>single-line</mode>")
+            context.declaration -> append("<mode>declaration (max ${context.maxLines} lines)</mode>")
             context.emptyBody -> append("<mode>body (max ${context.maxLines} lines)</mode>")
             else -> append("<mode>multi-line (max ${context.maxLines} lines)</mode>")
         }
