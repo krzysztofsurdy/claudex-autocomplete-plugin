@@ -6,21 +6,23 @@ object CompletionPostProcessor {
     private val OPENING_FENCE = Regex("""^\s*```[\w+#.-]*[ \t]*\r?\n""")
     private val CLOSING_FENCE = Regex("""\r?\n?[ \t]*```\s*$""")
     private const val MIN_PARTIAL_ECHO_CHARS = 2
-    private const val OPENERS = "([{"
-    private const val CLOSERS = ")]}"
+    private const val CLOSERS = Brackets.CLOSERS
     private const val CLOSING_PUNCTUATION = "\"';,`"
 
-    class Processed(val text: String, val source: ReplySource, val extractedLength: Int)
+    class Processed(val text: String, val source: ReplySource, val extractedLength: Int, val cuts: List<GuardCut> = emptyList())
 
     fun process(raw: String, context: CompletionContext): String = interpret(raw, context).text
 
     fun interpret(raw: String, context: CompletionContext): Processed {
         val reply = CompletionReply.parse(raw, context, final = true)
         if (reply.source == ReplySource.ProseRejected) return Processed("", reply.source, 0)
-        return Processed(format(reply.content, context), reply.source, reply.content.length)
+        val guarded = formatGuarded(reply.content, context)
+        return Processed(guarded.text, reply.source, reply.content.length, guarded.cuts)
     }
 
-    fun format(content: String, context: CompletionContext): String {
+    fun format(content: String, context: CompletionContext): String = formatGuarded(content, context).text
+
+    private fun formatGuarded(content: String, context: CompletionContext): QualityGuards.Result {
         var text = stripFences(content.replace("\r\n", "\n"))
         text = trimEchoedHead(text, context.prefix)
         text = limitLines(text, context)
@@ -28,7 +30,9 @@ object CompletionPostProcessor {
         val restOfLine = context.suffix.substringBefore('\n')
         text = trimEchoedRestOfLine(text, restOfLine)
         text = trimOverlappingTail(text, context.suffix)
-        return if (restOfLine.isBlank()) text.trimEnd() else text.trimEnd('\n')
+        val guarded = QualityGuards.apply(text, context)
+        val trimmed = if (restOfLine.isBlank()) guarded.text.trimEnd() else guarded.text.trimEnd('\n')
+        return QualityGuards.Result(trimmed, guarded.cuts)
     }
 
     private fun trimEchoedRestOfLine(text: String, restOfLine: String): String {
@@ -43,7 +47,7 @@ object CompletionPostProcessor {
         var depth = 0
         var balanced = 0
         for ((index, line) in lines.withIndex()) {
-            depth += bracketBalance(line)
+            depth += Brackets.balance(line)
             if (depth < 0) break
             if (depth == 0) balanced = index + 1
         }
@@ -100,35 +104,10 @@ object CompletionPostProcessor {
     private fun runningDepths(lines: List<String>): List<Int> {
         var depth = 0
         return lines.map { line ->
-            val scan = scanBrackets(line.substringBeforeLineComment())
+            val scan = Brackets.scan(Brackets.substringBeforeLineComment(line))
             depth = (depth - scan.unmatched).coerceAtLeast(0) + scan.depth
             depth
         }
-    }
-
-    private fun bracketBalance(line: String): Int {
-        val scan = scanBrackets(line.substringBeforeLineComment())
-        return scan.depth - scan.unmatched
-    }
-
-    private fun String.substringBeforeLineComment(): String {
-        var quote: Char? = null
-        var escaped = false
-        for ((index, char) in withIndex()) {
-            if (quote != null) {
-                when {
-                    escaped -> escaped = false
-                    char == '\\' -> escaped = true
-                    char == quote -> quote = null
-                }
-                continue
-            }
-            when {
-                char == '"' || char == '\'' || char == '`' -> quote = char
-                char == '/' && getOrNull(index + 1) == '/' -> return substring(0, index)
-            }
-        }
-        return this
     }
 
     private fun alignToCaretIndent(text: String, context: CompletionContext): String {
@@ -151,7 +130,7 @@ object CompletionPostProcessor {
     private fun trimOverlappingTail(text: String, suffix: String): String {
         val tail = suffix.trimStart()
         val trimmed = text.trimEnd()
-        val unmatched = scanBrackets(trimmed).unmatchedByKind
+        val unmatched = Brackets.scan(trimmed).unmatchedByKind
         for (length in minOf(tail.length, trimmed.length) downTo 1) {
             val candidate = tail.take(length)
             if (candidate.isNotBlank() && trimmed.endsWith(candidate) && isTrimmable(candidate, unmatched)) {
@@ -165,32 +144,5 @@ object CompletionPostProcessor {
         val closers = candidate.filter { it in CLOSERS }
         if (closers.isEmpty()) return candidate.all { it in CLOSING_PUNCTUATION || it.isWhitespace() }
         return closers.groupingBy { it }.eachCount().all { (kind, count) -> count <= (unmatched[kind] ?: 0) }
-    }
-
-    private class BracketScan(val depth: Int, val unmatchedByKind: Map<Char, Int>) {
-        val unmatched: Int get() = unmatchedByKind.values.sum()
-    }
-
-    private fun scanBrackets(text: String): BracketScan {
-        var depth = 0
-        val unmatched = mutableMapOf<Char, Int>()
-        var quote: Char? = null
-        var escaped = false
-        for (char in text) {
-            if (quote != null) {
-                when {
-                    escaped -> escaped = false
-                    char == '\\' -> escaped = true
-                    char == quote -> quote = null
-                }
-                continue
-            }
-            when (char) {
-                '"', '\'', '`' -> quote = char
-                in OPENERS -> depth++
-                in CLOSERS -> if (depth > 0) depth-- else unmatched.merge(char, 1, Int::plus)
-            }
-        }
-        return BracketScan(depth, unmatched)
     }
 }

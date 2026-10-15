@@ -15,7 +15,8 @@ class StreamingCompletion(private val context: CompletionContext) {
         if (reply.source == ReplySource.ProseRejected || reply.source == ReplySource.Pending) return ""
         val completeLines = if (reply.closed) reply.content else reply.content.replace("\r\n", "\n").substringBeforeLast('\n', "")
         if (completeLines.isBlank()) return ""
-        return advance(CompletionPostProcessor.balancedPrefix(CompletionPostProcessor.format(completeLines, context)))
+        val formatted = CompletionPostProcessor.balancedPrefix(CompletionPostProcessor.format(completeLines, context))
+        return advance(QualityGuards.holdBack(formatted, context))
     }
 
     fun onFinal(raw: String): String {

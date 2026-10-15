@@ -169,6 +169,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
                     val delta = stream.onFinal(result.text)
                     val firstShownMs = if (firstShownAt == 0L) finishedAt - startedAt else firstShownAt - startedAt
                     logReceived(context, result.text, stream.text, finishedAt - startedAt, firstShownMs)
+                    logGuardCuts(stream.processed)
                     if (stream.text.isEmpty()) logEmptied(result.text, stream)
                     if (delta.isNotEmpty()) send(InlineCompletionGrayTextElement(delta))
                     if (stream.text.isNotEmpty()) cache.put(cacheKey, stream.text)
@@ -195,11 +196,16 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
             "rawLead=${raw.takeWhile { it.isWhitespace() }.length} shownLead=${shown.takeWhile { it.isWhitespace() }.length}"
     }
 
+    private fun logGuardCuts(processed: CompletionPostProcessor.Processed) = processed.cuts.forEach { cut ->
+        LOG.debug { "Completion guarded: guard=${cut.guard.label} linesBefore=${cut.linesBefore} linesAfter=${cut.linesAfter}" }
+    }
+
     private fun logEmptied(raw: String, stream: StreamingCompletion) = LOG.debug {
         val processed = stream.processed
         val cause = when {
             processed.source == ReplySource.ProseRejected -> "prose guard"
             processed.extractedLength == 0 -> "empty completion block"
+            processed.cuts.isNotEmpty() -> processed.cuts.last().guard.label
             else -> "post-processing"
         }
         "Completion emptied: cause=$cause source=${processed.source} rawLength=${raw.length} extractedLength=${processed.extractedLength}"
