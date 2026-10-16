@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The model's explanations were sometimes inserted as code ("The cursor sits inside ...", "Wait, that's not right"). The model now wraps the insertion in `<completion>` tags and everything outside is ignored. Replies without tags go through a prose guard, and streaming shows only the text inside the tags.
 - In an empty function or method body the suggestion is the complete body, not just the first statement.
 - Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.
+- A reply that degenerates into a loop (the same token or short pattern repeated over and over at the end) is cut back to before the loop, or dropped when nothing sensible remains.
+- A suggestion that only repeats the next lines already in the file below the caret is dropped, or loses those last lines.
+- Closing lines such as `}`, `)`, `});` or `end` that already exist below the caret, also after blank lines or with other indentation, are no longer suggested a second time, and `} else {` no longer doubles the existing brace. These cuts never change text already streamed in.
 - Continuation lines returned without indentation are shifted to the caret indent.
 - A blank line between two methods sometimes got no suggestion because the model answered with an empty completion. The prompt now asks for the most likely next member or statement there.
 - Alternative suggestions could repeat a suggestion that was already shown. A reply that matches a shown one (ignoring whitespace and a trailing `;`, `,` or `.`) is asked for once more, and if it is still a duplicate nothing new is added.
