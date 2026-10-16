@@ -17,6 +17,7 @@ class ConsentPrompt : ProjectActivity {
             .addAction(NotificationAction.createSimpleExpiring(ClaudexBundle.message("notification.action.enable")) {
                 ClaudeAutocompleteSettings.getInstance().grantConsent()
                 StatusService.getInstance().refresh()
+                BackendService.getInstance().warmUpIfActive()
             })
             .addAction(Notifier.openSettingsAction(ClaudexBundle.message("notification.action.settings")))
             .addAction(NotificationAction.createSimpleExpiring(ClaudexBundle.message("notification.action.not.now")) { ClaudeAutocompleteSettings.getInstance().declineConsent() })

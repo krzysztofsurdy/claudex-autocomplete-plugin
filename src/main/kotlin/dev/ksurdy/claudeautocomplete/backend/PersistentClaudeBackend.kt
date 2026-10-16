@@ -46,6 +46,10 @@ class PersistentClaudeBackend(
             }
         }
 
+    override suspend fun warmUp(config: ClaudeConfig) {
+        mutex.withLock { obtainSession(config) }
+    }
+
     private sealed interface SessionStart {
         data class Ready(val session: Session) : SessionStart
         data class Failed(val failure: CompletionResult.Failure) : SessionStart

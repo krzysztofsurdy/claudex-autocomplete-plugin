@@ -27,5 +27,11 @@ class FakeCompletionBackend(var result: CompletionResult) : CompletionEngine {
 
     override suspend fun refreshUsage(config: BackendConfig): UsageLimits? = null
 
+    val warmUps = java.util.concurrent.atomic.AtomicInteger()
+
+    override suspend fun warmUp(config: BackendConfig) {
+        warmUps.incrementAndGet()
+    }
+
     override fun shutdown() = Unit
 }

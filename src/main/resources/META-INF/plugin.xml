@@ -73,6 +73,7 @@
     <notificationGroup id="Claudex Autocomplete Consent" displayType="STICKY_BALLOON" icon="/icons/claudex.svg"
                        bundle="messages.ClaudexBundle" key="notification.group.consent"/>
     <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.ConsentPrompt"/>
+    <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.BackendWarmUp"/>
   </extensions>
 
   <actions>

@@ -29,6 +29,10 @@ class ClaudeCliBackend(
         return result
     }
 
+    override suspend fun warmUp(config: ClaudeConfig) {
+        if (config.persistentProcess && shouldTryPersistent(config)) persistent.warmUp(config)
+    }
+
     @Synchronized
     private fun shouldTryPersistent(config: ClaudeConfig): Boolean {
         val normalized = config.copy(requestTimeoutMs = 0)

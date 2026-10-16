@@ -11,6 +11,8 @@ interface CompletionEngine {
 
     suspend fun refreshUsage(config: BackendConfig): UsageLimits?
 
+    suspend fun warmUp(config: BackendConfig) = Unit
+
     fun shutdown()
 }
 
@@ -22,6 +24,8 @@ class RouterEngine(
         router.complete(context, config, onText).also { onCompleted() }
 
     override suspend fun refreshUsage(config: BackendConfig): UsageLimits? = router.refreshUsage(config)
+
+    override suspend fun warmUp(config: BackendConfig) = router.warmUp(config)
 
     override fun shutdown() = router.shutdown()
 }

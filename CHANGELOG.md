@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The Claude Code process starts when a project opens (only after consent and with "Keep CLI process alive"), so the first suggestion does not wait for the CLI to boot. No prompt is sent.
 - Default max completion lines raised from 12 to 30, so whole method bodies fit.
 
 ### Fixed

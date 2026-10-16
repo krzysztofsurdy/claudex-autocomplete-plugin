@@ -79,6 +79,7 @@ Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-
 
 - One-shot: `--output-format stream-json --verbose --disable-slash-commands`, prompt on stdin.
 - Persistent: `--input-format stream-json --output-format stream-json --verbose --include-partial-messages`. Per request: send `/clear`, wait for its `result`, send the prompt, collect text deltas until `result`. Cancel with a `control_request` of subtype `interrupt`. One request at a time (mutex).
+- Warm-up: when a project opens (and right after consent) the persistent process is started without sending a prompt, so the first request skips the CLI start. Not for Codex or one-shot mode.
 - On timeout or process death the process is killed and respawned lazily. After repeated persistent failures it falls back to one-shot. Config change restarts the process.
 - Never `--bare`, it breaks subscription auth.
 - Env: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDECODE` and `CLAUDE_CODE_*` removed. Added `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, `DISABLE_TELEMETRY=1`, `MAX_THINKING_TOKENS`. PATH gets the binary dir plus `/opt/homebrew/bin:/usr/local/bin`.
