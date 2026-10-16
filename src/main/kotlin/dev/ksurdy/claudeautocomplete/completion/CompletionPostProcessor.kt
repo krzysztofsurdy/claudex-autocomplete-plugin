@@ -27,12 +27,11 @@ object CompletionPostProcessor {
         text = trimEchoedHead(text, context.prefix)
         text = limitLines(text, context)
         text = alignToCaretIndent(text, context)
-        val restOfLine = context.suffix.substringBefore('\n')
-        text = trimEchoedRestOfLine(text, restOfLine)
-        text = trimOverlappingTail(text, context.suffix)
         val guarded = QualityGuards.apply(text, context)
-        val trimmed = if (restOfLine.isBlank()) guarded.text.trimEnd() else guarded.text.trimEnd('\n')
-        return QualityGuards.Result(trimmed, guarded.cuts)
+        val restOfLine = context.suffix.substringBefore('\n')
+        text = trimEchoedRestOfLine(guarded.text, restOfLine)
+        text = trimOverlappingTail(text, context.suffix)
+        return QualityGuards.Result(if (restOfLine.isBlank()) text.trimEnd() else text.trimEnd('\n'), guarded.cuts)
     }
 
     private fun trimEchoedRestOfLine(text: String, restOfLine: String): String {
