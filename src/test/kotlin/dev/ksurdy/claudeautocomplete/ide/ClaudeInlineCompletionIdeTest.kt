@@ -138,41 +138,82 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertInlineHidden()
     }
 
-    fun testOpenTabsAreIncludedInContext() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testRelatedOpenTabIsIncludedAsSnippet() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         withWriteAction {
-            val other = fixture.addFileToProject("other.txt", "other tab content").virtualFile
+            val other = fixture.addFileToProject("other.txt", "unrelated words\nalpha beta gamma delta\nmore unrelated").virtualFile
             FileEditorManager.getInstance(fixture.project).openFile(other, false)
         }
-        init(PlainTextFileType.INSTANCE, "tabs9 <caret>")
+        init(PlainTextFileType.INSTANCE, "1001 alpha beta gamma <caret>")
         callInlineCompletion()
         delay()
-        val context = fake.contexts.single()
-        assertEquals(listOf("other tab content"), context.openFiles.map { it.content })
+        val snippet = fake.contexts.single().relatedSnippets.single()
+        assertEquals("other.txt", snippet.path)
+        assertEquals(1, snippet.startLine)
+        assertEquals(3, snippet.endLine)
+        assertEquals("unrelated words\nalpha beta gamma delta\nmore unrelated", snippet.content)
     }
 
-    fun testOpenTabsAreOrderedMostRecentFirst() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testUnrelatedOpenTabIsNotSent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        withWriteAction {
+            val other = fixture.addFileToProject("other.txt", "completely different content").virtualFile
+            FileEditorManager.getInstance(fixture.project).openFile(other, false)
+        }
+        init(PlainTextFileType.INSTANCE, "1002 alpha beta gamma <caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(fake.contexts.single().relatedSnippets.isEmpty())
+    }
+
+    fun testRelatedSnippetsAreOrderedBestLast() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         withWriteAction {
             val manager = FileEditorManager.getInstance(fixture.project)
-            listOf("first", "second", "third").forEach {
-                manager.openFile(fixture.addFileToProject("$it.txt", it).virtualFile, false)
+            mapOf("high" to "alpha beta gamma delta", "mid" to "alpha beta gamma", "low" to "alpha beta").forEach { (name, content) ->
+                manager.openFile(fixture.addFileToProject("$name.txt", content).virtualFile, false)
             }
         }
-        init(PlainTextFileType.INSTANCE, "order9 <caret>")
+        init(PlainTextFileType.INSTANCE, "1003 alpha beta gamma delta <caret>")
         callInlineCompletion()
         delay()
-        assertEquals(listOf("third", "second", "first"), fake.contexts.single().openFiles.map { it.content })
+        assertEquals(listOf("low.txt", "mid.txt", "high.txt"), fake.contexts.single().relatedSnippets.map { it.path })
     }
 
-    fun testSecretFilesAreNotSentAsOpenTabs() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testRelatedSnippetsRespectTheCharacterBudget() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.maxOpenTabsChars = 16
         withWriteAction {
             val manager = FileEditorManager.getInstance(fixture.project)
-            manager.openFile(fixture.addFileToProject(".env", "API_KEY=abc").virtualFile, false)
-            manager.openFile(fixture.addFileToProject("ok.txt", "fine").virtualFile, false)
+            mapOf("high" to "alpha beta gamma delta", "mid" to "alpha beta gamma", "low" to "alpha beta").forEach { (name, content) ->
+                manager.openFile(fixture.addFileToProject("$name.txt", content).virtualFile, false)
+            }
         }
-        init(PlainTextFileType.INSTANCE, "secret1 <caret>")
+        init(PlainTextFileType.INSTANCE, "1004 alpha beta gamma delta <caret>")
         callInlineCompletion()
         delay()
-        assertEquals(listOf("fine"), fake.contexts.single().openFiles.map { it.content })
+        val snippets = fake.contexts.single().relatedSnippets
+        assertEquals(listOf("mid.txt"), snippets.map { it.path })
+        assertTrue(snippets.sumOf { it.content.length } <= 16)
+    }
+
+    fun testOpenTabsAreSkippedWhenDisabled() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.includeOpenTabs = false
+        withWriteAction {
+            FileEditorManager.getInstance(fixture.project).openFile(fixture.addFileToProject("same.txt", "alpha beta gamma delta").virtualFile, false)
+        }
+        init(PlainTextFileType.INSTANCE, "1005 alpha beta gamma delta <caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(fake.contexts.single().relatedSnippets.isEmpty())
+    }
+
+    fun testSecretFilesAreNotSentAsRelatedSnippets() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        withWriteAction {
+            val manager = FileEditorManager.getInstance(fixture.project)
+            manager.openFile(fixture.addFileToProject(".env", "alpha beta gamma delta").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("ok.txt", "alpha beta gamma").virtualFile, false)
+        }
+        init(PlainTextFileType.INSTANCE, "1006 alpha beta gamma delta <caret>")
+        callInlineCompletion()
+        delay()
+        assertEquals(listOf("ok.txt"), fake.contexts.single().relatedSnippets.map { it.path })
     }
 
     fun testCurrentSecretFileSkipsCompletion() = myFixture.testInlineCompletion(timeout = 20.seconds) {
@@ -186,13 +227,13 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         ClaudeAutocompleteSettings.getInstance().state.excludedFilePatterns = "private.*"
         withWriteAction {
             val manager = FileEditorManager.getInstance(fixture.project)
-            manager.openFile(fixture.addFileToProject("private.txt", "hidden").virtualFile, false)
-            manager.openFile(fixture.addFileToProject("public.txt", "shown").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("private.txt", "alpha beta gamma delta").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("public.txt", "alpha beta gamma").virtualFile, false)
         }
-        init(PlainTextFileType.INSTANCE, "custom1 <caret>")
+        init(PlainTextFileType.INSTANCE, "1007 alpha beta gamma delta <caret>")
         callInlineCompletion()
         delay()
-        assertEquals(listOf("shown"), fake.contexts.single().openFiles.map { it.content })
+        assertEquals(listOf("public.txt"), fake.contexts.single().relatedSnippets.map { it.path })
     }
 
     fun testManualTriggerIgnoresMidLineRule() = myFixture.testInlineCompletion(timeout = 20.seconds) {

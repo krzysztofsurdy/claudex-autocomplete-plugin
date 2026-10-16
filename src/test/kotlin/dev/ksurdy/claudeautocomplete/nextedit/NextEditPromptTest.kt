@@ -1,6 +1,7 @@
 package dev.ksurdy.claudeautocomplete.nextedit
 
 import dev.ksurdy.claudeautocomplete.backend.OpenFileSnippet
+import dev.ksurdy.claudeautocomplete.backend.RelatedSnippet
 import dev.ksurdy.claudeautocomplete.backend.PromptBuilder
 import dev.ksurdy.claudeautocomplete.backend.testContext
 import kotlin.test.Test
@@ -61,7 +62,7 @@ class NextEditPromptTest {
     @Test
     fun `does not send open tabs or imported classes`() {
         val withExtras = PromptBuilder.userMessage(
-            testContext(openFiles = listOf(OpenFileSnippet("a", "PHP", "AAA")), importedClasses = listOf(OpenFileSnippet("b", "PHP", "BBB")))
+            testContext(relatedSnippets = listOf(RelatedSnippet("a", 1, 1, "AAA")), importedClasses = listOf(OpenFileSnippet("b", "PHP", "BBB")))
                 .copy(nextEdit = input),
         )
         assertFalse(withExtras.contains("AAA"))

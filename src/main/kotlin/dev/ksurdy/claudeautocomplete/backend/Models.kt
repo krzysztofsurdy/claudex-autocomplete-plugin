@@ -7,7 +7,7 @@ data class CompletionContext(
     val languageId: String,
     val prefix: String,
     val suffix: String,
-    val openFiles: List<OpenFileSnippet>,
+    val relatedSnippets: List<RelatedSnippet>,
     val multiline: Boolean,
     val maxLines: Int,
     val indent: String = "",

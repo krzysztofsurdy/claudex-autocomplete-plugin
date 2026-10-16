@@ -104,7 +104,7 @@ class BackendService : Disposable {
                 languageId = "kotlin",
                 prefix = "fun add(a: Int, b: Int): Int {\n    return ",
                 suffix = "\n}\n",
-                openFiles = emptyList(),
+                relatedSnippets = emptyList(),
                 multiline = false,
                 maxLines = 1,
             ),

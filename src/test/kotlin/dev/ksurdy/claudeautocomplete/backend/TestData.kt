@@ -20,7 +20,7 @@ fun testContext(
     suffix: String = "",
     multiline: Boolean = false,
     maxLines: Int = 12,
-    openFiles: List<OpenFileSnippet> = emptyList(),
+    relatedSnippets: List<RelatedSnippet> = emptyList(),
     filePath: String = "src/Foo.php",
     languageId: String = "PHP",
     indent: String = "",
@@ -31,7 +31,7 @@ fun testContext(
     alternativeTo: List<String> = emptyList(),
     declaration: Boolean = false,
 ) = CompletionContext(
-    filePath, languageId, prefix, suffix, openFiles, multiline, maxLines, indent, prefixTruncated, suffixTruncated,
+    filePath, languageId, prefix, suffix, relatedSnippets, multiline, maxLines, indent, prefixTruncated, suffixTruncated,
     importedClasses, emptyBody, alternativeTo, declaration = declaration,
 )
 
