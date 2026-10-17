@@ -568,6 +568,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
     }
 
     fun testYamlTypingWithLookupOpen() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.suggestWhileLookupOpen = true
         init(YAMLFileType.YML, "a: foobar1\nb: foobar2\nkey: foo<caret>\n")
         com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait { myFixture.completeBasic() }
         typeChar('b')
