@@ -52,7 +52,7 @@ App-level `ClaudeAutocompleteSettings`, stored in `claude-autocomplete.xml`. UI:
 | contextMode | auto | auto / wholeFile / linesAround |
 | wholeFileMaxLines | 1000 | Auto sends the whole file up to this many lines |
 | linesAroundCursor | 150 | Lines above and below the caret when windowed |
-| includeOpenTabs, maxOpenTabsChars | true, 6000 | Budget split across tabs, newest first |
+| includeOpenTabs, maxOpenTabsChars | true, 6000 | Related snippets from open tabs (labelled "Include related snippets from open tabs"); the budget is the total characters of all snippets |
 | includeImportedClasses, maxImportedClassesChars | true, 8000 | PHP: imported classes, parent, interfaces, traits |
 | showInlineLoadingIndicator | true | Braille spinner with elapsed time |
 | nextEditSuggestions | false | Next edit suggestions, an extra request per edit and pause |
@@ -68,7 +68,7 @@ App-level `ClaudeAutocompleteSettings`, stored in `claude-autocomplete.xml`. UI:
 User message, built by `PromptBuilder`:
 
 ```
-<open_files>...</open_files>             only with open tabs
+<related_snippets>...</related_snippets> only with related open-tab code
 <imported_classes>...</imported_classes> only for PHP with imports
 <file path="..." language="..." indent="...">
 prefix<CURSOR/>suffix
@@ -78,11 +78,21 @@ prefix<CURSOR/>suffix
 <mode>single-line | multi-line (max N lines) | body (max N lines) | declaration (max N lines)</mode>
 ```
 
-The file is whole or a window around the caret, capped at 200k chars. A truncated side gets a `<!-- truncated -->` marker. The fixed system prompt makes the model a fill-in-the-middle engine. Reply contract: the insertion is wrapped as `<completion>TEXT</completion>`, raw code only inside, no fences, no repeating text around the caret; anything outside the tags is ignored, and `<completion></completion>` means nothing fits (the file is finished, no code can go at the caret). On a blank line inside a class, interface, trait or function body the prompt asks for the most likely next member or statement instead, with an example of a method between two methods. Modes: `body` is an empty block, `declaration` an open signature (it wins over `body`); both are only sent in multi-line mode. Rules against lazy output: never placeholder code (TODO or FIXME stubs, "not implemented" throws, `pass`, `...`, an empty body standing in for real logic, a comment saying to implement it later); write the real implementation inferred from names, signature and similar code in the file and open files; complete the construct the cursor is in first, such as the parameter list of an open signature, before anything after it, and in `declaration` mode carry on through the return type, the body and the closing brace (the prompt carries an example of an open signature completed into the whole method). Claude Code and Codex get the same prompt. `customInstructions` is appended.
+Each `<snippet path="src/Foo.php" lines="40-99">` holds whole lines of one open file with its 1-based inclusive line range, the most relevant snippet last (closest to the current file). The file is whole or a window around the caret, capped at 200k chars. A truncated side gets a `<!-- truncated -->` marker. The fixed system prompt makes the model a fill-in-the-middle engine. Reply contract: the insertion is wrapped as `<completion>TEXT</completion>`, raw code only inside, no fences, no repeating text around the caret; anything outside the tags is ignored, and `<completion></completion>` means nothing fits (the file is finished, no code can go at the caret). On a blank line inside a class, interface, trait or function body the prompt asks for the most likely next member or statement instead, with an example of a method between two methods. Modes: `body` is an empty block, `declaration` an open signature (it wins over `body`); both are only sent in multi-line mode. Rules against lazy output: never placeholder code (TODO or FIXME stubs, "not implemented" throws, `pass`, `...`, an empty body standing in for real logic, a comment saying to implement it later); write the real implementation inferred from names, signature and similar code in the file and related snippets; complete the construct the cursor is in first, such as the parameter list of an open signature, before anything after it, and in `declaration` mode carry on through the return type, the body and the closing brace (the prompt carries an example of an open signature completed into the whole method). Claude Code and Codex get the same prompt. `customInstructions` is appended.
+
+### Related snippets
+
+Built by `ContextCollector` through `SnippetSelector` (`context/`) when `includeOpenTabs` is on. Candidates are the open tabs except the current file, minus excluded, sensitive, binary and over-long files, newest first.
+
+1. Query: the last 60 lines before the caret plus the rest of the current line (`CaretQuery`). Its distinct identifier tokens (`[letter_][letter digit _]*`, at least 2 characters, case kept, `$` not part of the token) minus stop words are the query set. Stop words are a small generic list plus keywords of the language family (`StopWords`: scripting languages Python, Ruby and shell, C-style for everything else).
+2. Windows: each file is tokenised once (first 5000 lines, first 400 characters of a line) and cut into windows of 60 lines with a step of 5, plus one window flush with the end. A sliding multiset of token ids moves from window to window, so a file costs at most two operations per token.
+3. Score: Jaccard, shared distinct tokens over the union of the query set and the window's distinct tokens. Best window per file, the earliest wins a tie. A window needs a score of at least 0.1 and 2 shared tokens.
+4. Selection: files of the current language first, files of other languages only for slots and budget still left. At most 4 snippets, best first, each within what is left of `maxOpenTabsChars`. A window that does not fit is cut to whole lines from its start and dropped when fewer than 3 lines remain.
+5. Order in the prompt: ascending score, the best snippet last.
 
 ### Next edit request
 
-Same system prompt and engine. The user message has no `<CURSOR/>` and ends with `<mode>next-edit</mode>`. Open tabs and imported classes are not sent.
+Same system prompt and engine. The user message has no `<CURSOR/>` and ends with `<mode>next-edit</mode>`. Related snippets and imported classes are not sent.
 
 ```
 <recent_edits>
@@ -131,6 +141,7 @@ Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-
 
 - `backend/` - CLI processes, command builders, parsers, prompt, usage tracking, `CompletionRouter` (picks the provider).
 - `completion/` - `TriggerRules`, `CompletionPostProcessor`, `CompletionCache`. Pure logic.
+- `context/` - related snippet ranking: identifier tokenizer, stop words, window scorer, selector. Pure logic.
 - `nextedit/` - edit history, next edit prompt section, reply parser, target choice and state (pure), plus the editor controller, preview, Tab and Esc handlers.
 - `php/` - class outlines and imported-class context.
 - `alternatives/` - Next-suggestion handler, pending alternative request, multi-variant suggestion.
