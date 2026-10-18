@@ -56,7 +56,7 @@ From a local build: `./gradlew buildPlugin`, then Settings | Plugins | gear icon
 | Next / previous suggestion | Alt+] / Alt+[ (Option+] / Option+[ on macOS) |
 | Dismiss | Esc |
 
-Word and line accept reuse your keymap's Next Word and Line End. Next and previous suggestion cycle through up to three alternatives; the model is asked for another one only when you press Next on the last suggestion. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) turns the plugin on and off.
+Word and line accept reuse your keymap's Next Word and Line End. Next and previous suggestion cycle through up to three alternatives; the model is asked for another one only when you press Next on the newest suggestion. Suggestions stay in the order they arrived and wrap at the ends. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) turns the plugin on and off.
 
 Suggestions also appear mid-line, with code right of the caret, but not inside a word. Tools | Trigger Claudex Autocomplete forces a completion anywhere, even inside a word. No default shortcut, assign one in Keymap.
 
