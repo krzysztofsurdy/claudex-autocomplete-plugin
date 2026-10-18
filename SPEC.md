@@ -30,6 +30,7 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 16. A shown suggestion highlights and strikes through the target lines and adds a block inlay below them with the replacement and a hint. Tab (an `EditorTab` handler, first in the chain) jumps the caret to the start of the target, Tab again applies it in one write command and moves the caret to the end of the new text. Esc, any document change or caret move dismisses. While ghost text is visible the handlers step aside, so the inline completion Tab and Esc win. With nothing shown Tab and Esc behave as before. `NextEditController` writes debug lines (`Requesting next edit`, `Next edit received|empty|failed|cancelled|dropped|shown|jumped|applied|dismissed`) with timings, line ranges, counts and drop reasons only, never code (`NextEditLog`).
 17. Status bar widget (`StatusBarWidget.IconPresentation`, no text): the Claudex icon, grey when completions are off (`enabled` false or no `consentGiven`) or the status is Error or LimitReached, coloured when Ready, Waiting or Done, and alternating between coloured and grey every 500 ms while the status is Thinking. The grey icon is `IconLoader.getDisabledIcon` of the logo, so it follows the theme. A Swing timer runs only while Thinking and is stopped on any other status and in `dispose()`. The tooltip carries provider, state, last latency, model and the 5h / 7d usage windows. Click opens the menu (Enable/Disable, Provider, Open settings, Refresh Usage).
 18. Suggestion hint: the platform's "Tab to complete" hint carries `SuggestionHint` (the provider's `providerPresentation`): the Claudex icon and "Claudex · <Provider> <model>" from the message bundle, never the provider id.
+19. Trigger gates: `CompletionGates` (pure) decides from an `EditorSnapshot` that `EditorGates` builds in a read action, in `isEnabled` and once more after the debounce (without the duplicate check). A skipped request logs `Request skipped: gate=<name>` at debug level, the gate name only. Editor gates apply to every request, manual ones included: `Viewer`, `ReadOnly`, `OneLine`, `Embedded` (editor in a dialog or popup), `InjectedFragment`, `UnsupportedKind` (only main and untyped editors are served, so consoles, diff and preview editors are not), `MultiCaret` (the platform builds no request for several carets). State gates apply to automatic requests (typing) only, DirectCall and ManualCall pass them: `UndoRedo`, `BulkUpdate`, `Selection` (any caret), `LiveTemplate` (`TemplateManager.getActiveTemplate` is set, or the current command is the template insertion command or the Expand Live Template by Tab action), `LookupOpen` (unless `suggestWhileLookupOpen`; the request is skipped, not queued, so the next keystroke after the popup closes asks again), `NextEditShown` (`NextEditState.isVisible`) and `Duplicate` (same document modification stamp and caret offset as the last request that passed the gates in this editor; the same event asked twice by the platform is not its own duplicate). Order: editor gates, state gates, duplicate.
 
 ## Settings
 
@@ -55,6 +56,7 @@ App-level `ClaudeAutocompleteSettings`, stored in `claude-autocomplete.xml`. UI:
 | includeOpenTabs, maxOpenTabsChars | true, 6000 | Related snippets from open tabs (labelled "Include related snippets from open tabs"); the budget is the total characters of all snippets |
 | includeImportedClasses, maxImportedClassesChars | true, 8000 | PHP: imported classes, parent, interfaces, traits |
 | showInlineLoadingIndicator | true | Braille spinner with elapsed time |
+| suggestWhileLookupOpen | false | false = typing waits for the code-completion popup to close, manual triggers always run |
 | nextEditSuggestions | false | Next edit suggestions, an extra request per edit and pause |
 | multilineMode | auto | |
 | maxCompletionLines | 30 | |
@@ -140,10 +142,10 @@ Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-
 ## Layout
 
 - `backend/` - CLI processes, command builders, parsers, prompt, usage tracking, `CompletionRouter` (picks the provider).
-- `completion/` - `TriggerRules`, `CompletionPostProcessor`, `CompletionCache`. Pure logic.
+- `completion/` - `TriggerRules`, `CompletionGates`, `CompletionPostProcessor`, `CompletionCache`. Pure logic.
 - `context/` - related snippet ranking: identifier tokenizer, stop words, window scorer, selector. Pure logic.
 - `nextedit/` - edit history, next edit prompt section, reply parser, target choice and state (pure), plus the editor controller, preview, Tab and Esc handlers.
 - `php/` - class outlines and imported-class context.
 - `alternatives/` - Next-suggestion handler, pending alternative request, multi-variant suggestion.
 - `actions/`, `ui/` - toggle and trigger actions, status bar widget.
-- top level - inline completion provider, settings, context collection, status service, consent prompt.
+- top level - inline completion provider, `EditorGates` (editor snapshot for the gates), settings, context collection, status service, consent prompt.
