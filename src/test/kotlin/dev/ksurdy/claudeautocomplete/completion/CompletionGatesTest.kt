@@ -5,13 +5,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class CompletionGatesTest {
-    private val plain = EditorSnapshot(stamp = RequestStamp(10, 4))
+    private val plain = EditorSnapshot()
 
-    private fun automatic(snapshot: EditorSnapshot, showWhileLookupOpen: Boolean = false, last: RequestStamp? = null) =
-        CompletionGates.blockedBy(snapshot, manual = false, showWhileLookupOpen = showWhileLookupOpen, last = last)
+    private fun automatic(snapshot: EditorSnapshot, showWhileLookupOpen: Boolean = false) =
+        CompletionGates.blockedBy(snapshot, manual = false, showWhileLookupOpen = showWhileLookupOpen)
 
-    private fun manual(snapshot: EditorSnapshot, showWhileLookupOpen: Boolean = false, last: RequestStamp? = null) =
-        CompletionGates.blockedBy(snapshot, manual = true, showWhileLookupOpen = showWhileLookupOpen, last = last)
+    private fun manual(snapshot: EditorSnapshot, showWhileLookupOpen: Boolean = false) =
+        CompletionGates.blockedBy(snapshot, manual = true, showWhileLookupOpen = showWhileLookupOpen)
 
     @Test
     fun `a plain editor passes both ways`() {
@@ -124,31 +124,8 @@ class CompletionGatesTest {
     }
 
     @Test
-    fun `the same stamp and caret as the last request is a duplicate`() {
-        assertEquals(Gate.Duplicate, automatic(plain, last = RequestStamp(10, 4)))
-    }
-
-    @Test
-    fun `another stamp or caret is not a duplicate`() {
-        assertNull(automatic(plain, last = RequestStamp(9, 4)))
-        assertNull(automatic(plain, last = RequestStamp(10, 5)))
-        assertNull(automatic(plain, last = null))
-    }
-
-    @Test
-    fun `manual requests are never duplicates`() {
-        assertNull(manual(plain, last = RequestStamp(10, 4)))
-    }
-
-    @Test
     fun `editor kind gates win over state gates`() {
         val snapshot = plain.copy(viewer = true, hasSelection = true, lookupOpen = true)
         assertEquals(Gate.Viewer, automatic(snapshot))
-    }
-
-    @Test
-    fun `state gates win over the duplicate check`() {
-        val snapshot = plain.copy(hasSelection = true)
-        assertEquals(Gate.Selection, automatic(snapshot, last = RequestStamp(10, 4)))
     }
 }

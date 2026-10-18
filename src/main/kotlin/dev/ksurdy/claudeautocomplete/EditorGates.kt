@@ -17,16 +17,13 @@ import com.intellij.openapi.editor.EditorKind
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.popup.util.PopupUtil
-import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiDocumentManager
 import dev.ksurdy.claudeautocomplete.completion.CompletionGates
 import dev.ksurdy.claudeautocomplete.completion.EditorSnapshot
 import dev.ksurdy.claudeautocomplete.completion.Gate
-import dev.ksurdy.claudeautocomplete.completion.RequestStamp
 import dev.ksurdy.claudeautocomplete.nextedit.NextEditController
 
 object EditorGates {
-    private val LAST_REQUEST = Key.create<LastRequest>("claude.autocomplete.last.request")
     private val SUPPORTED_KINDS = setOf(EditorKind.MAIN_EDITOR, EditorKind.UNTYPED)
     private val TEMPLATE_COMMANDS by lazy {
         listOfNotNull(
@@ -35,21 +32,16 @@ object EditorGates {
         )
     }
 
-    private class LastRequest(val stamp: RequestStamp, val event: InlineCompletionEvent)
-
     fun blockedBy(event: InlineCompletionEvent, settings: ClaudeAutocompleteSettings.State): Gate? {
         val editor = editorOf(event) ?: return null
         val snapshot = ReadAction.compute<EditorSnapshot, RuntimeException> { snapshot(editor) }
-        val last = editor.getUserData(LAST_REQUEST)?.takeIf { it.event !== event }?.stamp
-        val gate = CompletionGates.blockedBy(snapshot, isManual(event), settings.suggestWhileLookupOpen, last)
-        if (gate == null) editor.putUserData(LAST_REQUEST, LastRequest(snapshot.stamp, event))
-        return gate
+        return CompletionGates.blockedBy(snapshot, isManual(event), settings.suggestWhileLookupOpen)
     }
 
     suspend fun blockedAfterDebounce(event: InlineCompletionEvent, settings: ClaudeAutocompleteSettings.State): Gate? {
         val editor = editorOf(event) ?: return null
         val snapshot = readAction { snapshot(editor) }
-        return CompletionGates.blockedBy(snapshot, isManual(event), settings.suggestWhileLookupOpen, last = null)
+        return CompletionGates.blockedBy(snapshot, isManual(event), settings.suggestWhileLookupOpen)
     }
 
     private fun editorOf(event: InlineCompletionEvent): Editor? = when (event) {
@@ -66,7 +58,6 @@ object EditorGates {
         val document = editor.document
         val psiFile = project?.let { PsiDocumentManager.getInstance(it).getCachedPsiFile(document) }
         return EditorSnapshot(
-            stamp = RequestStamp(document.modificationStamp, editor.caretModel.offset),
             viewer = editor.isViewer,
             writable = document.isWritable,
             oneLine = editor.isOneLineMode,
