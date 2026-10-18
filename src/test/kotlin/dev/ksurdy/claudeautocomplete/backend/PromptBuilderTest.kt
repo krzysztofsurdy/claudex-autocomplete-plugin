@@ -44,6 +44,20 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `alternative requests list the suggestions already shown`() {
+        val message = PromptBuilder.userMessage(testContext(alternativeTo = listOf("foo()", "bar()")))
+        assertContains(message, "<shown_suggestions>\n<suggestion>foo()</suggestion>\n<suggestion>bar()</suggestion>\n</shown_suggestions>\n")
+        assertTrue(message.indexOf("</file>") < message.indexOf("<shown_suggestions>"))
+        assertTrue(message.endsWith("<mode>single-line</mode>"))
+        assertFalse(PromptBuilder.userMessage(testContext()).contains("<shown_suggestions>"))
+    }
+
+    @Test
+    fun `system prompt asks for a different suggestion when some were shown`() {
+        assertContains(PromptBuilder.systemPrompt(""), "<shown_suggestions> lists suggestions the user already rejected")
+    }
+
+    @Test
     fun `system prompt explains mid line insertions`() {
         assertContains(PromptBuilder.systemPrompt(""), "When code follows the cursor on the same line, output only what belongs between the cursor and that code")
     }

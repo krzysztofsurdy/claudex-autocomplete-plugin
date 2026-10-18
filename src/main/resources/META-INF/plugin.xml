@@ -74,6 +74,8 @@
                        bundle="messages.ClaudexBundle" key="notification.group.consent"/>
     <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.ConsentPrompt"/>
     <postStartupActivity implementation="dev.ksurdy.claudeautocomplete.BackendWarmUp"/>
+    <editorActionHandler action="NextInlineCompletionSuggestionAction"
+                         implementationClass="dev.ksurdy.claudeautocomplete.alternatives.NextAlternativeHandler"/>
   </extensions>
 
   <actions>

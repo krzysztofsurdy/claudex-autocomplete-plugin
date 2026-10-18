@@ -20,6 +20,7 @@ object PromptBuilder {
         - <mode>multi-line (max N lines)</mode>: output a coherent unit (the statement, block or next few statements), at most N lines, stop at a natural boundary. Do not write the remainder of the file.
         - <mode>body (max N lines)</mode>: the cursor sits in an empty function, method or block body. Write the complete body, every statement through the final return, at most N lines. Do not stop after the first statement. Base it on the signature, the parameters and similar code in the file.
         - <imported_classes> shows signatures of classes the current file imports; use their real method and property names.
+        - <shown_suggestions> lists suggestions the user already rejected for this cursor position. Offer a different one that is still correct, never repeat them.
         - If nothing sensible can be inserted, output nothing at all.
 
         Examples (input shows the cursor; output is the full reply):
@@ -65,6 +66,11 @@ object PromptBuilder {
         append(escape(context.prefix)).append("<CURSOR/>").append(escape(context.suffix)).append('\n')
         if (context.suffixTruncated) append(TRUNCATED_MARKER).append('\n')
         append("</file>\n")
+        if (context.alternativeTo.isNotEmpty()) {
+            append("<shown_suggestions>\n")
+            for (shown in context.alternativeTo) append("<suggestion>").append(escape(shown)).append("</suggestion>\n")
+            append("</shown_suggestions>\n")
+        }
         when {
             !context.multiline -> append("<mode>single-line</mode>")
             context.emptyBody -> append("<mode>body (max ${context.maxLines} lines)</mode>")

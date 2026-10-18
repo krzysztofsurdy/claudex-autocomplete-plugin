@@ -17,12 +17,14 @@ class FakeCompletionBackend(var result: CompletionResult) : CompletionEngine {
 
     var partials: List<String> = emptyList()
 
+    val queued = java.util.concurrent.ConcurrentLinkedQueue<CompletionResult>()
+
     override suspend fun complete(context: CompletionContext, config: BackendConfig, onText: (String) -> Unit): CompletionResult {
         contexts += context
         configs += config
         partials.forEach(onText)
         gate?.await()
-        return result
+        return queued.poll() ?: result
     }
 
     override suspend fun refreshUsage(config: BackendConfig): UsageLimits? = null
