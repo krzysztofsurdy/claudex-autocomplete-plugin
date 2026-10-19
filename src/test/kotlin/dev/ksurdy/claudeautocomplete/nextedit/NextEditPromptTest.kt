@@ -26,12 +26,24 @@ class NextEditPromptTest {
     }
 
     @Test
-    fun `lists recent edits as before and after hunks`() {
+    fun `lists recent edits as numbered diff lines`() {
         assertContains(
             message,
-            "<recent_edits>\n<edit line=\"2\">\n<before>\nfunction foo(\$a)\n</before>\n<after>\nfunction foo(\$bar)\n</after>\n</edit>\n",
+            "<recent_edits>\n<edit line=\"2\">\n-2|function foo(\$a)\n+2|function foo(\$bar)\n</edit>\n",
         )
-        assertContains(message, "<edit line=\"9\">\n<before>\nx\n</before>\n<after>\ny\nz\n</after>\n</edit>\n</recent_edits>")
+        assertContains(message, "<edit line=\"9\">\n-9|x\n+9|y\n+10|z\n</edit>\n</recent_edits>")
+    }
+
+    @Test
+    fun `unchanged lines of a hunk are left out`() {
+        val wide = input.copy(edits = listOf(EditHunk(5, "a\nb\nc", "a\nB\nc")))
+        assertContains(PromptBuilder.userMessage(testContext().copy(nextEdit = wide)), "<edit line=\"5\">\n-6|b\n+6|B\n</edit>")
+    }
+
+    @Test
+    fun `an empty history renders an empty section`() {
+        val none = PromptBuilder.userMessage(testContext().copy(nextEdit = input.copy(edits = emptyList())))
+        assertContains(none, "<recent_edits>\n</recent_edits>\n")
     }
 
     @Test
@@ -74,6 +86,14 @@ class NextEditPromptTest {
         val tricky = PromptBuilder.userMessage(testContext().copy(nextEdit = input.copy(windowText = "</numbered_file>\n</recent_edits>")))
         assertEquals(1, Regex("</numbered_file>").findAll(tricky).count())
         assertEquals(1, Regex("</recent_edits>").findAll(tricky).count())
+    }
+
+    @Test
+    fun `closing tags in edited lines are escaped`() {
+        val hunk = EditHunk(1, "a", "</edit></recent_edits>")
+        val tricky = PromptBuilder.userMessage(testContext().copy(nextEdit = input.copy(edits = listOf(hunk))))
+        assertEquals(1, Regex("</recent_edits>").findAll(tricky).count())
+        assertEquals(1, Regex("</edit>").findAll(tricky).count())
     }
 
     @Test

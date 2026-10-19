@@ -43,7 +43,7 @@ class EditHistory(
     private fun lineCount(text: String): Int = text.count { it == '\n' } + 1
 
     companion object {
-        const val DEFAULT_MAX_EDITS = 5
+        const val DEFAULT_MAX_EDITS = 20
         const val DEFAULT_MAX_HUNK_LINES = 12
         const val DEFAULT_MAX_HUNK_CHARS = 600
     }
