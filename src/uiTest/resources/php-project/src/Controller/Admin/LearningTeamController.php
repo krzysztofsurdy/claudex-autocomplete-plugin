@@ -41,6 +41,27 @@ final class LearningTeamController extends AbstractController
         ]);
     }
 
+    #[Route('/admin/learning-team/{id}/cancel', name: 'admin_learning_team_cancel')]
+    public function cancelAction(int $id): Response
+    {
+        $this->addFlash('info', 'Change cancelled.');
+
+        return $this->redirectToRoute('admin_learning_team_edit', ['id' => $id]);
+    }
+
+    #[Route('/admin/learning-team/participant/{participantId}', name: 'admin_learning_team_participant')]
+    public function showParticipantAction(
+        LearningTeamParticipantRepository $learningTeamParticipantRepository,
+        int $participantId
+    ): Response {
+        $participant = $learningTeamParticipantRepository->find($participantId);
+        if (null === $participant) {
+            throw $this->createNotFoundException('Participant not found.');
+        }
+
+        return $this->render('admin/learning_team/participant.html.twig', ['participant' => $participant]);
+    }
+
     #[Route('/admin/learning-team/replace-course', name: 'admin_learning_team_replace_course')]
     public function replaceLearningTeamCourseAction(
         Request $request,
