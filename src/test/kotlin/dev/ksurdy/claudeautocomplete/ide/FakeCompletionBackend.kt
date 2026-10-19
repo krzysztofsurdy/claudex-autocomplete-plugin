@@ -15,6 +15,9 @@ class FakeCompletionBackend(var result: CompletionResult) : CompletionEngine {
     @Volatile
     var gate: CompletableDeferred<Unit>? = null
 
+    @Volatile
+    var nextEditGate: CompletableDeferred<Unit>? = null
+
     var partials: List<String> = emptyList()
 
     val queued = java.util.concurrent.ConcurrentLinkedQueue<CompletionResult>()
@@ -30,6 +33,7 @@ class FakeCompletionBackend(var result: CompletionResult) : CompletionEngine {
         partials.forEach(onText)
         try {
             gate?.await()
+            if (context.nextEdit != null) nextEditGate?.await()
         } catch (e: kotlinx.coroutines.CancellationException) {
             cancellations.incrementAndGet()
             throw e

@@ -12,6 +12,7 @@ import dev.ksurdy.claudeautocomplete.CompletionEngine
 import dev.ksurdy.claudeautocomplete.StatusService
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.nextedit.NextEditController
+import dev.ksurdy.claudeautocomplete.nextedit.NextEditService
 import kotlinx.coroutines.CompletableDeferred
 
 class NextEditIdeTest : BasePlatformTestCase() {
@@ -28,6 +29,7 @@ class NextEditIdeTest : BasePlatformTestCase() {
         fake = FakeCompletionBackend(CompletionResult.Empty)
         fake.responder = { context -> if (context.nextEdit != null) CompletionResult.Success(nextEdit) else CompletionResult.Empty }
         service.engine = fake
+        NextEditService.getInstance().reset()
         ClaudeAutocompleteSettings.getInstance().state.apply {
             debounceMs = 0
             consentGiven = true
@@ -160,7 +162,7 @@ class NextEditIdeTest : BasePlatformTestCase() {
         val editor = open()
         typeAfterParameter(editor, "b")
         awaitShown(editor)
-        fake.gate = CompletableDeferred()
+        fake.nextEditGate = CompletableDeferred()
         myFixture.type("c")
         assertFalse(controller(editor).state.isVisible)
         assertFalse(controller(editor).presenter.isShowing)
@@ -186,7 +188,7 @@ class NextEditIdeTest : BasePlatformTestCase() {
     fun testNewTypingCancelsTheInFlightRequestAndAsksAgainForTheLatestText() {
         val editor = open()
         val gate = CompletableDeferred<Unit>()
-        fake.gate = gate
+        fake.nextEditGate = gate
         typeAfterParameter(editor, "b")
         awaitRequest(1)
         myFixture.type("c")
@@ -202,7 +204,7 @@ class NextEditIdeTest : BasePlatformTestCase() {
     fun testEditWhileARequestIsInFlightNeverShowsTheOutdatedAnswer() {
         val editor = open()
         val gate = CompletableDeferred<Unit>()
-        fake.gate = gate
+        fake.nextEditGate = gate
         typeAfterParameter(editor, "b")
         awaitRequest(1)
         com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) { editor.document.insertString(0, " ") }
