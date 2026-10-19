@@ -20,6 +20,7 @@ import dev.ksurdy.claudeautocomplete.backend.BackendConfig
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
+import dev.ksurdy.claudeautocomplete.completion.CacheKey
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
 import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
 import dev.ksurdy.claudeautocomplete.completion.Gate
@@ -147,7 +148,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         request: InlineCompletionRequest,
         context: CompletionContext,
         config: BackendConfig,
-        cacheKey: String,
+        cacheKey: CacheKey,
         gen: Long,
         indicatorShown: Boolean,
     ): Flow<InlineCompletionElement> = channelFlow {
