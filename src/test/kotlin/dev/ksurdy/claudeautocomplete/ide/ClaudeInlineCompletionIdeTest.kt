@@ -9,6 +9,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
 import dev.ksurdy.claudeautocomplete.ClaudeStatus
+import dev.ksurdy.claudeautocomplete.CompletionRequests
 import dev.ksurdy.claudeautocomplete.StatusIcon
 import dev.ksurdy.claudeautocomplete.StatusIconState
 import dev.ksurdy.claudeautocomplete.StatusService
@@ -37,6 +38,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
+            CompletionRequests.getInstance().cancel()
             BackendService.getInstance().engine = original
             StatusService.getInstance().blockUntil(null)
             StatusService.getInstance().update(ClaudeStatus.Ready)

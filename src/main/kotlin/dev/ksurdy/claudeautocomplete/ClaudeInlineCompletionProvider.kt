@@ -1,7 +1,10 @@
 package dev.ksurdy.claudeautocomplete
 
 import com.intellij.codeInsight.inline.completion.DebouncedInlineCompletionProvider
+import com.intellij.codeInsight.inline.completion.DefaultInlineCompletionInsertHandler
 import com.intellij.codeInsight.inline.completion.InlineCompletionEvent
+import com.intellij.codeInsight.inline.completion.InlineCompletionInsertEnvironment
+import com.intellij.codeInsight.inline.completion.InlineCompletionInsertHandler
 import com.intellij.codeInsight.inline.completion.InlineCompletionProviderID
 import com.intellij.codeInsight.inline.completion.InlineCompletionProviderPresentation
 import com.intellij.codeInsight.inline.completion.InlineCompletionRequest
@@ -40,6 +43,13 @@ import kotlin.time.Duration.Companion.milliseconds
 class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     override val id = InlineCompletionProviderID(ID)
     override val providerPresentation: InlineCompletionProviderPresentation = SuggestionHint()
+
+    override val insertHandler: InlineCompletionInsertHandler = object : DefaultInlineCompletionInsertHandler() {
+        override fun afterInsertion(environment: InlineCompletionInsertEnvironment, elements: List<InlineCompletionElement>) {
+            super.afterInsertion(environment, elements)
+            requests.prefetchAfterAccept(environment.editor)
+        }
+    }
 
     private val requests = CompletionRequests.getInstance()
     private val generation = AtomicLong()

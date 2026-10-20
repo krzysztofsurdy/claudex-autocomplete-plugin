@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-line suggestions stream in while the model writes: each finished, bracket-balanced line shows up at once.
 - Typing as suggested: after a suggestion was dismissed, typing its first characters shows the rest from the cache, without a new request. The cache matches a growing prefix with an unchanged suffix, not only an exact position.
 - Typing while a request is running no longer restarts it when what you typed matches what the model is writing: the request is kept and its result is shown without the typed text. Typing that departs from it cancels the request as before.
+- Prefetch after accept (on by default, setting "Prefetch the next suggestion after accept"): right after you accept a whole suggestion, the next completion for the new caret is requested in the background and cached, so the next suggestion appears without waiting. It respects consent, the enabled switch, excluded files and the usage limit, runs one at a time and is cancelled by any request that does not fit it.
 - Next edit suggestions (opt-in, off by default): after an edit and a pause, predicts your next edit on another line of the same file, highlights it and shows the replacement. Tab jumps to it, Tab again applies it, Esc or any typing dismisses it.
 - Setting "Show suggestions while the completion popup is open" (off by default).
 

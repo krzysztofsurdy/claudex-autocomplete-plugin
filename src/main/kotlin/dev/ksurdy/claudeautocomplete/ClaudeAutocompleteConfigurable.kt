@@ -136,6 +136,10 @@ class ClaudeAutocompleteConfigurable :
                 row(ClaudexBundle.message("settings.timeout")) { intTextField(500..120_000).bindIntText(state::requestTimeoutMs) }
                 row { checkBox(ClaudexBundle.message("settings.loading.indicator")).bindSelected(state::showInlineLoadingIndicator) }
                 row {
+                    checkBox(ClaudexBundle.message("settings.prefetch")).bindSelected(state::prefetchAfterAccept)
+                        .comment(ClaudexBundle.message("settings.prefetch.comment"))
+                }
+                row {
                     checkBox(ClaudexBundle.message("settings.next.edit")).bindSelected(state::nextEditSuggestions)
                         .comment(ClaudexBundle.message("settings.next.edit.comment"))
                 }
