@@ -25,7 +25,6 @@ import dev.ksurdy.claudeautocomplete.completion.CompletionCache
 import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
 import dev.ksurdy.claudeautocomplete.completion.Gate
 import dev.ksurdy.claudeautocomplete.completion.ReplySource
-import dev.ksurdy.claudeautocomplete.completion.StreamingCompletion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -42,7 +41,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     override val id = InlineCompletionProviderID(ID)
     override val providerPresentation: InlineCompletionProviderPresentation = SuggestionHint()
 
-    private val cache = CompletionCache(CACHE_CAPACITY)
+    private val requests = CompletionRequests.getInstance()
     private val generation = AtomicLong()
 
     override fun isEnabled(event: InlineCompletionEvent): Boolean {
@@ -79,6 +78,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         }
         val context = readAction { ContextCollector.collect(request, settings.state, force = manual) }
         if (context == null) {
+            requests.cancel()
             publish(gen, ClaudeStatus.Ready)
             return InlineCompletionSuggestion.Empty
         }
@@ -87,12 +87,16 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         val indicatorShown = settings.state.showInlineLoadingIndicator
         if (alternative != null) return alternativeSuggestion(request, context, config, alternative, gen, indicatorShown)
         val cacheKey = CompletionCache.key(context, config)
-        val cached = if (manual) null else cache.get(cacheKey)
+        val cached = if (manual) null else requests.cache.get(cacheKey)
         if (cached != null) {
             publish(gen, ClaudeStatus.Ready)
             return InlineCompletionSingleSuggestion.build { emit(InlineCompletionGrayTextElement(cached)) }
         }
-        return InlineCompletionSingleSuggestion.build(UserDataHolderBase(), streamCompletion(request, context, config, cacheKey, gen, indicatorShown))
+        val attachment = if (manual) null else requests.attach(context, config)
+        return InlineCompletionSingleSuggestion.build(
+            UserDataHolderBase(),
+            streamCompletion(request, context, config, cacheKey, gen, indicatorShown, attachment),
+        )
     }
 
     private suspend fun alternativeSuggestion(
@@ -151,46 +155,51 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         cacheKey: CacheKey,
         gen: Long,
         indicatorShown: Boolean,
+        reused: Attachment?,
     ): Flow<InlineCompletionElement> = channelFlow {
         val startedAt = System.currentTimeMillis()
         publish(gen, ClaudeStatus.Thinking(startedAt))
         StatusService.getInstance().recordModel(config.activeModel())
-        LOG.debug { "Requesting completion: provider=${config.provider} model=${config.activeModel()} language=${context.languageId}" }
+        if (reused == null) {
+            LOG.debug { "Requesting completion: provider=${config.provider} model=${config.activeModel()} language=${context.languageId}" }
+        } else {
+            LOG.debug { "Reusing request: typedLength=${reused.typed.length} streamedLength=${reused.running.progress.value.streamed.length}" }
+        }
         val indicator = if (indicatorShown) InlineLoadingIndicator.start(request.editor, request.endOffset) else null
-        val stream = StreamingCompletion(context)
         var firstShownAt = 0L
+        var shownLength = 0
+        val show: suspend (String) -> Unit = { delta ->
+            if (firstShownAt == 0L) firstShownAt = System.currentTimeMillis()
+            shownLength += delta.length
+            indicator?.stop()
+            send(InlineCompletionGrayTextElement(delta))
+        }
         try {
-            val result = withContext(Dispatchers.IO) {
-                BackendService.getInstance().engine.complete(context, config) { raw ->
-                    val delta = stream.onPartial(raw)
-                    if (delta.isNotEmpty()) {
-                        if (firstShownAt == 0L) firstShownAt = System.currentTimeMillis()
-                        indicator?.stop()
-                        trySend(InlineCompletionGrayTextElement(delta))
-                    }
-                }
+            var followed = (reused ?: requests.start(context, config, cacheKey)).follow(show)
+            while (followed.retry) {
+                LOG.debug { "Reused request unusable: requesting again" }
+                followed = requests.start(context, config, cacheKey).follow(show)
             }
-            when (result) {
+            val progress = followed.progress
+            when (val result = progress.result) {
                 is CompletionResult.Success -> {
                     val finishedAt = System.currentTimeMillis()
                     publish(gen, ClaudeStatus.Done(finishedAt - startedAt, finishedAt))
-                    val delta = stream.onFinal(result.text)
                     val firstShownMs = if (firstShownAt == 0L) finishedAt - startedAt else firstShownAt - startedAt
-                    logReceived(context, result.text, stream.text, finishedAt - startedAt, firstShownMs)
-                    logGuardCuts(stream.processed)
-                    if (stream.text.isEmpty()) logEmptied(result.text, stream)
-                    if (delta.isNotEmpty()) send(InlineCompletionGrayTextElement(delta))
-                    if (stream.text.isNotEmpty()) cache.put(cacheKey, stream.text)
+                    logReceived(context, result.text, progress.text, finishedAt - startedAt, firstShownMs)
+                    progress.processed?.let(::logGuardCuts)
+                    if (progress.text.isEmpty()) logEmptied(result.text, progress.processed)
                 }
                 CompletionResult.Empty -> {
                     publish(gen, ClaudeStatus.Ready)
                     LOG.debug { "Completion empty: backend returned blank text rawLength=0 ms=${System.currentTimeMillis() - startedAt}" }
                 }
                 is CompletionResult.Failure -> handleFailure(gen, result, config.provider)
+                null -> publish(gen, ClaudeStatus.Ready)
             }
         } catch (e: CancellationException) {
             publish(gen, ClaudeStatus.Ready)
-            LOG.debug { "Completion cancelled: ms=${System.currentTimeMillis() - startedAt} shownLength=${stream.text.length}" }
+            LOG.debug { "Completion cancelled: ms=${System.currentTimeMillis() - startedAt} shownLength=$shownLength" }
             throw e
         } finally {
             indicator?.stop()
@@ -208,15 +217,15 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         LOG.debug { "Completion guarded: guard=${cut.guard.label} linesBefore=${cut.linesBefore} linesAfter=${cut.linesAfter}" }
     }
 
-    private fun logEmptied(raw: String, stream: StreamingCompletion) = LOG.debug {
-        val processed = stream.processed
+    private fun logEmptied(raw: String, processed: CompletionPostProcessor.Processed?) = LOG.debug {
+        val lastCut = processed?.cuts?.lastOrNull()
         val cause = when {
-            processed.source == ReplySource.ProseRejected -> "prose guard"
-            processed.extractedLength == 0 -> "empty completion block"
-            processed.cuts.isNotEmpty() -> processed.cuts.last().guard.label
+            processed?.source == ReplySource.ProseRejected -> "prose guard"
+            processed?.extractedLength == 0 -> "empty completion block"
+            lastCut != null -> lastCut.guard.label
             else -> "post-processing"
         }
-        "Completion emptied: cause=$cause source=${processed.source} rawLength=${raw.length} extractedLength=${processed.extractedLength}"
+        "Completion emptied: cause=$cause source=${processed?.source} rawLength=${raw.length} extractedLength=${processed?.extractedLength}"
     }
 
     private fun handleFailure(gen: Long, failure: CompletionResult.Failure, provider: ProviderKind) =
@@ -238,7 +247,6 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
     companion object {
         const val ID = "dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"
-        private const val CACHE_CAPACITY = 32
         private val LOG = Logger.getInstance(ClaudeInlineCompletionProvider::class.java)
     }
 }

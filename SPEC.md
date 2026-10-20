@@ -14,7 +14,7 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 
 1. Suggestion shows after a pause in typing (debounce, default 250 ms).
 2. Accept, next word and dismiss come from the platform inline completion actions.
-3. A new keystroke cancels the in-flight request.
+3. A new keystroke cancels the in-flight request, unless it only extends the typed text and the text streamed so far starts with what was typed (or nothing was streamed yet) while scope and suffix are unchanged: the request keeps running (`CompletionRequests`, `RunningCompletion`, `InFlightMatch`) and its result is shown without the typed text (`TypedTrim`), several keystrokes share one request. A result that no longer fits the typed text (it differs, or has nothing left after it) starts a normal request for the current text. The CLI request runs in an application service scope, not in the platform's suggestion flow, so cancelling the flow does not cancel it; a request nobody picks up is cancelled by the next one that does not fit (or by a position where no suggestion is wanted) and otherwise finishes into the cache.
 4. Manual trigger: the platform's `CallInlineCompletionAction` (Shift+Alt+\). `Tools | Trigger Claudex Autocomplete` (`ClaudeAutocomplete.Trigger`) forces a completion mid-line, no default shortcut.
 5. Suggest at the end of a line and mid-line, but not inside a word (letters, digits, `_` or `$` on both sides of the caret). Mid-line suggestions are single-line; an echoed rest of the line is trimmed and trailing spaces before it are kept.
 6. Multi-line when the caret line is blank, or the rest of the line is closers and the prefix ends with `{`, `[`, `(` or `:` (not `::`). Otherwise single-line. Setting `multilineMode` overrides (auto/always/never). A multi-line request in an empty block body (prefix ends with `{`, suffix starts with `}`) asks for the complete body. A multi-line request with the caret at the end of an open function or method signature (the caret line is a declaration with `function`, `fun`, `def`, `func` or `fn`, or starts with modifiers such as `public` or `static`, ends with `(`, and nothing follows the caret on the line) asks for the whole method: the rest of the parameters, the return type, the body and the closing brace.
@@ -145,10 +145,10 @@ Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-
 ## Layout
 
 - `backend/` - CLI processes, command builders, parsers, prompt, usage tracking, `CompletionRouter` (picks the provider).
-- `completion/` - `TriggerRules`, `CompletionGates`, `CompletionPostProcessor`, `CompletionCache`. Pure logic.
+- `completion/` - `TriggerRules`, `CompletionGates`, `CompletionPostProcessor`, `CompletionCache`, `CacheKey`, `InFlightMatch`, `TypedTrim`. Pure logic.
 - `context/` - related snippet ranking: identifier tokenizer, stop words, window scorer, selector. Pure logic.
 - `nextedit/` - edit history and diff budget, next edit prompt section, reply parser, target choice, state, timing policy, rejection memory, caret trigger and gate (pure), plus the application service holding the clock, the editor controller, preview, Tab and Esc handlers.
 - `php/` - class outlines and imported-class context.
 - `alternatives/` - Next-suggestion handler, pending alternative request, multi-variant suggestion.
 - `actions/`, `ui/` - toggle and trigger actions, status bar widget.
-- top level - inline completion provider, `EditorGates` (editor snapshot for the gates), settings, context collection, status service, consent prompt.
+- top level - inline completion provider, request service and running request, `EditorGates` (editor snapshot for the gates), settings, context collection, status service, consent prompt.
