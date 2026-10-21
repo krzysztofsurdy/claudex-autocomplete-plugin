@@ -71,27 +71,33 @@ Suggestions also appear mid-line, with code right of the caret, but not inside a
 
 Settings | Tools | Claudex Autocomplete. Main options:
 
-| Setting | Default | Notes |
-|---|---|---|
-| Enable completions | off | Set by the first-run notification or this checkbox |
-| Provider | Claude Code | Claude Code or Codex |
-| Claude Code CLI path / Codex CLI path | empty | Empty = auto-detect |
-| Model (Claude) | haiku | haiku, sonnet, opus, fable or a full model id |
-| Model (Codex) | gpt-5.3-codex | Any model your ChatGPT plan supports |
-| Effort / Reasoning effort | low | Lower is faster |
-| Debounce (ms) | 250 | Delay after typing before a request |
-| Request timeout (ms) | 8000 | |
-| Current file context | auto | Whole file up to 1000 lines, else 150 lines around the caret |
-| Include related snippets from open tabs | true | Up to 4 snippets of about 60 lines each, from open tabs only. Character budget is configurable |
-| Excluded file patterns | `.env`, `*.pem`, `id_rsa*`, ... | Comma-separated. Matching files, VCS-ignored files and files excluded from the project are never sent |
-| Include imported classes | true | PHP only, signatures only |
-| Multi-line mode | auto | auto / always / never |
-| Show suggestions while the completion popup is open | off | Off: typing waits until the popup closes. Manual triggers always run |
-| Next edit suggestions | off | Extra request after each edit and pause, uses more quota |
-| Prefetch the next suggestion after accept | on | Extra request after each accepted suggestion, uses more quota |
-| Keep CLI process alive | true | Claude Code only, Codex starts a process per request |
-| Custom prompt additions | empty | Appended to the system prompt |
-| Disabled languages | empty | Comma-separated language ids |
+Grouped by feature. Only the options of the selected provider are shown.
+
+| Group | Setting | Default | Notes |
+|---|---|---|---|
+| General | Enable completions | off | Set by the first-run notification or this checkbox |
+| General | Provider | Claude Code | Claude Code or Codex. Test Connection sits next to it |
+| General | Disabled languages | empty | Comma-separated language ids |
+| General | Excluded file patterns | `.env`, `*.pem`, `id_rsa*`, ... | Comma-separated. Matching files, VCS-ignored files and files excluded from the project are never sent |
+| Inline Suggestions | Suggestion delay (ms) | 250 | Delay after typing before a request |
+| Inline Suggestions | Request timeout (ms) | 8000 | |
+| Inline Suggestions | Multi-line, Max lines | auto, 30 | auto / always / never |
+| Inline Suggestions | Show suggestions while the completion popup is open | off | Off: typing waits until the popup closes. Manual triggers always run |
+| Inline Suggestions | Prefetch the next suggestion after accept | on | Extra request after each accepted suggestion, uses more quota |
+| Inline Suggestions | Show loading indicator | on | Spinner in the editor while a request runs |
+| Next Edit Suggestions | Enable next edit suggestions | off | Extra request after each edit and pause, uses more quota |
+| Context | Current file | auto | Whole file up to 1000 lines, else 150 lines around the caret |
+| Context | Related snippets from open tabs | on | Up to 4 snippets of about 60 lines each, from open tabs only. Character budget is configurable |
+| Context | Imported classes (PHP) | on | PHP only, signatures only. Character budget is configurable |
+| Claude Code | CLI path | empty | Empty = auto-detect |
+| Claude Code | Model | haiku | haiku, sonnet, opus, fable or a full model id |
+| Claude Code | Fallback model, Effort | empty, low | Lower effort is faster |
+| Claude Code | Thinking, Budget (tokens) | off, 1024 | |
+| Claude Code | Keep one CLI process alive | on | Codex starts a process per request |
+| Codex | CLI path | empty | Empty = auto-detect |
+| Codex | Model | gpt-5.3-codex | Any model your ChatGPT plan supports |
+| Codex | Reasoning effort | low | Lower is faster |
+| Advanced | Custom prompt additions | empty | Appended to the system prompt. Collapsed by default |
 
 Test Connection runs one completion with the values in the form, without saving.
 

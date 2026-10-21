@@ -44,35 +44,37 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 
 App-level `ClaudeAutocompleteSettings`, stored in `claude-autocomplete.xml`. UI: Settings | Tools | Claudex Autocomplete.
 
-| Field | Default | Notes |
-|---|---|---|
-| enabled | true | Only active together with `consentGiven` (default false) |
-| provider | claude | claude / codex |
-| claudePath, codexPath | empty | Empty = auto-detect |
-| model | haiku | haiku, sonnet, opus, fable or a full id |
-| fallbackModel | empty | `--fallback-model` when set |
-| effort | low | `--effort` |
-| thinkingEnabled | false | false = `MAX_THINKING_TOKENS=0` |
-| thinkingBudgetTokens | 1024 | Used when thinking is on |
-| codexModel | gpt-5.3-codex | |
-| codexReasoningEffort | low | none, minimal, low, medium, high |
-| debounceMs | 250 | |
-| requestTimeoutMs | 8000 | |
-| contextMode | auto | auto / wholeFile / linesAround |
-| wholeFileMaxLines | 1000 | Auto sends the whole file up to this many lines |
-| linesAroundCursor | 150 | Lines above and below the caret when windowed |
-| includeOpenTabs, maxOpenTabsChars | true, 6000 | Related snippets from open tabs (labelled "Include related snippets from open tabs"); the budget is the total characters of all snippets |
-| includeImportedClasses, maxImportedClassesChars | true, 8000 | PHP: imported classes, parent, interfaces, traits |
-| showInlineLoadingIndicator | true | Braille spinner with elapsed time |
-| suggestWhileLookupOpen | false | false = typing waits for the code-completion popup to close, manual triggers always run |
-| nextEditSuggestions | false | Next edit suggestions, an extra request per edit and pause |
-| prefetchAfterAccept | true | Prefetch the next suggestion after accepting a whole one, an extra request per accept |
-| multilineMode | auto | |
-| maxCompletionLines | 30 | |
-| persistentProcess | true | Claude Code only |
-| customInstructions | empty | Appended to the system prompt |
-| disabledLanguages | empty | Comma-separated language ids |
-| excludedFilePatterns | `SensitiveFiles.DEFAULT_PATTERNS` | |
+Page groups, in order: General, Inline Suggestions, Next Edit Suggestions, Context, Claude Code, Codex, Advanced. The Claude Code group shows only while the provider is Claude Code and the Codex group only while it is Codex (visibility bound to the provider combo); Apply saves both groups. Test Connection sits next to the provider and runs one completion with the values in the form.
+
+| Group | Field (label) | Default | Notes |
+|---|---|---|---|
+| General | enabled ("Enable completions") | true | Only active together with `consentGiven` (default false) |
+| General | provider ("Provider") | claude | claude / codex |
+| General | disabledLanguages ("Disabled languages") | empty | Comma-separated language ids |
+| General | excludedFilePatterns ("Excluded file patterns") | `SensitiveFiles.DEFAULT_PATTERNS` | Shown next to the privacy note |
+| Inline Suggestions | debounceMs ("Suggestion delay") | 250 | |
+| Inline Suggestions | requestTimeoutMs ("Request timeout") | 8000 | |
+| Inline Suggestions | multilineMode ("Multi-line") | auto | auto / always / never |
+| Inline Suggestions | maxCompletionLines ("Max lines") | 30 | |
+| Inline Suggestions | suggestWhileLookupOpen ("Show suggestions while the completion popup is open") | false | false = typing waits for the code-completion popup to close, manual triggers always run |
+| Inline Suggestions | prefetchAfterAccept ("Prefetch the next suggestion after accept") | true | Prefetch after accepting a whole suggestion, an extra request per accept |
+| Inline Suggestions | showInlineLoadingIndicator ("Show loading indicator") | true | Braille spinner with elapsed time |
+| Next Edit Suggestions | nextEditSuggestions ("Enable next edit suggestions") | false | An extra request per edit and pause |
+| Context | contextMode ("Current file") | auto | auto / wholeFile / linesAround |
+| Context | wholeFileMaxLines | 1000 | Auto sends the whole file up to this many lines |
+| Context | linesAroundCursor | 150 | Lines above and below the caret when windowed |
+| Context | includeOpenTabs, maxOpenTabsChars ("Related snippets from open tabs", "Budget") | true, 6000 | The budget is the total characters of all snippets and is editable only while the box is ticked |
+| Context | includeImportedClasses, maxImportedClassesChars ("Imported classes (PHP)", "Budget") | true, 8000 | PHP: imported classes, parent, interfaces, traits. Budget editable only while the box is ticked |
+| Claude Code | claudePath ("CLI path") | empty | Empty = auto-detect |
+| Claude Code | model ("Model") | haiku | haiku, sonnet, opus, fable or a full id |
+| Claude Code | fallbackModel ("Fallback model") | empty | `--fallback-model` when set |
+| Claude Code | effort ("Effort") | low | `--effort` |
+| Claude Code | thinkingEnabled, thinkingBudgetTokens ("Thinking", "Budget") | false, 1024 | false = `MAX_THINKING_TOKENS=0`. Budget editable only while Thinking is ticked |
+| Claude Code | persistentProcess ("Keep one CLI process alive") | true | Claude Code only |
+| Codex | codexPath ("CLI path") | empty | Empty = auto-detect |
+| Codex | codexModel ("Model") | gpt-5.3-codex | |
+| Codex | codexReasoningEffort ("Reasoning effort") | low | none, minimal, low, medium, high |
+| Advanced | customInstructions ("Custom prompt additions") | empty | Appended to the system prompt. Collapsed by default |
 
 ## Request
 

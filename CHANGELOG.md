@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Settings page regrouped by feature; only the selected provider's options are shown.
 - Open tabs are no longer sent whole. The prompt now carries up to 4 snippets of about 60 lines, taken from open files (same language first) and ranked by how many identifiers they share with the code around the caret. Each snippet shows its path and line range, the most relevant one comes last, and the "Include related snippets from open tabs" budget applies to all snippets together. Unrelated tabs are no longer sent at all.
 - Typing no longer starts a request in the wrong editor state: with a selection, with several carets, during undo, redo or a bulk update, while a live template is active or was just expanded, while the completion popup is open (see the new setting), and while a next edit suggestion is shown. Viewers, one-line fields, dialog and popup editors, consoles, diff panes and injected-language fragment editors get no suggestions at all. The manual triggers still work, except in those editor kinds and with several carets.
 - Next edit suggestions adapt to you: the pause before asking grows by half after each rejection and shrinks by a fifth after each acceptance (50 ms to 3 s, kept for the IDE session), an extra 2 s is waited with the caret at the end of a line you are still typing, and nothing is asked for 5 s after a rejection. A rejected suggestion is not shown again in that file for 5 minutes, and a rejected line gets no other suggestion for 30 s.
