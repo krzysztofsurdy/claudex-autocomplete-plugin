@@ -1,10 +1,10 @@
 package dev.ksurdy.claudeautocomplete.ide
 
-import com.intellij.analysis.AnalysisBundle
 import com.intellij.codeInsight.inline.completion.testInlineCompletion
 import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.codeInsight.template.impl.TemplateImpl
 import com.intellij.codeInsight.template.impl.TemplateManagerImpl
+import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.WriteCommandAction
@@ -178,8 +178,16 @@ class EditorStateGatesIdeTest : GatesIdeTestBase() {
         assertEquals(0, fake.contexts.size)
     }
 
-    fun testLiveTemplateExpansionCommandBlocksAutomaticRequests() = myFixture.testInlineCompletion(timeout = 20.seconds) {
-        init(PlainTextFileType.INSTANCE, "gate11 <caret>")
+    fun testLiveTemplateExpansionCommandBlocksAutomaticRequests() = assertTemplateCommandBlocks("ExpandLiveTemplateByTab", "gate11")
+
+    fun testCustomShortcutTemplateCommandBlocksAutomaticRequests() = assertTemplateCommandBlocks("ExpandLiveTemplateCustom", "gate11a")
+
+    fun testInsertTemplateCommandBlocksAutomaticRequests() = assertTemplateCommandBlocks("InsertLiveTemplate", "gate11b")
+
+    fun testSurroundTemplateCommandBlocksAutomaticRequests() = assertTemplateCommandBlocks("SurroundWithLiveTemplate", "gate11c")
+
+    fun testUnrelatedCommandDoesNotBlockAutomaticRequests() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        init(PlainTextFileType.INSTANCE, "gate11d <caret>")
         onEdt {
             CommandProcessor.getInstance().executeCommand(
                 project,
@@ -187,7 +195,25 @@ class EditorStateGatesIdeTest : GatesIdeTestBase() {
                     insertAtCaret()
                     handler().invokeEvent(typingEvent())
                 },
-                AnalysisBundle.message("insert.code.template.command"),
+                "Unrelated command",
+                null,
+            )
+        }
+        delay()
+        assertEquals(1, fake.contexts.size)
+    }
+
+    private fun assertTemplateCommandBlocks(actionId: String, marker: String) = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        init(PlainTextFileType.INSTANCE, "$marker <caret>")
+        val commandName = ActionManager.getInstance().getAction(actionId).templatePresentation.text
+        onEdt {
+            CommandProcessor.getInstance().executeCommand(
+                project,
+                {
+                    insertAtCaret()
+                    handler().invokeEvent(typingEvent())
+                },
+                commandName,
                 null,
             )
         }

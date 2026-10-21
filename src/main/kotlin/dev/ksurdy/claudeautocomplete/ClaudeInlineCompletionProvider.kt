@@ -15,6 +15,7 @@ import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSug
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.UserDataHolderBase
 import dev.ksurdy.claudeautocomplete.alternatives.AlternativeRequest
 import dev.ksurdy.claudeautocomplete.alternatives.AlternativeSuggestion
@@ -59,8 +60,14 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         return settings.isActive && isSupported(event) && !skipped(EditorGates.blockedBy(event, settings.state))
     }
 
-    override fun restartOn(event: InlineCompletionEvent): Boolean =
-        event is InlineCompletionEvent.DirectCall && AlternativeRequest.isPending(event.editor)
+    override fun restartOn(event: InlineCompletionEvent): Boolean {
+        val editor = when (event) {
+            is InlineCompletionEvent.DirectCall -> event.editor
+            is InlineCompletionEvent.ManualCall -> event.editor
+            else -> return false
+        }
+        return AlternativeRequest.isPending(editor)
+    }
 
     override suspend fun getDebounceDelay(request: InlineCompletionRequest): Duration {
         val gen = generation.incrementAndGet()
@@ -257,6 +264,10 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
     companion object {
         const val ID = "dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"
+
+        fun manualCall(editor: Editor): InlineCompletionEvent.ManualCall =
+            InlineCompletionEvent.ManualCall(editor, InlineCompletionProviderID(ID), UserDataHolderBase())
+
         private val LOG = Logger.getInstance(ClaudeInlineCompletionProvider::class.java)
     }
 }

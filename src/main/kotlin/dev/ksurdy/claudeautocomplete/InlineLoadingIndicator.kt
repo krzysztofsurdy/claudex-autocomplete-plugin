@@ -9,6 +9,7 @@ import com.intellij.openapi.editor.EditorCustomElementRenderer
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.event.CaretEvent
 import com.intellij.openapi.editor.event.CaretListener
+import com.intellij.openapi.editor.ex.util.EditorUtil
 import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.util.Disposer
@@ -31,12 +32,10 @@ class InlineLoadingIndicator private constructor(private val editor: Editor, pri
     }
 
     private fun begin() {
-        Disposer.register(editorDisposable(), this)
+        EditorUtil.disposeWithEditor(editor, this)
         editor.caretModel.addCaretListener(caretListener, this)
         timer.start()
     }
-
-    private fun editorDisposable(): Disposable = (editor as? EditorImpl)?.disposable ?: ApplicationManager.getApplication()
 
     private fun onTick() {
         if (stopped.get() || editor.isDisposed) return

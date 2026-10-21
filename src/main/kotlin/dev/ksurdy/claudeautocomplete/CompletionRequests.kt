@@ -1,6 +1,5 @@
 package dev.ksurdy.claudeautocomplete
 
-import com.intellij.codeInsight.inline.completion.InlineCompletionEvent
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -79,7 +78,7 @@ class CompletionRequests(private val scope: CoroutineScope) {
         val state = ClaudeAutocompleteSettings.getInstance().state
         val context = readAction {
             if (editor.isDisposed) return@readAction null
-            val request = InlineCompletionEvent.DirectCall(editor, editor.caretModel.primaryCaret).toRequest() ?: return@readAction null
+            val request = ClaudeInlineCompletionProvider.manualCall(editor).toRequest() ?: return@readAction null
             ContextCollector.collect(request, state)
         } ?: return
         val key = CompletionCache.key(context, config)
