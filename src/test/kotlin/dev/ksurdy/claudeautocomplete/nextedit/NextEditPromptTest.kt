@@ -37,14 +37,14 @@ class NextEditPromptTest {
     fun `numbers the file lines from the window start`() {
         assertContains(
             message,
-            "<numbered_file path=\"src/Foo.php\" language=\"PHP\" indent=\"4 spaces\">\n1| <?php\n2| function foo(\$bar)\n3| {\n4|     return \$a;\n5| }\n</numbered_file>",
+            "<numbered_file path=\"src/Foo.php\" language=\"PHP\" indent=\"4 spaces\">\n1|<?php\n2|function foo(\$bar)\n3|{\n4|    return \$a;\n5|}\n</numbered_file>",
         )
     }
 
     @Test
     fun `windowed numbering starts at the first line`() {
         val windowed = PromptBuilder.userMessage(testContext().copy(nextEdit = input.copy(windowText = "a\nb", firstLine = 40)))
-        assertContains(windowed, "40| a\n41| b\n")
+        assertContains(windowed, "40|a\n41|b\n")
     }
 
     @Test

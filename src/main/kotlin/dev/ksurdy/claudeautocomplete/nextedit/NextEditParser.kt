@@ -5,7 +5,7 @@ data class ParsedEdit(val startLine: Int, val endLine: Int, val replacement: Str
 object NextEditParser {
     private val OPEN_TAG = Regex("<edit\\b([^>]*)>", RegexOption.IGNORE_CASE)
     private val CLOSE_TAG = Regex("</edit\\s*>", RegexOption.IGNORE_CASE)
-    private val LINE_PREFIX = Regex("^\\s*(\\d+)\\| ?")
+    private val LINE_PREFIX = Regex("^(\\d+)\\|")
 
     fun parse(raw: String): ParsedEdit? {
         val open = OPEN_TAG.find(raw) ?: return null

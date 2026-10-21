@@ -80,4 +80,30 @@ class NextEditTargetTest {
         assertEquals(text.length - 5, edit.startOffset)
         assertEquals(text.length, edit.endOffset)
     }
+
+    private val indented = "<?php\nclass A\n{\n    public function f(int \$a)\n    {\n        return \$a;\n    }\n}"
+
+    @Test
+    fun `restores the first line indentation a model dropped in a block`() {
+        val edit = NextEditTarget.choose(ParsedEdit(4, 6, "public function f(int \$a, int \$b)\n    {\n        return \$a;"), indented, caretLine = 1)!!
+        assertEquals("    public function f(int \$a, int \$b)\n    {\n        return \$a;", edit.newText)
+    }
+
+    @Test
+    fun `restores the indentation of a single line with the same first word`() {
+        val edit = NextEditTarget.choose(ParsedEdit(6, 6, "return \$b;"), indented, caretLine = 1)!!
+        assertEquals("        return \$b;", edit.newText)
+    }
+
+    @Test
+    fun `keeps a deliberate dedent`() {
+        val edit = NextEditTarget.choose(ParsedEdit(4, 5, "public function f()\n{"), indented, caretLine = 1)!!
+        assertEquals("public function f()\n{", edit.newText)
+    }
+
+    @Test
+    fun `keeps an unindented single line that starts differently`() {
+        val edit = NextEditTarget.choose(ParsedEdit(6, 6, "echo 1;"), indented, caretLine = 1)!!
+        assertEquals("echo 1;", edit.newText)
+    }
 }
