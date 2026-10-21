@@ -105,7 +105,7 @@ object ContextCollector {
             ChangeListManager.getInstance(project).isIgnoredFile(file)
     }
 
-    private fun relativePath(project: Project?, file: VirtualFile): String {
+    fun relativePath(project: Project?, file: VirtualFile): String {
         val base = project?.guessProjectDir() ?: return file.name
         return VfsUtilCore.getRelativePath(file, base) ?: file.path
     }

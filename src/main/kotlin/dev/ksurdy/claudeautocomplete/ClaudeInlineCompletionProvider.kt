@@ -17,7 +17,6 @@ import dev.ksurdy.claudeautocomplete.alternatives.AlternativeSuggestion
 import dev.ksurdy.claudeautocomplete.backend.BackendConfig
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
-import dev.ksurdy.claudeautocomplete.backend.FailureKind
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
 import dev.ksurdy.claudeautocomplete.completion.StreamingCompletion
@@ -29,7 +28,6 @@ import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
 import java.time.Instant
-import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -141,20 +139,8 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
             "rawLead=${raw.takeWhile { it.isWhitespace() }.length} shownLead=${shown.takeWhile { it.isWhitespace() }.length}"
     }
 
-    private fun handleFailure(gen: Long, failure: CompletionResult.Failure, provider: ProviderKind) {
-        val status = StatusService.getInstance()
-        LOG.warn("Completion failed: provider=$provider kind=${failure.kind} message=${failure.message.take(MAX_LOGGED_MESSAGE)}")
-        if (failure.kind != FailureKind.RateLimited) {
-            publish(gen, ClaudeStatus.Error(failure.kind.label()))
-            Notifier.getInstance().notifyFailure(failure.kind, failure.message, provider.displayName())
-            return
-        }
-        val now = Instant.now()
-        val resetsAt = status.registerRateLimit(now)
-        publish(gen, ClaudeStatus.LimitReached(resetsAt))
-        val clock = StatusFormatter.clock(resetsAt, ZoneId.systemDefault())
-        Notifier.getInstance().notifyFailure(failure.kind, "resets at $clock", provider.displayName())
-    }
+    private fun handleFailure(gen: Long, failure: CompletionResult.Failure, provider: ProviderKind) =
+        publish(gen, FailureReporter.report(failure, provider))
 
     private fun publish(generation: Long, newStatus: ClaudeStatus) {
         if (this.generation.get() == generation) StatusService.getInstance().update(newStatus)
@@ -168,7 +154,6 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     companion object {
         const val ID = "dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"
         private const val CACHE_CAPACITY = 32
-        private const val MAX_LOGGED_MESSAGE = 300
         private val LOG = Logger.getInstance(ClaudeInlineCompletionProvider::class.java)
     }
 }

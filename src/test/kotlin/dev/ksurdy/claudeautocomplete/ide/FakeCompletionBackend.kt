@@ -19,12 +19,22 @@ class FakeCompletionBackend(var result: CompletionResult) : CompletionEngine {
 
     val queued = java.util.concurrent.ConcurrentLinkedQueue<CompletionResult>()
 
+    @Volatile
+    var responder: ((CompletionContext) -> CompletionResult)? = null
+
+    val cancellations = java.util.concurrent.atomic.AtomicInteger()
+
     override suspend fun complete(context: CompletionContext, config: BackendConfig, onText: (String) -> Unit): CompletionResult {
         contexts += context
         configs += config
         partials.forEach(onText)
-        gate?.await()
-        return queued.poll() ?: result
+        try {
+            gate?.await()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            cancellations.incrementAndGet()
+            throw e
+        }
+        return queued.poll() ?: responder?.invoke(context) ?: result
     }
 
     override suspend fun refreshUsage(config: BackendConfig): UsageLimits? = null
