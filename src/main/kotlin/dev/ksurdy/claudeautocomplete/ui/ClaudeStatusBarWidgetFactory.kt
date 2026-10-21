@@ -29,12 +29,16 @@ import dev.ksurdy.claudeautocomplete.displayName
 import dev.ksurdy.claudeautocomplete.isActive
 import dev.ksurdy.claudeautocomplete.providerKind
 import dev.ksurdy.claudeautocomplete.toBackendConfig
+import dev.ksurdy.claudeautocomplete.ClaudexIcons
 import dev.ksurdy.claudeautocomplete.StatusFormatter
+import dev.ksurdy.claudeautocomplete.StatusIcon
+import dev.ksurdy.claudeautocomplete.StatusIconState
 import dev.ksurdy.claudeautocomplete.StatusService
 import kotlinx.coroutines.runBlocking
 import java.awt.event.MouseEvent
 import java.time.Instant
 import java.time.ZoneId
+import javax.swing.Icon
 import javax.swing.Timer
 
 class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
@@ -49,19 +53,21 @@ class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun canBeEnabledOn(statusBar: StatusBar): Boolean = true
 }
 
-class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
+class ClaudeStatusBarWidget(private val project: Project, blinkMs: Int = StatusIcon.BLINK_MS) : StatusBarWidget {
     private var statusBar: StatusBar? = null
-    private val ticker = Timer(TICK_MS) { onStatusChanged() }.apply { isRepeats = true }
+    private var disposed = false
+    private var phase = 0
+    private val blinkTimer = Timer(blinkMs) { tickBlink() }.apply { isRepeats = true }
     private val listener: () -> Unit = {
         ApplicationManager.getApplication().invokeLater({ onStatusChanged() }, ModalityState.any())
     }
 
+    internal val isBlinking: Boolean get() = blinkTimer.isRunning
+
     override fun ID(): String = ID
 
-    private val presentation = object : StatusBarWidget.TextPresentation {
-        override fun getText(): String = widgetText()
-
-        override fun getAlignment(): Float = 0.5f
+    private val presentation = object : StatusBarWidget.IconPresentation {
+        override fun getIcon(): Icon = if (StatusIcon.isColoured(iconState(), phase)) ClaudexIcons.Logo else ClaudexIcons.Grey
 
         override fun getTooltipText(): String = widgetTooltip()
 
@@ -73,24 +79,19 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
     override fun install(statusBar: StatusBar) {
         this.statusBar = statusBar
         StatusService.getInstance().addListener(listener)
+        syncBlinking()
     }
 
     override fun dispose() {
-        ticker.stop()
+        disposed = true
+        blinkTimer.stop()
         StatusService.getInstance().removeListener(listener)
         statusBar = null
     }
 
-    private fun widgetText(): String {
+    private fun iconState(): StatusIconState {
         val state = settings().state
-        return StatusFormatter.widgetText(
-            enabled = state.isActive,
-            status = StatusService.getInstance().status,
-            usage = StatusService.getInstance().usage,
-            showUsage = state.showUsageInStatusBar,
-            nowMs = System.currentTimeMillis(),
-            providerName = if (state.consentGiven) state.providerKind().displayName() else "Claudex",
-        )
+        return StatusIcon.state(state.enabled, state.consentGiven, StatusService.getInstance().status)
     }
 
     private fun widgetTooltip(): String {
@@ -109,9 +110,29 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
         )
     }
 
+    private fun syncBlinking() {
+        if (disposed) return
+        if (StatusIcon.isBlinking(iconState())) {
+            if (!blinkTimer.isRunning) {
+                phase = 0
+                blinkTimer.start()
+            }
+        } else {
+            blinkTimer.stop()
+            phase = 0
+        }
+    }
+
     private fun onStatusChanged() {
-        val service = StatusService.getInstance()
-        if (StatusFormatter.isAnimating(settings().state.isActive, service.status, System.currentTimeMillis())) ticker.start() else ticker.stop()
+        if (disposed) return
+        syncBlinking()
+        statusBar?.updateWidget(ID)
+    }
+
+    internal fun tickBlink() {
+        syncBlinking()
+        if (!blinkTimer.isRunning) return
+        phase++
         statusBar?.updateWidget(ID)
     }
 
@@ -193,6 +214,5 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
 
     companion object {
         const val ID = "ClaudeAutocompleteStatus"
-        private const val TICK_MS = 500
     }
 }

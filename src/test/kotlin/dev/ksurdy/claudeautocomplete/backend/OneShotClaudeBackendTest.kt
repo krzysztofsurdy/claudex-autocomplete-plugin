@@ -36,6 +36,22 @@ class OneShotClaudeBackendTest {
     }
 
     @Test
+    fun `streamed text is reported as it grows and wins over the result`() = runBlocking {
+        val process = FakeClaudeProcess { line ->
+            if (line == "<EOF>") {
+                emit(FakeClaudeProcess.delta("fo"))
+                emit(FakeClaudeProcess.delta("o"))
+                emit(result("foo"))
+                finish()
+            }
+        }
+        val seen = mutableListOf<String>()
+        val completed = backend(process).complete(testContext(), testConfig()) { seen += it }
+        assertEquals(listOf("fo", "foo"), seen)
+        assertEquals(CompletionResult.Success("foo"), completed)
+    }
+
+    @Test
     fun `returns result text`() = runBlocking {
         assertEquals(CompletionResult.Success("foo"), backend(answering("foo")).complete(testContext(), testConfig()))
     }

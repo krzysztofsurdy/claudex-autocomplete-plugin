@@ -11,24 +11,133 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 
 class CompletionCacheTest {
+    private fun at(prefix: String, suffix: String = "", scope: String = "scope", multiline: Boolean = false) =
+        CacheKey.of(scope, prefix, suffix, multiline)
+
     @Test
     fun `stores and returns values`() {
         val cache = CompletionCache(2)
-        cache.put("a", "1")
-        assertEquals("1", cache.get("a"))
-        assertNull(cache.get("b"))
+        cache.put(at("a"), "1")
+        assertEquals("1", cache.get(at("a")))
+        assertNull(cache.get(at("b")))
     }
 
     @Test
     fun `evicts least recently used`() {
         val cache = CompletionCache(2)
-        cache.put("a", "1")
-        cache.put("b", "2")
-        cache.get("a")
-        cache.put("c", "3")
-        assertNull(cache.get("b"))
-        assertEquals("1", cache.get("a"))
-        assertEquals("3", cache.get("c"))
+        cache.put(at("a"), "1")
+        cache.put(at("b"), "2")
+        cache.get(at("a"))
+        cache.put(at("c"), "3")
+        assertNull(cache.get(at("b")))
+        assertEquals("1", cache.get(at("a")))
+        assertEquals("3", cache.get(at("c")))
+    }
+
+    @Test
+    fun `serves the rest of a suggestion after the user typed its start`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo ", "\nend"), "abcdef")
+        assertEquals("def", cache.get(at("foo abc", "\nend")))
+        assertEquals("bcdef", cache.get(at("foo a", "\nend")))
+        assertEquals("abcdef", cache.get(at("foo ", "\nend")))
+    }
+
+    @Test
+    fun `never serves an empty remainder`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo "), "abc")
+        assertNull(cache.get(at("foo abc")))
+        assertNull(cache.get(at("foo abcd")))
+    }
+
+    @Test
+    fun `typing that departs from the suggestion misses`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo "), "abcdef")
+        assertNull(cache.get(at("foo abx")))
+        assertNull(cache.get(at("foo x")))
+        assertNull(cache.get(at("fo")))
+    }
+
+    @Test
+    fun `a changed suffix misses`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo ", ")"), "abcdef")
+        assertNull(cache.get(at("foo abc", "]")))
+        assertNull(cache.get(at("foo abc", "")))
+    }
+
+    @Test
+    fun `another scope misses`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo ", scope = "one"), "abcdef")
+        assertNull(cache.get(at("foo abc", scope = "two")))
+    }
+
+    @Test
+    fun `an unrelated short prefix does not match`() {
+        val cache = CompletionCache(4)
+        cache.put(at("zzz"), "abcdef")
+        assertNull(cache.get(at("abc")))
+        assertNull(cache.get(at("xxabc")))
+    }
+
+    @Test
+    fun `matches inside a prefix longer than the key tail`() {
+        val far = "x".repeat(900)
+        val cache = CompletionCache(4)
+        cache.put(at("${far}foo "), "abcdef")
+        assertEquals("def", cache.get(at("${far}foo abc")))
+        assertNull(cache.get(at("${"y".repeat(900)}foo abc")))
+    }
+
+    @Test
+    fun `forward hits expire with the entry`() {
+        var now = 0L
+        val cache = CompletionCache(2, ttlMs = 60_000, clock = { now })
+        cache.put(at("foo "), "abcdef")
+        now = 59_999
+        assertEquals("def", cache.get(at("foo abc")))
+        now = 60_001
+        assertNull(cache.get(at("foo abc")))
+        assertNull(cache.get(at("foo ")))
+    }
+
+    @Test
+    fun `a forward hit keeps the entry alive for eviction`() {
+        val cache = CompletionCache(2)
+        cache.put(at("a "), "alpha")
+        cache.put(at("b "), "beta")
+        assertEquals("pha", cache.get(at("a al")))
+        cache.put(at("c "), "gamma")
+        assertNull(cache.get(at("b ")))
+        assertEquals("alpha", cache.get(at("a ")))
+    }
+
+    @Test
+    fun `the newest entry wins when several extend the prefix`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo "), "abcdef")
+        cache.put(at("foo a"), "bcxyz")
+        assertEquals("xyz", cache.get(at("foo abc")))
+    }
+
+    @Test
+    fun `a multi-line rest is not served to a single-line request`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo ", multiline = true), "abc\ndef")
+        assertNull(cache.get(at("foo a", multiline = false)))
+        assertEquals("\ndef", cache.get(at("foo abc", multiline = true)))
+        assertNull(cache.get(at("foo abc", multiline = false)))
+    }
+
+    @Test
+    fun `a single-line rest is served whatever the request mode`() {
+        val cache = CompletionCache(4)
+        cache.put(at("foo ", multiline = true), "abc\ndef")
+        assertEquals("ef", cache.get(at("foo abc\nd", multiline = false)))
+        assertEquals("def", cache.get(at("foo abc\n", multiline = false)))
     }
 
     private fun key(context: dev.ksurdy.claudeautocomplete.backend.CompletionContext = testContext(), config: BackendConfig = BackendConfig(ProviderKind.Claude, testConfig(), testCodexConfig())) =
@@ -69,11 +178,11 @@ class CompletionCacheTest {
     fun `entries expire after ttl`() {
         var now = 0L
         val cache = CompletionCache(2, ttlMs = 60_000, clock = { now })
-        cache.put("a", "1")
+        cache.put(at("a"), "1")
         now = 59_999
-        assertEquals("1", cache.get("a"))
+        assertEquals("1", cache.get(at("a")))
         now = 60_001
-        assertNull(cache.get("a"))
+        assertNull(cache.get(at("a")))
     }
 
     @Test

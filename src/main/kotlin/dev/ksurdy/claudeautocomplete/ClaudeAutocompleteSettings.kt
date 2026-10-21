@@ -34,18 +34,20 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var wholeFileMaxLines by property(1000)
         var linesAroundCursor by property(150)
         var showInlineLoadingIndicator by property(true)
-        var showUsageInStatusBar by property(true)
         var includeOpenTabs by property(true)
         var maxOpenTabsChars by property(6000)
         var includeImportedClasses by property(true)
         var maxImportedClassesChars by property(8000)
         var multilineMode by string("auto")
-        var maxCompletionLines by property(12)
+        var maxCompletionLines by property(30)
         var persistentProcess by property(true)
         var customInstructions by string("")
         var disabledLanguages by string("")
         var excludedFilePatterns by string(SensitiveFiles.DEFAULT_PATTERNS)
         var consentDeclined by property(false)
+        var nextEditSuggestions by property(false)
+        var suggestWhileLookupOpen by property(false)
+        var prefetchAfterAccept by property(true)
     }
 
     val isActive: Boolean get() = state.isActive
@@ -70,6 +72,10 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
 }
 
 val ClaudeAutocompleteSettings.State.isActive: Boolean get() = enabled && consentGiven
+
+val ClaudeAutocompleteSettings.State.isNextEditActive: Boolean get() = isActive && nextEditSuggestions
+
+val ClaudeAutocompleteSettings.State.isPrefetchActive: Boolean get() = isActive && prefetchAfterAccept
 
 val ClaudeAutocompleteSettings.State.needsConsentPrompt: Boolean get() = !consentGiven && !consentDeclined
 

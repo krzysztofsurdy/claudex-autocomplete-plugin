@@ -66,4 +66,50 @@ class SettingsConsentTest {
     fun excludedPatternsDefaultToSensitiveDefaults() {
         kotlin.test.assertEquals(SensitiveFiles.DEFAULT_PATTERNS, ClaudeAutocompleteSettings.State().excludedFilePatterns)
     }
+
+    @Test
+    fun suggestionsWaitForTheCompletionPopupByDefault() {
+        kotlin.test.assertFalse(ClaudeAutocompleteSettings.State().suggestWhileLookupOpen)
+    }
+}
+
+class SettingsNextEditTest {
+    @Test
+    fun offByDefault() {
+        val state = ClaudeAutocompleteSettings.State().apply { consentGiven = true }
+        kotlin.test.assertFalse(state.nextEditSuggestions)
+        kotlin.test.assertFalse(state.isNextEditActive)
+    }
+
+    @Test
+    fun needsTheSettingAndConsentAndEnabled() {
+        val state = ClaudeAutocompleteSettings.State().apply { nextEditSuggestions = true }
+        kotlin.test.assertFalse(state.isNextEditActive)
+        state.consentGiven = true
+        kotlin.test.assertTrue(state.isNextEditActive)
+        state.enabled = false
+        kotlin.test.assertFalse(state.isNextEditActive)
+    }
+}
+
+class SettingsPrefetchTest {
+    @Test
+    fun onByDefault() {
+        val state = ClaudeAutocompleteSettings.State().apply { consentGiven = true }
+        kotlin.test.assertTrue(state.prefetchAfterAccept)
+        kotlin.test.assertTrue(state.isPrefetchActive)
+    }
+
+    @Test
+    fun needsTheSettingAndConsentAndEnabled() {
+        val state = ClaudeAutocompleteSettings.State()
+        kotlin.test.assertFalse(state.isPrefetchActive)
+        state.consentGiven = true
+        kotlin.test.assertTrue(state.isPrefetchActive)
+        state.enabled = false
+        kotlin.test.assertFalse(state.isPrefetchActive)
+        state.enabled = true
+        state.prefetchAfterAccept = false
+        kotlin.test.assertFalse(state.isPrefetchActive)
+    }
 }

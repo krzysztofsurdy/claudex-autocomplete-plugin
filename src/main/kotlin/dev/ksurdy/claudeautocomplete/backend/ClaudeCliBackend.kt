@@ -20,13 +20,17 @@ class ClaudeCliBackend(
     private var breakerOpenedAt = 0L
     private var lastConfig: ClaudeConfig? = null
 
-    override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
+    override suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit): CompletionResult {
         if (!config.persistentProcess || !shouldTryPersistent(config)) {
-            return oneShot.complete(context, config)
+            return oneShot.complete(context, config, onText)
         }
-        val result = persistent.complete(context, config)
+        val result = persistent.complete(context, config, onText)
         recordPersistentOutcome(result)
         return result
+    }
+
+    override suspend fun warmUp(config: ClaudeConfig) {
+        if (config.persistentProcess && shouldTryPersistent(config)) persistent.warmUp(config)
     }
 
     @Synchronized

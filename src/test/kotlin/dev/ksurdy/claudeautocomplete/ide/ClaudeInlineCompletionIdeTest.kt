@@ -9,7 +9,9 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.ksurdy.claudeautocomplete.BackendService
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
 import dev.ksurdy.claudeautocomplete.ClaudeStatus
-import dev.ksurdy.claudeautocomplete.StatusFormatter
+import dev.ksurdy.claudeautocomplete.CompletionRequests
+import dev.ksurdy.claudeautocomplete.StatusIcon
+import dev.ksurdy.claudeautocomplete.StatusIconState
 import dev.ksurdy.claudeautocomplete.StatusService
 import dev.ksurdy.claudeautocomplete.CompletionEngine
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
@@ -36,6 +38,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
+            CompletionRequests.getInstance().cancel()
             BackendService.getInstance().engine = original
             StatusService.getInstance().blockUntil(null)
             StatusService.getInstance().update(ClaudeStatus.Ready)
@@ -61,9 +64,20 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertInlineElements { gray("world") }
     }
 
-    fun testMidLineWithCodeRightOfCaretIsSuppressed() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testMidLineWithCodeRightOfCaretSuggestsSingleLine() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("baz, bar)")
         init(PlainTextFileType.INSTANCE, "foo(<caret>bar)")
-        callInlineCompletion()
+        typeChar('(')
+        delay()
+        assertFalse(fake.contexts.single().multiline)
+        assertInlineElements { gray("baz, ") }
+        insert()
+        assertFileContent("foo((baz, <caret>bar)")
+    }
+
+    fun testInsideAWordIsSuppressed() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        init(PlainTextFileType.INSTANCE, "fo<caret>bar")
+        typeChar('o')
         delay()
         assertInlineHidden()
         assertEquals(0, fake.contexts.size)
@@ -126,41 +140,82 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertInlineHidden()
     }
 
-    fun testOpenTabsAreIncludedInContext() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testRelatedOpenTabIsIncludedAsSnippet() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         withWriteAction {
-            val other = fixture.addFileToProject("other.txt", "other tab content").virtualFile
+            val other = fixture.addFileToProject("other.txt", "unrelated words\nalpha beta gamma delta\nmore unrelated").virtualFile
             FileEditorManager.getInstance(fixture.project).openFile(other, false)
         }
-        init(PlainTextFileType.INSTANCE, "tabs9 <caret>")
+        init(PlainTextFileType.INSTANCE, "1001 alpha beta gamma <caret>")
         callInlineCompletion()
         delay()
-        val context = fake.contexts.single()
-        assertEquals(listOf("other tab content"), context.openFiles.map { it.content })
+        val snippet = fake.contexts.single().relatedSnippets.single()
+        assertEquals("other.txt", snippet.path)
+        assertEquals(1, snippet.startLine)
+        assertEquals(3, snippet.endLine)
+        assertEquals("unrelated words\nalpha beta gamma delta\nmore unrelated", snippet.content)
     }
 
-    fun testOpenTabsAreOrderedMostRecentFirst() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testUnrelatedOpenTabIsNotSent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        withWriteAction {
+            val other = fixture.addFileToProject("other.txt", "completely different content").virtualFile
+            FileEditorManager.getInstance(fixture.project).openFile(other, false)
+        }
+        init(PlainTextFileType.INSTANCE, "1002 alpha beta gamma <caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(fake.contexts.single().relatedSnippets.isEmpty())
+    }
+
+    fun testRelatedSnippetsAreOrderedBestLast() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         withWriteAction {
             val manager = FileEditorManager.getInstance(fixture.project)
-            listOf("first", "second", "third").forEach {
-                manager.openFile(fixture.addFileToProject("$it.txt", it).virtualFile, false)
+            mapOf("high" to "alpha beta gamma delta", "mid" to "alpha beta gamma", "low" to "alpha beta").forEach { (name, content) ->
+                manager.openFile(fixture.addFileToProject("$name.txt", content).virtualFile, false)
             }
         }
-        init(PlainTextFileType.INSTANCE, "order9 <caret>")
+        init(PlainTextFileType.INSTANCE, "1003 alpha beta gamma delta <caret>")
         callInlineCompletion()
         delay()
-        assertEquals(listOf("third", "second", "first"), fake.contexts.single().openFiles.map { it.content })
+        assertEquals(listOf("low.txt", "mid.txt", "high.txt"), fake.contexts.single().relatedSnippets.map { it.path })
     }
 
-    fun testSecretFilesAreNotSentAsOpenTabs() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testRelatedSnippetsRespectTheCharacterBudget() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.maxOpenTabsChars = 16
         withWriteAction {
             val manager = FileEditorManager.getInstance(fixture.project)
-            manager.openFile(fixture.addFileToProject(".env", "API_KEY=abc").virtualFile, false)
-            manager.openFile(fixture.addFileToProject("ok.txt", "fine").virtualFile, false)
+            mapOf("high" to "alpha beta gamma delta", "mid" to "alpha beta gamma", "low" to "alpha beta").forEach { (name, content) ->
+                manager.openFile(fixture.addFileToProject("$name.txt", content).virtualFile, false)
+            }
         }
-        init(PlainTextFileType.INSTANCE, "secret1 <caret>")
+        init(PlainTextFileType.INSTANCE, "1004 alpha beta gamma delta <caret>")
         callInlineCompletion()
         delay()
-        assertEquals(listOf("fine"), fake.contexts.single().openFiles.map { it.content })
+        val snippets = fake.contexts.single().relatedSnippets
+        assertEquals(listOf("mid.txt"), snippets.map { it.path })
+        assertTrue(snippets.sumOf { it.content.length } <= 16)
+    }
+
+    fun testOpenTabsAreSkippedWhenDisabled() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.includeOpenTabs = false
+        withWriteAction {
+            FileEditorManager.getInstance(fixture.project).openFile(fixture.addFileToProject("same.txt", "alpha beta gamma delta").virtualFile, false)
+        }
+        init(PlainTextFileType.INSTANCE, "1005 alpha beta gamma delta <caret>")
+        callInlineCompletion()
+        delay()
+        assertTrue(fake.contexts.single().relatedSnippets.isEmpty())
+    }
+
+    fun testSecretFilesAreNotSentAsRelatedSnippets() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        withWriteAction {
+            val manager = FileEditorManager.getInstance(fixture.project)
+            manager.openFile(fixture.addFileToProject(".env", "alpha beta gamma delta").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("ok.txt", "alpha beta gamma").virtualFile, false)
+        }
+        init(PlainTextFileType.INSTANCE, "1006 alpha beta gamma delta <caret>")
+        callInlineCompletion()
+        delay()
+        assertEquals(listOf("ok.txt"), fake.contexts.single().relatedSnippets.map { it.path })
     }
 
     fun testCurrentSecretFileSkipsCompletion() = myFixture.testInlineCompletion(timeout = 20.seconds) {
@@ -174,13 +229,13 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         ClaudeAutocompleteSettings.getInstance().state.excludedFilePatterns = "private.*"
         withWriteAction {
             val manager = FileEditorManager.getInstance(fixture.project)
-            manager.openFile(fixture.addFileToProject("private.txt", "hidden").virtualFile, false)
-            manager.openFile(fixture.addFileToProject("public.txt", "shown").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("private.txt", "alpha beta gamma delta").virtualFile, false)
+            manager.openFile(fixture.addFileToProject("public.txt", "alpha beta gamma").virtualFile, false)
         }
-        init(PlainTextFileType.INSTANCE, "custom1 <caret>")
+        init(PlainTextFileType.INSTANCE, "1007 alpha beta gamma delta <caret>")
         callInlineCompletion()
         delay()
-        assertEquals(listOf("shown"), fake.contexts.single().openFiles.map { it.content })
+        assertEquals(listOf("public.txt"), fake.contexts.single().relatedSnippets.map { it.path })
     }
 
     fun testManualTriggerIgnoresMidLineRule() = myFixture.testInlineCompletion(timeout = 20.seconds) {
@@ -222,10 +277,101 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
             callAction("ClaudeAutocomplete.Toggle")
             assertFalse(ClaudeAutocompleteSettings.getInstance().state.enabled)
             assertEquals(1, refreshes)
-            assertEquals("Claude: Disabled", StatusFormatter.widgetText(false, StatusService.getInstance().status, null, true, 0))
+            assertEquals(StatusIconState.Off, StatusIcon.state(false, true, StatusService.getInstance().status))
         } finally {
             StatusService.getInstance().removeListener(listener)
         }
+    }
+
+    fun testAlternativesAreRequestedOnlyWhenTheUserCyclesToThem() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.queued += listOf(
+            CompletionResult.Success("first"),
+            CompletionResult.Success("second"),
+            CompletionResult.Success("third"),
+        )
+        init(PlainTextFileType.INSTANCE, "alt22 <caret>")
+        callInlineCompletion()
+        delay()
+        assertInlineRender("first")
+        assertEquals(1, fake.contexts.size)
+        callAction(NEXT_SUGGESTION)
+        delay()
+        assertInlineRender("second")
+        assertEquals(2, fake.contexts.size)
+        assertEquals(listOf("first"), fake.contexts.last().alternativeTo)
+        callAction(PREV_SUGGESTION)
+        delay()
+        assertInlineRender("first")
+        assertEquals(2, fake.contexts.size)
+        callAction(NEXT_SUGGESTION)
+        delay()
+        assertInlineRender("second")
+        assertEquals(2, fake.contexts.size)
+        callAction(NEXT_SUGGESTION)
+        delay()
+        assertInlineRender("third")
+        assertEquals(3, fake.contexts.size)
+        assertEquals(setOf("first", "second"), fake.contexts.last().alternativeTo.toSet())
+    }
+
+    fun testAlternativesKeepArrivalOrderAndWrapAtThree() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.queued += listOf(
+            CompletionResult.Success("first"),
+            CompletionResult.Success("second"),
+            CompletionResult.Success("third"),
+        )
+        init(PlainTextFileType.INSTANCE, "alt23 <caret>")
+        callInlineCompletion()
+        delay()
+        assertInlineRender("first")
+        repeat(2) {
+            callAction(NEXT_SUGGESTION)
+            delay()
+        }
+        assertEquals(3, fake.contexts.size)
+        assertInlineRender("third")
+        callAction(PREV_SUGGESTION)
+        assertInlineRender("second")
+        callAction(PREV_SUGGESTION)
+        assertInlineRender("first")
+        callAction(PREV_SUGGESTION)
+        assertInlineRender("third")
+        callAction(NEXT_SUGGESTION)
+        assertInlineRender("first")
+        callAction(NEXT_SUGGESTION)
+        assertInlineRender("second")
+        assertEquals(3, fake.contexts.size)
+    }
+
+    fun testAlternativesNeverTouchTheCache() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.queued += listOf(CompletionResult.Success("first"), CompletionResult.Success("second"))
+        init(PlainTextFileType.INSTANCE, "alt24 <caret>")
+        callInlineCompletion()
+        delay()
+        callAction(NEXT_SUGGESTION)
+        delay()
+        assertInlineRender("second")
+        escape()
+        callInlineCompletion()
+        delay()
+        assertInlineRender("first")
+        assertEquals(2, fake.contexts.size)
+    }
+
+    fun testSwitchingVariantsWithoutASessionRequestsNothing() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        init(PlainTextFileType.INSTANCE, "alt25 <caret>")
+        callAction(NEXT_SUGGESTION)
+        assertInlineHidden()
+        assertEquals(0, fake.contexts.size)
+    }
+
+    fun testWarmUpStartsTheBackendOnlyAfterConsent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.consentGiven = false
+        BackendService.getInstance().warmUpIfActive()?.join()
+        assertEquals(0, fake.warmUps.get())
+        ClaudeAutocompleteSettings.getInstance().state.consentGiven = true
+        BackendService.getInstance().warmUpIfActive()?.join()
+        assertEquals(1, fake.warmUps.get())
     }
 
     fun testNoBackendCallWithoutConsent() = myFixture.testInlineCompletion(timeout = 20.seconds) {
@@ -273,6 +419,37 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
             delay(50)
         }
         assertEquals(expected, loadingInlays())
+    }
+
+    private fun shownText(): String? {
+        var text: String? = null
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait {
+            text = com.intellij.codeInsight.inline.completion.session.InlineCompletionContext.getOrNull(myFixture.editor)?.textToInsert()
+        }
+        return text
+    }
+
+    private suspend fun com.intellij.codeInsight.inline.completion.InlineCompletionLifecycleTestDSL.awaitShownText(expected: String) {
+        repeat(100) {
+            if (shownText() == expected) return
+            delay(50)
+        }
+        assertEquals(expected, shownText())
+    }
+
+    fun testStreamedLinesAppearBeforeTheReplyFinishes() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        val gate = CompletableDeferred<Unit>()
+        fake.gate = gate
+        fake.partials = listOf("a();\n", "a();\nb();\nc")
+        fake.result = CompletionResult.Success("a();\nb();\nc();")
+        init(PlainTextFileType.INSTANCE, "stream21 {\n<caret>\n}")
+        callInlineCompletion()
+        awaitShownText("a();\nb();")
+        gate.complete(Unit)
+        delay()
+        assertInlineRender("a();\nb();\nc();")
+        insert()
+        assertFileContent("stream21 {\na();\nb();\nc();<caret>\n}")
     }
 
     fun testLoadingIndicatorShownWhileInFlightAndRemovedOnCompletion() = myFixture.testInlineCompletion(timeout = 30.seconds) {
@@ -393,6 +570,7 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
     }
 
     fun testYamlTypingWithLookupOpen() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.suggestWhileLookupOpen = true
         init(YAMLFileType.YML, "a: foobar1\nb: foobar2\nkey: foo<caret>\n")
         com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait { myFixture.completeBasic() }
         typeChar('b')
@@ -408,6 +586,19 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait { myFixture.completeBasic() }
         delay()
         assertInlineElements { gray("world") }
+    }
+
+    fun testEnterInEmptyPhpMethodSendsTheIndentedCaretAndInsertsBodyOnce() = myFixture.testInlineCompletion(timeout = 60.seconds) {
+        fake.result = CompletionResult.Success("\$a = 1;\n        return \$a;")
+        init(PhpFileType.INSTANCE, "<?php\nclass Foo\n{\n    public function bar(): int\n    {<caret>\n    }\n}\n")
+        typeChar('\n')
+        delay()
+        val context = fake.contexts.last()
+        assertTrue(context.prefix, context.prefix.endsWith("    {\n        "))
+        assertTrue(context.suffix, context.suffix.startsWith("\n    }"))
+        assertTrue(context.emptyBody)
+        insert()
+        assertFileContent("<?php\nclass Foo\n{\n    public function bar(): int\n    {\n        \$a = 1;\n        return \$a;<caret>\n    }\n}\n")
     }
 
     fun testProviderSettingRoutesToSelectedProvider() = myFixture.testInlineCompletion(timeout = 30.seconds) {
@@ -427,5 +618,75 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         callInlineCompletion()
         delay()
         assertEquals(listOf(ProviderKind.Claude, ProviderKind.Codex), fake.configs.map { it.provider })
+    }
+
+    fun testTypingTheStartOfADismissedSuggestionServesTheRestFromTheCache() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward1 <caret>")
+        callInlineCompletion()
+        delay()
+        assertInlineRender("abcdef")
+        escape()
+        typeChar('a')
+        delay()
+        assertInlineRender("bcdef")
+        assertEquals(1, fake.contexts.size)
+    }
+
+    fun testTypingSeveralSuggestedCharsAfterDismissKeepsAnsweringFromTheCache() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward2 <caret>")
+        callInlineCompletion()
+        delay()
+        escape()
+        "abc".forEach { typeChar(it) }
+        delay()
+        assertInlineRender("def")
+        assertEquals(1, fake.contexts.size)
+        insert()
+        assertFileContent("forward2 abcdef<caret>")
+    }
+
+    fun testTypingAwayFromTheCachedSuggestionAsksTheModelAgain() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward3 <caret>")
+        callInlineCompletion()
+        delay()
+        escape()
+        typeChar('x')
+        delay()
+        assertEquals(2, fake.contexts.size)
+    }
+
+    fun testTypingTheWholeCachedSuggestionNeverServesAnEmptyRest() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("ab")
+        init(PlainTextFileType.INSTANCE, "forward4 <caret>")
+        callInlineCompletion()
+        delay()
+        escape()
+        "ab".forEach { typeChar(it) }
+        delay()
+        assertEquals(2, fake.contexts.size)
+    }
+
+    fun testCachedSuggestionIsNotServedWhenTheSuffixChanged() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward5 <caret>\nend")
+        callInlineCompletion()
+        delay()
+        escape()
+        withWriteAction {
+            com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(fixture.project) {
+                fixture.editor.document.insertString(fixture.editor.document.textLength, "!")
+            }
+        }
+        typeChar('a')
+        delay()
+        assertEquals(2, fake.contexts.size)
+    }
+
+    private companion object {
+        const val NEXT_SUGGESTION = "NextInlineCompletionSuggestionAction"
+        const val PREV_SUGGESTION = "PrevInlineCompletionSuggestionAction"
     }
 }

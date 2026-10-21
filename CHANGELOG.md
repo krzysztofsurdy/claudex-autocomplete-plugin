@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Alternative suggestions: cycle with the platform's Next/Previous suggestion actions (Alt+] / Alt+[). The model is asked for another suggestion only when you press Next on the newest one (up to 3), and is told what was already shown.
+- Mid-line suggestions with code right of the caret, but not inside a word.
+- Multi-line suggestions stream in while the model writes: each finished, bracket-balanced line shows up at once.
+- Typing as suggested: after a suggestion was dismissed, typing its first characters shows the rest from the cache, without a new request. The cache matches a growing prefix with an unchanged suffix, not only an exact position.
+- Typing while a request is running no longer restarts it when what you typed matches what the model is writing: the request is kept and its result is shown without the typed text. Typing that departs from it cancels the request as before.
+- Prefetch after accept (on by default, setting "Prefetch the next suggestion after accept"): right after you accept a whole suggestion, the next completion for the new caret is requested in the background and cached, so the next suggestion appears without waiting. It respects consent, the enabled switch, excluded files and the usage limit, runs one at a time and is cancelled by any request that does not fit it.
+- Next edit suggestions (opt-in, off by default): after an edit and a pause, predicts your next edit on another line of the same file, highlights it and shows the replacement. Tab jumps to it, Tab again applies it, Esc or any typing dismisses it.
+- Setting "Show suggestions while the completion popup is open" (off by default).
+
+### Changed
+
+- Settings page regrouped by feature; only the selected provider's options are shown.
+- Open tabs are no longer sent whole. The prompt now carries up to 4 snippets of about 60 lines, taken from open files (same language first) and ranked by how many identifiers they share with the code around the caret. Each snippet shows its path and line range, the most relevant one comes last, and the "Include related snippets from open tabs" budget applies to all snippets together. Unrelated tabs are no longer sent at all.
+- Typing no longer starts a request in the wrong editor state: with a selection, with several carets, during undo, redo or a bulk update, while a live template is active or was just expanded, while the completion popup is open (see the new setting), and while a next edit suggestion is shown. Viewers, one-line fields, dialog and popup editors, consoles, diff panes and injected-language fragment editors get no suggestions at all. The manual triggers still work, except in those editor kinds and with several carets.
+- Next edit suggestions adapt to you: the pause before asking grows by half after each rejection and shrinks by a fifth after each acceptance (50 ms to 3 s, kept for the IDE session), an extra 2 s is waited with the caret at the end of a line you are still typing, and nothing is asked for 5 s after a rejection. A rejected suggestion is not shown again in that file for 5 minutes, and a rejected line gets no other suggestion for 30 s.
+- Next edit suggestions are also requested when you move the caret to another line shortly after an edit, and always wait while an inline completion is shown or running.
+- Next edit history keeps 20 edits and sends the newest ones within about 1000 tokens as compact numbered diff lines.
+- The Claude Code process starts when a project opens (only after consent and with "Keep CLI process alive"), so the first suggestion does not wait for the CLI to boot. No prompt is sent.
+- The status bar widget is an icon without text: grey when completions are off, after an error or at a usage limit, coloured when ready, blinking while a request runs. State, latency, model and 5h / 7d usage are in the tooltip. The "Show request state and usage in status bar" setting is gone.
+- Default max completion lines raised from 12 to 30, so whole method bodies fit.
+
+### Fixed
+
+- With the caret at the end of an open signature such as `public function archiveAction(`, the suggestion stopped at `): Response {`. It now writes the whole method: the rest of the parameters, the return type, the real body and the closing brace. A line ending in `(` now gets a multi-line suggestion, a new `declaration` mode asks for the whole method, and the closing `}` of a completed method is no longer trimmed away.
+- The suggestion hint showed the internal provider id ("Tab to complete dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"). It now shows the Claudex icon, the name and the active provider and model, for example "Claudex · Claude haiku".
+- Suggestions could be lazy placeholders, for example a "not implemented" exception body written straight after `archiveAction(`. The prompt now forbids placeholder code, asks for a real implementation based on the signature and similar code, and completes the construct at the cursor (such as the parameter list) first.
+- The model's explanations were sometimes inserted as code ("The cursor sits inside ...", "Wait, that's not right"). The model now wraps the insertion in `<completion>` tags and everything outside is ignored. Replies without tags go through a prose guard, and streaming shows only the text inside the tags.
+- In an empty function or method body the suggestion is the complete body, not just the first statement.
+- Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.
+- A reply that degenerates into a loop (the same token or short pattern repeated over and over at the end) is cut back to before the loop, or dropped when nothing sensible remains.
+- A suggestion that only repeats the next lines already in the file below the caret is dropped, or loses those last lines.
+- Closing lines such as `}`, `)`, `});` or `end` that already exist below the caret, also after blank lines or with other indentation, are no longer suggested a second time, and `} else {` no longer doubles the existing brace. These cuts never change text already streamed in.
+- Continuation lines returned without indentation are shifted to the caret indent.
+- A blank line between two methods sometimes got no suggestion because the model answered with an empty completion. The prompt now asks for the most likely next member or statement there.
+- Alternative suggestions could repeat a suggestion that was already shown. A reply that matches a shown one (ignoring whitespace and a trailing `;`, `,` or `.`) is asked for once more, and if it is still a duplicate nothing new is added.
+
 ## [1.0.0] - 2026-10-06
 
 ### Added

@@ -19,9 +19,15 @@
 - Gray inline suggestions after a short pause, in any language the IDE edits.
 - Claude Code (`claude`) or Codex (`codex`), switch in settings or the status bar.
 - Accept all, next word or rest of the line.
-- Context: current file (whole or around the caret), open tabs, and for PHP outlines of imported classes, parent, interfaces and traits.
-- Spinner with elapsed time while generating.
-- Status bar widget with state, last latency and 5h / 7d usage.
+- Context: current file (whole or around the caret), the most relevant snippets of other open tabs (ranked by identifier overlap with the code around the caret), and for PHP outlines of imported classes, parent, interfaces and traits.
+- Multi-line suggestions stream in line by line while the model writes.
+- Quality guards: suggestions that end in a repetition loop, repeat the next lines of the file or double the closing brackets below the caret are cut or dropped.
+- A suggestion survives typing: after Esc or a restart, typing the start of a suggestion you already saw shows the rest at once, without a new request.
+- Typing while a request runs keeps it when you type what the model is writing, so the result still arrives without a restart.
+- After you accept a whole suggestion, the next one is requested in the background, so it is ready when you ask or start typing.
+- Next edit suggestions (opt-in): after an edit, predicts the next one elsewhere in the file, e.g. the other usages of a renamed parameter. Tab jumps to it, Tab again applies it.
+- Spinner with elapsed time until the first line arrives.
+- Status bar icon: grey when off, coloured when ready, blinking while a request runs. The tooltip has the state, last latency, model and 5h / 7d usage.
 - Custom prompt additions, e.g. "Follow PSR-12".
 
 ## Requirements
@@ -52,48 +58,62 @@ From a local build: `./gradlew buildPlugin`, then Settings | Plugins | gear icon
 | Accept next word | Alt+Right (macOS), Ctrl+Right (Windows/Linux) |
 | Accept rest of line | Cmd+Right (macOS), End (Windows/Linux) |
 | Trigger a completion manually | Shift+Alt+\ (Shift+Option+\ on macOS) |
+| Next / previous suggestion | Alt+] / Alt+[ (Option+] / Option+[ on macOS) |
 | Dismiss | Esc |
+| Next edit suggestion: jump to it, then apply it | Tab, Tab (only while one is shown) |
+| Next edit suggestion: dismiss | Esc or keep typing |
 
-Word and line accept reuse your keymap's Next Word and Line End. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) turns the plugin on and off.
+Word and line accept reuse your keymap's Next Word and Line End. Next and previous suggestion cycle through up to three alternatives; the model is asked for another one only when you press Next on the newest suggestion. Suggestions stay in the order they arrived and wrap at the ends. Tools | Toggle Claudex Autocomplete (or a click on the status bar widget) turns the plugin on and off.
 
-Tools | Trigger Claudex Autocomplete forces a completion even mid-line. No default shortcut, assign one in Keymap.
+Suggestions also appear mid-line, with code right of the caret, but not inside a word. Tools | Trigger Claudex Autocomplete forces a completion anywhere, even inside a word. No default shortcut, assign one in Keymap.
 
 ## Settings
 
 Settings | Tools | Claudex Autocomplete. Main options:
 
-| Setting | Default | Notes |
-|---|---|---|
-| Enable completions | off | Set by the first-run notification or this checkbox |
-| Provider | Claude Code | Claude Code or Codex |
-| Claude Code CLI path / Codex CLI path | empty | Empty = auto-detect |
-| Model (Claude) | haiku | haiku, sonnet, opus, fable or a full model id |
-| Model (Codex) | gpt-5.3-codex | Any model your ChatGPT plan supports |
-| Effort / Reasoning effort | low | Lower is faster |
-| Debounce (ms) | 250 | Delay after typing before a request |
-| Request timeout (ms) | 8000 | |
-| Current file context | auto | Whole file up to 1000 lines, else 150 lines around the caret |
-| Include open tabs | true | Character budget is configurable |
-| Excluded file patterns | `.env`, `*.pem`, `id_rsa*`, ... | Comma-separated. Matching files, VCS-ignored files and files excluded from the project are never sent |
-| Include imported classes | true | PHP only, signatures only |
-| Multi-line mode | auto | auto / always / never |
-| Keep CLI process alive | true | Claude Code only, Codex starts a process per request |
-| Custom prompt additions | empty | Appended to the system prompt |
-| Disabled languages | empty | Comma-separated language ids |
+Grouped by feature. Only the options of the selected provider are shown.
+
+| Group | Setting | Default | Notes |
+|---|---|---|---|
+| General | Enable completions | off | Set by the first-run notification or this checkbox |
+| General | Provider | Claude Code | Claude Code or Codex. Test Connection sits next to it |
+| General | Disabled languages | empty | Comma-separated language ids |
+| General | Excluded file patterns | `.env`, `*.pem`, `id_rsa*`, ... | Comma-separated. Matching files, VCS-ignored files and files excluded from the project are never sent |
+| Inline Suggestions | Suggestion delay (ms) | 250 | Delay after typing before a request |
+| Inline Suggestions | Request timeout (ms) | 8000 | |
+| Inline Suggestions | Multi-line, Max lines | auto, 30 | auto / always / never |
+| Inline Suggestions | Show suggestions while the completion popup is open | off | Off: typing waits until the popup closes. Manual triggers always run |
+| Inline Suggestions | Prefetch the next suggestion after accept | on | Extra request after each accepted suggestion, uses more quota |
+| Inline Suggestions | Show loading indicator | on | Spinner in the editor while a request runs |
+| Next Edit Suggestions | Enable next edit suggestions | off | Extra request after each edit and pause, uses more quota |
+| Context | Current file | auto | Whole file up to 1000 lines, else 150 lines around the caret |
+| Context | Related snippets from open tabs | on | Up to 4 snippets of about 60 lines each, from open tabs only. Character budget is configurable |
+| Context | Imported classes (PHP) | on | PHP only, signatures only. Character budget is configurable |
+| Claude Code | CLI path | empty | Empty = auto-detect |
+| Claude Code | Model | haiku | haiku, sonnet, opus, fable or a full model id |
+| Claude Code | Fallback model, Effort | empty, low | Lower effort is faster |
+| Claude Code | Thinking, Budget (tokens) | off, 1024 | |
+| Claude Code | Keep one CLI process alive | on | Codex starts a process per request |
+| Codex | CLI path | empty | Empty = auto-detect |
+| Codex | Model | gpt-5.3-codex | Any model your ChatGPT plan supports |
+| Codex | Reasoning effort | low | Lower is faster |
+| Advanced | Custom prompt additions | empty | Appended to the system prompt. Collapsed by default |
 
 Test Connection runs one completion with the values in the form, without saving.
 
 ## How it works
 
-After you pause, the plugin sends the CLI the code before and after the caret, the file window, optionally other open tabs and (PHP) imported class outlines. The reply shows as ghost text.
+After you pause, the plugin sends the CLI the code before and after the caret, the file window, optionally the best matching snippets of other open tabs (each with its path and line range) and (PHP) imported class outlines. The reply shows as ghost text.
 
-It only asks when the rest of the line is empty or closing characters, and never in read-only editors or files over 1,000,000 characters. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` are removed from the CLI environment, so your subscription login is used.
+It only asks when the rest of the line is empty or closing characters, and never in read-only editors or files over 1,000,000 characters. Typing does not start a request while text is selected, with more than one caret, during undo, redo or a bulk update, while a live template is active or was just expanded, while the completion popup is open (unless you turn that on), or while a next edit suggestion is shown. It is also skipped in one-line fields, dialogs, popups, consoles, diff panes and injected-language fragment editors. The manual triggers still work in all of these except the editor kinds and with several carets. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` are removed from the CLI environment, so your subscription login is used.
+
+With next edit suggestions on, a request is also sent after you edit and pause: the last few small edits and the file window go to the CLI, and a suggestion on another line shows up highlighted with the new text below it. Tab jumps the caret there, Tab again applies it as one undo step, Esc or typing dismisses it. The pause before asking adapts to you (longer after a dismissed suggestion, shorter after an applied one), a dismissed suggestion is not offered again for a while, and the caret moving to another line soon after an edit also triggers a request. Nothing shows when a ghost-text suggestion is visible or being requested, and Tab behaves as usual when no next edit suggestion is shown.
 
 Your code context goes to Anthropic or OpenAI through the CLI, under your account's terms.
 
 ## Status bar
 
-Shows `Claudex: Disabled` until you enable completions - click it and choose Enable Completions. Then provider and state, e.g. `Claude: Ready`, `Waiting…`, `Thinking… Ns`, last latency, `Error` or `Limit reached`. Only the usage window closest to its limit is shown, e.g. `Claude: Ready · 5h 41%` (` high` from 80%). The tooltip has both windows with reset times and the model. Click for Enable/Disable, Provider, Open settings and Refresh Usage.
+An icon, no text. Grey while completions are off (until you enable them: click it and choose Enable Completions), after an error such as not logged in or CLI not found, and at a usage limit. Coloured when ready. It blinks (colour and grey, twice a second) while a request is running. The tooltip has the provider, state, last latency, model and both usage windows with reset times. Click for Enable/Disable, Provider, Open settings and Refresh Usage.
 
 No CLI starts at IDE startup. Usage refreshes after completions, on Refresh Usage and on Test Connection. At a usage limit, requests pause until the reset.
 
@@ -101,7 +121,7 @@ No CLI starts at IDE startup. Usage refreshes after completions, on Refresh Usag
 
 - **Not logged in**: run `claude` then `/login`, or `codex login`.
 - **CLI not found**: set the full path in settings, GUI-launched IDEs have a minimal PATH.
-- **Slow**: use `haiku`, keep "Keep CLI process alive" on, effort `low`, thinking off, lower the open tabs budget or file window.
+- **Slow**: use `haiku`, keep "Keep CLI process alive" on, effort `low`, thinking off, lower the related snippets budget or file window.
 - **No suggestions**: check completions are enabled, the status bar, disabled languages, and that the caret is at the end of the code on its line.
 - **Limit reached**: resumes after the reset time in the widget tooltip.
 
