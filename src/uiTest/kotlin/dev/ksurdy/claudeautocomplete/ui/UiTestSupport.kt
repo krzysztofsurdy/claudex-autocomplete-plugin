@@ -23,7 +23,11 @@ const val CARET = "<caret>"
 const val COMPLETION_RECEIVED = "Completion received"
 const val COMPLETION_FAILED = "Completion failed"
 const val COMPLETION_REQUESTED = "Requesting completion"
+const val COMPLETION_EMPTY = "Completion empty"
+const val COMPLETION_EMPTIED = "Completion emptied"
+const val COMPLETION_CANCELLED = "Completion cancelled"
 
+private val TERMINAL_MARKERS = listOf(COMPLETION_RECEIVED, COMPLETION_FAILED, COMPLETION_EMPTY, COMPLETION_CANCELLED)
 private const val LOG_CATEGORY = "#dev.ksurdy.claudeautocomplete,#com.intellij.codeInsight.inline.completion"
 private const val PLUGIN_LOGGER = "#dev.ksurdy.claudeautocomplete."
 private const val FULL_LINE_PLUGIN = "org.jetbrains.completion.full.line"
@@ -32,7 +36,7 @@ private const val PHP_LINT_TIMEOUT_SECONDS = 30L
 class PluginLog(private val file: Path) {
     fun lines(): List<String> = if (file.exists()) file.readLines().filter { PLUGIN_LOGGER in it } else emptyList()
 
-    fun finished(): List<String> = lines().filter { COMPLETION_RECEIVED in it || COMPLETION_FAILED in it }
+    fun finished(): List<String> = lines().filter { line -> TERMINAL_MARKERS.any { it in line } }
 
     fun requested(): Int = lines().count { COMPLETION_REQUESTED in it }
 
@@ -50,7 +54,7 @@ class Seed(val anchor: String, val replacement: String) {
 }
 
 @OptIn(ExperimentalPathApi::class)
-fun newPhpStormContext(name: String): IDETestContext {
+fun newPhpStormContext(name: String, nextEdit: Boolean = false): IDETestContext {
     val project = Files.createTempDirectory("claudex-ui-")
     Path(System.getProperty("ui.test.project")).copyToRecursively(project, followLinks = false, overwrite = true)
     val testCase = TestCase(IdeProductProvider.PS, LocalProjectInfo(project)).let { case ->
@@ -62,18 +66,19 @@ fun newPhpStormContext(name: String): IDETestContext {
         PluginConfigurator(this)
             .installPluginFromPath(Path(System.getProperty("path.to.build.plugin")))
             .disablePlugins(FULL_LINE_PLUGIN)
-        seedConsent(paths.configDir)
+        seedSettings(paths.configDir, nextEdit)
         applyVMOptionsPatch { addSystemProperty("idea.log.debug.categories", LOG_CATEGORY) }
     }
 }
 
-private fun seedConsent(configDir: Path) {
+private fun seedSettings(configDir: Path, nextEdit: Boolean) {
     val options = configDir.resolve("options").createDirectories()
     options.resolve("claude-autocomplete.xml").writeText(
         """
         <application>
           <component name="ClaudeAutocompleteSettings">
             <option name="consentGiven" value="true" />
+            <option name="nextEditSuggestions" value="$nextEdit" />
           </component>
         </application>
         """.trimIndent(),

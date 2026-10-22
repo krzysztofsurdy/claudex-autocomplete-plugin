@@ -21,6 +21,7 @@ import kotlin.time.Duration.Companion.minutes
 class PhpStormCompletionUiTest {
     private lateinit var ide: BackgroundRun
     private lateinit var scenarios: ScenarioRunner
+    private lateinit var alternatives: AlternativesScenario
 
     @BeforeAll
     fun startIde() {
@@ -28,7 +29,9 @@ class PhpStormCompletionUiTest {
         val context = newPhpStormContext("completionScenarios")
         val original = Path(System.getProperty("ui.test.project")).resolve(CONTROLLER).readText()
         ide = context.runIdeWithDriver()
-        scenarios = ScenarioRunner(ide, PluginLog(context.paths.testHome.resolve("log/idea.log")), original)
+        val log = PluginLog(context.paths.testHome.resolve("log/idea.log"))
+        scenarios = ScenarioRunner(ide, log, original)
+        alternatives = AlternativesScenario(ide, log, original, scenarios)
         with(ide.driver) {
             waitForIndicators(5.minutes)
             openFile(CONTROLLER)
@@ -95,9 +98,17 @@ class PhpStormCompletionUiTest {
         }
     }
 
+    @Test
+    @Order(5)
+    fun `next suggestion action asks for a different variant that can be accepted`() {
+        val seed = Seed(FLASH_LINE, "        \$this->addFlash(${CARET}")
+        alternatives.verify(seed) { editor, driver -> editor.typeCharacter(driver, ' ') }
+    }
+
     private companion object {
         const val EMPTY_ACTION_ANCHOR = "StudentLearningTeamResolver \$studentLearningTeamResolver\n    ): Response {"
         const val REDIRECT_LINE = "        return \$this->redirectToRoute('admin_learning_team_edit', ['id' => \$id]);"
+        const val FLASH_LINE = "        \$this->addFlash('info', 'Change cancelled.');"
         const val FIND_LINE = "        \$participant = \$learningTeamParticipantRepository->find(\$participantId);"
         const val BETWEEN_METHODS = "    }\n\n    #[Route('/admin/learning-team/replace-course'"
         const val BODY_INDENT = "        "
