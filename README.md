@@ -23,6 +23,7 @@
 - Multi-line suggestions stream in line by line while the model writes.
 - A suggestion survives typing: after Esc or a restart, typing the start of a suggestion you already saw shows the rest at once, without a new request.
 - Typing while a request runs keeps it when you type what the model is writing, so the result still arrives without a restart.
+- After you accept a whole suggestion, the next one is requested in the background, so it is ready when you ask or start typing.
 - Next edit suggestions (opt-in): after an edit, predicts the next one elsewhere in the file, e.g. the other usages of a renamed parameter. Tab jumps to it, Tab again applies it.
 - Spinner with elapsed time until the first line arrives.
 - Status bar icon: grey when off, coloured when ready, blinking while a request runs. The tooltip has the state, last latency, model and 5h / 7d usage.
@@ -86,6 +87,7 @@ Settings | Tools | Claudex Autocomplete. Main options:
 | Multi-line mode | auto | auto / always / never |
 | Show suggestions while the completion popup is open | off | Off: typing waits until the popup closes. Manual triggers always run |
 | Next edit suggestions | off | Extra request after each edit and pause, uses more quota |
+| Prefetch the next suggestion after accept | on | Extra request after each accepted suggestion, uses more quota |
 | Keep CLI process alive | true | Claude Code only, Codex starts a process per request |
 | Custom prompt additions | empty | Appended to the system prompt |
 | Disabled languages | empty | Comma-separated language ids |

@@ -47,6 +47,7 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var consentDeclined by property(false)
         var nextEditSuggestions by property(false)
         var suggestWhileLookupOpen by property(false)
+        var prefetchAfterAccept by property(true)
     }
 
     val isActive: Boolean get() = state.isActive
@@ -73,6 +74,8 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
 val ClaudeAutocompleteSettings.State.isActive: Boolean get() = enabled && consentGiven
 
 val ClaudeAutocompleteSettings.State.isNextEditActive: Boolean get() = isActive && nextEditSuggestions
+
+val ClaudeAutocompleteSettings.State.isPrefetchActive: Boolean get() = isActive && prefetchAfterAccept
 
 val ClaudeAutocompleteSettings.State.needsConsentPrompt: Boolean get() = !consentGiven && !consentDeclined
 
