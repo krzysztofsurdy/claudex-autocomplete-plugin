@@ -34,7 +34,6 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var wholeFileMaxLines by property(1000)
         var linesAroundCursor by property(150)
         var showInlineLoadingIndicator by property(true)
-        var showUsageInStatusBar by property(true)
         var includeOpenTabs by property(true)
         var maxOpenTabsChars by property(6000)
         var includeImportedClasses by property(true)

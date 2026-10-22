@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The Claude Code process starts when a project opens (only after consent and with "Keep CLI process alive"), so the first suggestion does not wait for the CLI to boot. No prompt is sent.
+- The status bar widget is an icon without text: grey when completions are off, after an error or at a usage limit, coloured when ready, blinking while a request runs. State, latency, model and 5h / 7d usage are in the tooltip. The "Show request state and usage in status bar" setting is gone.
 - Default max completion lines raised from 12 to 30, so whole method bodies fit.
 
 ### Fixed
