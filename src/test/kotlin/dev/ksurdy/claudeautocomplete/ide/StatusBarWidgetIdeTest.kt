@@ -3,6 +3,7 @@ package dev.ksurdy.claudeautocomplete.ide
 import com.intellij.codeInsight.inline.completion.testInlineCompletion
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -17,7 +18,6 @@ import dev.ksurdy.claudeautocomplete.backend.UsageLimits
 import dev.ksurdy.claudeautocomplete.backend.UsageWindow
 import dev.ksurdy.claudeautocomplete.ui.ClaudeStatusBarWidget
 import kotlinx.coroutines.CompletableDeferred
-import java.awt.image.BufferedImage
 import java.lang.reflect.Proxy
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
@@ -41,7 +41,7 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         ClaudeAutocompleteSettings.getInstance().state.debounceMs = 0
         ClaudeAutocompleteSettings.getInstance().state.consentGiven = true
         StatusService.getInstance().update(ClaudeStatus.Ready)
-        widget = ClaudeStatusBarWidget(project)
+        widget = ClaudeStatusBarWidget(project, blinkMs = HOUR_MS)
         onEdt { widget.install(statusBar()) }
     }
 
@@ -88,20 +88,7 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         fail("status never matched, was ${StatusService.getInstance().status}")
     }
 
-    private fun saturation(icon: Icon): Int {
-        val image = BufferedImage(icon.iconWidth.coerceAtLeast(16), icon.iconHeight.coerceAtLeast(16), BufferedImage.TYPE_INT_ARGB)
-        val graphics = image.createGraphics()
-        icon.paintIcon(null, graphics, 0, 0)
-        graphics.dispose()
-        var widest = 0
-        for (x in 0 until image.width) for (y in 0 until image.height) {
-            val argb = image.getRGB(x, y)
-            if (argb ushr 24 < 0x80) continue
-            val channels = intArrayOf(argb shr 16 and 0xFF, argb shr 8 and 0xFF, argb and 0xFF)
-            widest = maxOf(widest, channels.max() - channels.min())
-        }
-        return widest
-    }
+    private fun tick() = onEdt { widget.tickBlink() }
 
     fun testPresentationIsIconOnly() {
         assertTrue(widget.getPresentation() is StatusBarWidget.IconPresentation)
@@ -109,9 +96,11 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         assertNotNull(presentation().getClickConsumer())
     }
 
-    fun testGreyIconIsGreyAndLogoIsColoured() {
-        assertTrue(saturation(ClaudexIcons.Logo).toString(), saturation(ClaudexIcons.Logo) > 60)
-        assertTrue(saturation(ClaudexIcons.Grey).toString(), saturation(ClaudexIcons.Grey) < 16)
+    fun testGreyIconIsThePlatformDisabledVariantOfTheLogo() {
+        assertNotSame(ClaudexIcons.Logo, ClaudexIcons.Grey)
+        assertEquals(IconLoader.getDisabledIcon(ClaudexIcons.Logo), ClaudexIcons.Grey)
+        assertEquals(ClaudexIcons.Logo.iconWidth, ClaudexIcons.Grey.iconWidth)
+        assertEquals(ClaudexIcons.Logo.iconHeight, ClaudexIcons.Grey.iconHeight)
     }
 
     fun testColouredWhenReadyWaitingOrDone() {
@@ -161,19 +150,19 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         assertSame(ClaudexIcons.Grey, icon())
     }
 
-    fun testThinkingAlternatesBetweenColouredAndGrey() {
+    fun testThinkingAlternatesBetweenColouredAndGreyOnEachTick() {
         report(ClaudeStatus.Thinking(System.currentTimeMillis()))
+        assertTrue(widget.isBlinking)
+        val before = updates.get()
         val seen = ArrayList<Icon?>()
-        val deadline = System.currentTimeMillis() + 2_600
-        while (System.currentTimeMillis() < deadline) {
-            val now = icon()
-            if (seen.lastOrNull() !== now) seen += now
-            Thread.sleep(40)
+        seen += icon()
+        repeat(5) {
+            tick()
+            seen += icon()
         }
-        assertTrue(seen.toString(), seen.size >= 4)
-        assertTrue(seen.toString(), seen.all { it === ClaudexIcons.Logo || it === ClaudexIcons.Grey })
-        assertTrue(seen.toString(), seen.zipWithNext().all { (a, b) -> a !== b })
-        assertTrue(updates.get() >= 4)
+        assertEquals(listOf(ClaudexIcons.Logo, ClaudexIcons.Grey, ClaudexIcons.Logo, ClaudexIcons.Grey, ClaudexIcons.Logo, ClaudexIcons.Grey), seen)
+        assertEquals(before + 5, updates.get())
+        assertTrue(widget.isBlinking)
     }
 
     fun testDisposeStopsTheTimerAndTheUpdates() {
@@ -184,7 +173,7 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         val before = updates.get()
         StatusService.getInstance().update(ClaudeStatus.Thinking(System.currentTimeMillis() + 1))
         settle()
-        Thread.sleep(1_200)
+        tick()
         assertEquals(before, updates.get())
         assertFalse(widget.isBlinking)
     }
@@ -198,11 +187,11 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         settle()
         assertTrue(widget.isBlinking)
         val seen = HashSet<Icon?>()
-        repeat(30) {
+        repeat(2) {
             seen += icon()
-            delay(50)
+            tick()
         }
-        assertTrue(seen.toString(), seen.contains(ClaudexIcons.Logo) && seen.contains(ClaudexIcons.Grey))
+        assertEquals(setOf<Icon?>(ClaudexIcons.Logo, ClaudexIcons.Grey), seen)
         gate.complete(Unit)
         delay()
         settle()
@@ -210,7 +199,7 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         assertFalse(widget.isBlinking)
         assertSame(ClaudexIcons.Logo, icon())
         val settled = updates.get()
-        delay(1_200)
+        tick()
         assertEquals(settled, updates.get())
         assertSame(ClaudexIcons.Logo, icon())
     }
@@ -229,5 +218,9 @@ class StatusBarWidgetIdeTest : BasePlatformTestCase() {
         assertTrue(tip, tip.contains("Model: haiku"))
         assertTrue(tip, tip.contains("5h: 42%"))
         assertTrue(tip, tip.contains("7d: 18%"))
+    }
+
+    private companion object {
+        const val HOUR_MS = 3_600_000
     }
 }

@@ -53,11 +53,11 @@ class ClaudeStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun canBeEnabledOn(statusBar: StatusBar): Boolean = true
 }
 
-class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
+class ClaudeStatusBarWidget(private val project: Project, blinkMs: Int = StatusIcon.BLINK_MS) : StatusBarWidget {
     private var statusBar: StatusBar? = null
     private var disposed = false
     private var phase = 0
-    private val blinkTimer = Timer(StatusIcon.BLINK_MS) { onBlinkTick() }.apply { isRepeats = true }
+    private val blinkTimer = Timer(blinkMs) { tickBlink() }.apply { isRepeats = true }
     private val listener: () -> Unit = {
         ApplicationManager.getApplication().invokeLater({ onStatusChanged() }, ModalityState.any())
     }
@@ -129,7 +129,7 @@ class ClaudeStatusBarWidget(private val project: Project) : StatusBarWidget {
         statusBar?.updateWidget(ID)
     }
 
-    private fun onBlinkTick() {
+    internal fun tickBlink() {
         syncBlinking()
         if (!blinkTimer.isRunning) return
         phase++
