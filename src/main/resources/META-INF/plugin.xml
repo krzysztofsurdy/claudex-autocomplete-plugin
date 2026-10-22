@@ -3,34 +3,28 @@
   <name>Claudex Autocomplete</name>
   <vendor email="surdy@protonmail.com" url="https://github.com/krzysztofsurdy/claudex-autocomplete-plugin">Krzysztof Surdy</vendor>
   <description><![CDATA[
-    <p>Inline code completion in your editor, using the Claude Code or Codex CLI you already have installed and logged in. Uses your existing subscription login, no API key needed.</p>
-    <h3>Features</h3>
+    <p><b>Whole-method AI completion, no API key.</b> Inline suggestions in your editor from the Claude Code or Codex CLI you already have installed and logged in, on the subscription you already pay for.</p>
+    <h3>What it does</h3>
     <ul>
-      <li>Inline gray-text suggestions as you type</li>
-      <li>Choose Claude Code or Codex as the provider</li>
-      <li>Next edit suggestions (opt-in): predicts your next edit elsewhere in the file, Tab jumps to it and Tab again applies it</li>
-      <li>Accept the whole suggestion, the next word or the rest of the line</li>
-      <li>Whole method bodies and mid-line suggestions, with alternatives on Alt+] / Alt+[</li>
-      <li>Context from the current file, the most relevant snippets of other open tabs and, for PHP, imported classes</li>
-      <li>Persistent Claude Code process for lower latency</li>
-      <li>Animated spinner with elapsed time while a suggestion is generated</li>
-      <li>Status bar icon: grey when off, coloured when ready, blinking while thinking, usage in the tooltip</li>
-      <li>Custom prompt additions and per-language disable list</li>
+      <li><b>Whole bodies and methods.</b> Press Enter in an empty method and get the full body. Type <code>public function archive(</code> and get the parameters, body and closing brace.</li>
+      <li><b>Mid-line and streaming.</b> Suggestions also appear between existing code, and multi-line ones stream in line by line.</li>
+      <li><b>Alternatives.</b> Alt+] / Alt+[ cycles up to 3 suggestions, requested only when you ask.</li>
+      <li><b>Next edit suggestions (opt-in).</b> After an edit, it predicts the next one elsewhere in the file, such as the other uses of a renamed parameter. Tab jumps, Tab again applies.</li>
+      <li><b>Context that fits.</b> The current file, the most relevant snippets of other open tabs and, for PHP, outlines of imported classes, parents, interfaces and traits.</li>
+      <li><b>Stays out of the way.</b> No requests while you select text, use several carets, undo, expand a live template or browse the completion popup. Guards drop prose, loops and duplicated code.</li>
+      <li><b>Fast where it can be.</b> Typing ahead reuses a suggestion, the next one is prefetched after you accept, and the Claude Code process stays alive.</li>
+      <li><b>Status at a glance.</b> A status bar icon is grey when off, coloured when ready and blinking while thinking, with usage in the tooltip.</li>
     </ul>
     <h3>Requirements</h3>
     <ul>
-      <li>IntelliJ-based IDE 2025.3 or newer</li>
-      <li>Claude Code CLI (<code>claude</code>) or Codex CLI (<code>codex</code>), installed and logged in</li>
+      <li>An IntelliJ-based IDE, 2025.3 or newer (PhpStorm, IntelliJ IDEA, WebStorm, PyCharm and others).</li>
+      <li>Claude Code (<code>claude</code>) with a Claude subscription, or Codex (<code>codex</code>) with ChatGPT, installed and logged in.</li>
     </ul>
-    <h3>Getting started</h3>
-    <ol>
-      <li>Log in: run <code>claude</code> and then <code>/login</code>, or run <code>codex login</code>.</li>
-      <li>Choose Enable in the first-run notification, or turn on Enable completions in Settings | Tools | Claudex Autocomplete, and select the provider.</li>
-      <li>Start typing. Press Tab to accept, Esc to dismiss, Shift+Alt+\ (Shift+Option+\ on macOS) to trigger manually, or use Tools | Trigger Claudex Autocomplete to force a completion inside a word.</li>
-    </ol>
+    <h3>Usage and cost</h3>
+    <p>Every suggestion is a request on your Claude or ChatGPT plan and counts toward its limits. Prefetch and next edit suggestions add requests; both can be turned off in settings.</p>
     <h3>Privacy</h3>
-    <p>The plugin runs your local CLI with your existing subscription login. Code context around the caret, and optionally from open tabs, is sent to Anthropic or OpenAI through that CLI and is subject to their terms. Files that look like secrets (such as .env, keys and credentials) and files ignored by VCS are never sent. Nothing is sent until you enable completions.</p>
-    <p>Claudex Autocomplete is an independent project and is not affiliated with, endorsed or sponsored by Anthropic or OpenAI. Claude is a trademark of Anthropic; Codex is a trademark of OpenAI.</p>
+    <p>The plugin runs your local, unmodified CLI with your own login. It never reads or stores your credentials. Code around the caret, and optionally snippets from open tabs, goes to Anthropic or OpenAI through that CLI under their terms. Files that look like secrets (.env, keys, credentials) and VCS-ignored files are never sent. Nothing is sent until you enable completions.</p>
+    <p>Claudex Autocomplete is an independent, open-source project (GPL-3.0). It is not affiliated with, endorsed or sponsored by Anthropic or OpenAI. Claude is a trademark of Anthropic; Codex is a trademark of OpenAI.</p>
   ]]></description>
   <change-notes><![CDATA[
     <h4>1.1.0</h4>
