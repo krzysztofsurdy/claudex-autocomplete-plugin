@@ -22,6 +22,7 @@ import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
 import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
+import dev.ksurdy.claudeautocomplete.completion.Gate
 import dev.ksurdy.claudeautocomplete.completion.ReplySource
 import dev.ksurdy.claudeautocomplete.completion.StreamingCompletion
 import kotlinx.coroutines.CancellationException
@@ -43,8 +44,10 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     private val cache = CompletionCache(CACHE_CAPACITY)
     private val generation = AtomicLong()
 
-    override fun isEnabled(event: InlineCompletionEvent): Boolean =
-        ClaudeAutocompleteSettings.getInstance().isActive && isSupported(event)
+    override fun isEnabled(event: InlineCompletionEvent): Boolean {
+        val settings = ClaudeAutocompleteSettings.getInstance()
+        return settings.isActive && isSupported(event) && !skipped(EditorGates.blockedBy(event, settings.state))
+    }
 
     override fun restartOn(event: InlineCompletionEvent): Boolean =
         event is InlineCompletionEvent.DirectCall && AlternativeRequest.isPending(event.editor)
@@ -63,6 +66,10 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         val settings = ClaudeAutocompleteSettings.getInstance()
         val manual = request.event is InlineCompletionEvent.ManualCall
         val gen = generation.get()
+        if (skipped(EditorGates.blockedAfterDebounce(request.event, settings.state))) {
+            publish(gen, ClaudeStatus.Ready)
+            return InlineCompletionSuggestion.Empty
+        }
         val alternative = AlternativeRequest.take(request.editor)
         val status = StatusService.getInstance()
         if (status.isBlocked(Instant.now())) {
@@ -216,6 +223,11 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
     private fun publish(generation: Long, newStatus: ClaudeStatus) {
         if (this.generation.get() == generation) StatusService.getInstance().update(newStatus)
+    }
+
+    private fun skipped(gate: Gate?): Boolean {
+        if (gate != null) LOG.debug { "Request skipped: gate=${gate.name}" }
+        return gate != null
     }
 
     private fun isSupported(event: InlineCompletionEvent): Boolean =

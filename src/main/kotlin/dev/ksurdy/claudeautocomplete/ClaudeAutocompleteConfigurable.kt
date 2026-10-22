@@ -139,6 +139,7 @@ class ClaudeAutocompleteConfigurable :
                     checkBox(ClaudexBundle.message("settings.next.edit")).bindSelected(state::nextEditSuggestions)
                         .comment(ClaudexBundle.message("settings.next.edit.comment"))
                 }
+                row { checkBox(ClaudexBundle.message("settings.lookup.open")).bindSelected(state::suggestWhileLookupOpen) }
                 row(ClaudexBundle.message("settings.multiline")) {
                     comboBox(listOf("auto", "always", "never"), optionRenderer())
                         .bindItem({ state.multilineMode }, { state.multilineMode = it ?: "auto" })

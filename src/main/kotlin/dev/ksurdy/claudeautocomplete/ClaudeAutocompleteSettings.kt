@@ -46,6 +46,7 @@ class ClaudeAutocompleteSettings : SimplePersistentStateComponent<ClaudeAutocomp
         var excludedFilePatterns by string(SensitiveFiles.DEFAULT_PATTERNS)
         var consentDeclined by property(false)
         var nextEditSuggestions by property(false)
+        var suggestWhileLookupOpen by property(false)
     }
 
     val isActive: Boolean get() = state.isActive

@@ -66,6 +66,11 @@ class SettingsConsentTest {
     fun excludedPatternsDefaultToSensitiveDefaults() {
         kotlin.test.assertEquals(SensitiveFiles.DEFAULT_PATTERNS, ClaudeAutocompleteSettings.State().excludedFilePatterns)
     }
+
+    @Test
+    fun suggestionsWaitForTheCompletionPopupByDefault() {
+        kotlin.test.assertFalse(ClaudeAutocompleteSettings.State().suggestWhileLookupOpen)
+    }
 }
 
 class SettingsNextEditTest {
