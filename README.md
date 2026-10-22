@@ -21,6 +21,9 @@
 - Accept all, next word or rest of the line.
 - Context: current file (whole or around the caret), the most relevant snippets of other open tabs (ranked by identifier overlap with the code around the caret), and for PHP outlines of imported classes, parent, interfaces and traits.
 - Multi-line suggestions stream in line by line while the model writes.
+- Suggestions also appear mid-line, with code right of the caret, but not inside a word.
+- Press Enter between the braces of an empty function or method and the whole body is suggested. When a declaration line ends with `(`, the whole method is suggested: the rest of the parameters, the body and the closing brace.
+- Alternatives with Alt+] / Alt+[, fetched only when you ask, up to 3.
 - Quality guards: suggestions that end in a repetition loop, repeat the next lines of the file or double the closing brackets below the caret are cut or dropped.
 - A suggestion survives typing: after Esc or a restart, typing the start of a suggestion you already saw shows the rest at once, without a new request.
 - Typing while a request runs keeps it when you type what the model is writing, so the result still arrives without a restart.
@@ -39,7 +42,7 @@
 
 From [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/34817-claudex-autocomplete): Settings | Plugins | Marketplace, search "Claudex Autocomplete", Install.
 
-From a local build: `./gradlew buildPlugin`, then Settings | Plugins | gear icon | Install Plugin from Disk... and pick `build/distributions/claudex-autocomplete-<version>.zip`.
+From a local build: `./gradlew buildPlugin`, then Settings | Plugins | gear icon | Install Plugin from Disk... and pick `build/distributions/claudex-autocomplete-<version>.zip`. To see which commit is installed, set the version: `./gradlew buildPlugin -PpluginVersion=1.0.0-$(git rev-parse --short HEAD)`. Settings | Plugins then shows it.
 
 ## Quick start
 
@@ -105,7 +108,7 @@ Test Connection runs one completion with the values in the form, without saving.
 
 After you pause, the plugin sends the CLI the code before and after the caret, the file window, optionally the best matching snippets of other open tabs (each with its path and line range) and (PHP) imported class outlines. The reply shows as ghost text.
 
-It only asks when the rest of the line is empty or closing characters, and never in read-only editors or files over 1,000,000 characters. Typing does not start a request while text is selected, with more than one caret, during undo, redo or a bulk update, while a live template is active or was just expanded, while the completion popup is open (unless you turn that on), or while a next edit suggestion is shown. It is also skipped in one-line fields, dialogs, popups, consoles, diff panes and injected-language fragment editors. The manual triggers still work in all of these except the editor kinds and with several carets. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` are removed from the CLI environment, so your subscription login is used.
+It also asks mid-line, when there is code right of the caret, but not inside a word (word characters on both sides of the caret). It never asks in read-only editors or files over 1,000,000 characters. Typing does not start a request while text is selected, with more than one caret, during undo, redo or a bulk update, while a live template is active or was just expanded, while the completion popup is open (unless you turn that on), or while a next edit suggestion is shown. It is also skipped in one-line fields, dialogs, popups, consoles, diff panes and injected-language fragment editors. The manual triggers still work in all of these except the editor kinds and with several carets. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` are removed from the CLI environment, so your subscription login is used.
 
 With next edit suggestions on, a request is also sent after you edit and pause: the last few small edits and the file window go to the CLI, and a suggestion on another line shows up highlighted with the new text below it. Tab jumps the caret there, Tab again applies it as one undo step, Esc or typing dismisses it. The pause before asking adapts to you (longer after a dismissed suggestion, shorter after an applied one), a dismissed suggestion is not offered again for a while, and the caret moving to another line soon after an edit also triggers a request. Nothing shows when a ghost-text suggestion is visible or being requested, and Tab behaves as usual when no next edit suggestion is shown.
 
@@ -115,14 +118,23 @@ Your code context goes to Anthropic or OpenAI through the CLI, under your accoun
 
 An icon, no text. Grey while completions are off (until you enable them: click it and choose Enable Completions), after an error such as not logged in or CLI not found, and at a usage limit. Coloured when ready. It blinks (colour and grey, twice a second) while a request is running. The tooltip has the provider, state, last latency, model and both usage windows with reset times. Click for Enable/Disable, Provider, Open settings and Refresh Usage.
 
-No CLI starts at IDE startup. Usage refreshes after completions, on Refresh Usage and on Test Connection. At a usage limit, requests pause until the reset.
+When a project opens, the Claude CLI process starts without sending a prompt, so the first request is faster. This happens only after you agreed to enable completions and with "Keep one CLI process alive" on. Codex never starts a process ahead of a request. Usage refreshes after completions, on Refresh Usage and on Test Connection. At a usage limit, requests pause until the reset.
 
 ## Troubleshooting
 
 - **Not logged in**: run `claude` then `/login`, or `codex login`.
 - **CLI not found**: set the full path in settings, GUI-launched IDEs have a minimal PATH.
 - **Slow**: use `haiku`, keep "Keep CLI process alive" on, effort `low`, thinking off, lower the related snippets budget or file window.
-- **No suggestions**: check completions are enabled, the status bar, disabled languages, and that the caret is at the end of the code on its line.
+- **No suggestions**: typing does not start a request in these cases:
+  - Completions are off or you have not agreed yet.
+  - The language is disabled, or the file matches the excluded patterns.
+  - The caret is inside a word.
+  - Text is selected, or there are several carets.
+  - The completion popup is open and "Show suggestions while the completion popup is open" is off.
+  - A live template is active.
+  - The status bar icon is grey because of an error or the usage limit.
+
+  The manual triggers skip the checks for selected text, live templates and the open popup, and work inside a word.
 - **Limit reached**: resumes after the reset time in the widget tooltip.
 
 ## Building from source
