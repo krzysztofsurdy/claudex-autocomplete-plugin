@@ -20,6 +20,9 @@ object PromptBuilder {
         - Never add a closing bracket that belongs to a block you did not open in your own output.
         - Match the file's indentation (tabs or spaces, width), naming, quote style and conventions. Continuation lines carry their full absolute indentation. The first line must not repeat the whitespace already before the cursor.
         - Prefer using identifiers, methods and types visible in this file or in <open_files> over inventing new ones.
+        - Never output placeholder code: no TODO or FIXME stubs, no "not implemented" throws or exceptions, no `pass`, no `...`, no empty body standing in for real logic, no comment saying to implement it later.
+        - Write the real implementation, inferred from the names, the signature and similar code in the file and in <open_files>.
+        - Complete the construct the cursor is in first, for example the parameter list of an open signature, before anything that comes after it.
         - <mode>single-line</mode>: output exactly one line, no newline. Complete the current statement or expression only.
         - When code follows the cursor on the same line, output only what belongs between the cursor and that code, so that both sides join into valid code.
         - <mode>multi-line (max N lines)</mode>: output a coherent unit (the statement, block or next few statements), at most N lines, stop at a natural boundary. Do not write the remainder of the file.
@@ -53,6 +56,17 @@ object PromptBuilder {
           }
 
           return response.json();</completion>
+
+        <file language="PHP">class UserController
+        {
+            public function show(int ${'$'}id): Response
+            {
+                return ${'$'}this->render('user/show.html.twig', ['user' => ${'$'}this->users->find(${'$'}id)]);
+            }
+
+            public function archive(<CURSOR/>
+        }</file><mode>single-line</mode>
+        => <completion>int ${'$'}id): Response</completion>
 
         <file language="PHP">class Cart
         {

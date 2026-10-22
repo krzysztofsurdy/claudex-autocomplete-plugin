@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The suggestion hint showed the internal provider id ("Tab to complete dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"). It now shows the Claudex icon, the name and the active provider and model, for example "Claudex · Claude haiku".
+- Suggestions could be lazy placeholders, for example a "not implemented" exception body written straight after `archiveAction(`. The prompt now forbids placeholder code, asks for a real implementation based on the signature and similar code, and completes the construct at the cursor (such as the parameter list) first.
 - The model's explanations were sometimes inserted as code ("The cursor sits inside ...", "Wait, that's not right"). The model now wraps the insertion in `<completion>` tags and everything outside is ignored. Replies without tags go through a prose guard, and streaming shows only the text inside the tags.
 - In an empty function or method body the suggestion is the complete body, not just the first statement.
 - Over-long multi-line suggestions are cut at a balanced line instead of inside an open block.

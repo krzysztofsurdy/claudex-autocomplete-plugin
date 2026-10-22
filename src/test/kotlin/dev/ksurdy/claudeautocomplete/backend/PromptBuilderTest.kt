@@ -44,6 +44,37 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `system prompt forbids placeholder code`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "Never output placeholder code")
+        assertContains(system, "TODO or FIXME stubs")
+        assertContains(system, "\"not implemented\" throws or exceptions")
+        assertContains(system, "empty body standing in for real logic")
+        assertContains(system, "comment saying to implement it later")
+    }
+
+    @Test
+    fun `system prompt asks for a real implementation inferred from similar code`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "Write the real implementation")
+        assertContains(system, "similar code in the file and in <open_files>")
+    }
+
+    @Test
+    fun `system prompt completes the construct at the cursor first`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "Complete the construct the cursor is in first")
+        assertContains(system, "the parameter list of an open signature")
+    }
+
+    @Test
+    fun `system prompt shows an open signature example that continues the parameters`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "public function archive(<CURSOR/>")
+        assertContains(system, "=> <completion>int ${'$'}id): Response</completion>")
+    }
+
+    @Test
     fun `alternative requests list the suggestions already shown`() {
         val message = PromptBuilder.userMessage(testContext(alternativeTo = listOf("foo()", "bar()")))
         assertContains(message, "<shown_suggestions>\n<suggestion>foo()</suggestion>\n<suggestion>bar()</suggestion>\n</shown_suggestions>\n")
