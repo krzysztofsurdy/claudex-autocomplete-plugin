@@ -618,6 +618,71 @@ class ClaudeInlineCompletionIdeTest : BasePlatformTestCase() {
         assertEquals(listOf(ProviderKind.Claude, ProviderKind.Codex), fake.configs.map { it.provider })
     }
 
+    fun testTypingTheStartOfADismissedSuggestionServesTheRestFromTheCache() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward1 <caret>")
+        callInlineCompletion()
+        delay()
+        assertInlineRender("abcdef")
+        escape()
+        typeChar('a')
+        delay()
+        assertInlineRender("bcdef")
+        assertEquals(1, fake.contexts.size)
+    }
+
+    fun testTypingSeveralSuggestedCharsAfterDismissKeepsAnsweringFromTheCache() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward2 <caret>")
+        callInlineCompletion()
+        delay()
+        escape()
+        "abc".forEach { typeChar(it) }
+        delay()
+        assertInlineRender("def")
+        assertEquals(1, fake.contexts.size)
+        insert()
+        assertFileContent("forward2 abcdef<caret>")
+    }
+
+    fun testTypingAwayFromTheCachedSuggestionAsksTheModelAgain() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward3 <caret>")
+        callInlineCompletion()
+        delay()
+        escape()
+        typeChar('x')
+        delay()
+        assertEquals(2, fake.contexts.size)
+    }
+
+    fun testTypingTheWholeCachedSuggestionNeverServesAnEmptyRest() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("ab")
+        init(PlainTextFileType.INSTANCE, "forward4 <caret>")
+        callInlineCompletion()
+        delay()
+        escape()
+        "ab".forEach { typeChar(it) }
+        delay()
+        assertEquals(2, fake.contexts.size)
+    }
+
+    fun testCachedSuggestionIsNotServedWhenTheSuffixChanged() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+        fake.result = CompletionResult.Success("abcdef")
+        init(PlainTextFileType.INSTANCE, "forward5 <caret>\nend")
+        callInlineCompletion()
+        delay()
+        escape()
+        withWriteAction {
+            com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(fixture.project) {
+                fixture.editor.document.insertString(fixture.editor.document.textLength, "!")
+            }
+        }
+        typeChar('a')
+        delay()
+        assertEquals(2, fake.contexts.size)
+    }
+
     private companion object {
         const val NEXT_SUGGESTION = "NextInlineCompletionSuggestionAction"
         const val PREV_SUGGESTION = "PrevInlineCompletionSuggestionAction"

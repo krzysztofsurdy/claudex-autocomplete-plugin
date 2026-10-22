@@ -21,6 +21,7 @@
 - Accept all, next word or rest of the line.
 - Context: current file (whole or around the caret), the most relevant snippets of other open tabs (ranked by identifier overlap with the code around the caret), and for PHP outlines of imported classes, parent, interfaces and traits.
 - Multi-line suggestions stream in line by line while the model writes.
+- A suggestion survives typing: after Esc or a restart, typing the start of a suggestion you already saw shows the rest at once, without a new request.
 - Next edit suggestions (opt-in): after an edit, predicts the next one elsewhere in the file, e.g. the other usages of a renamed parameter. Tab jumps to it, Tab again applies it.
 - Spinner with elapsed time until the first line arrives.
 - Status bar icon: grey when off, coloured when ready, blinking while a request runs. The tooltip has the state, last latency, model and 5h / 7d usage.
