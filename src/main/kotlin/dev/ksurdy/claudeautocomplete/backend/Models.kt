@@ -23,6 +23,8 @@ data class CompletionContext(
 
 data class OpenFileSnippet(val path: String, val languageId: String, val content: String)
 
+data class RelatedSnippet(val path: String, val startLine: Int, val endLine: Int, val content: String)
+
 data class ClaudeConfig(
     val claudePath: String,
     val model: String,
