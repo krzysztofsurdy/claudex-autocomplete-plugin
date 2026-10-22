@@ -30,6 +30,10 @@ object NextEditLog {
 
     fun applied(edit: NextEdit) = "Next edit applied: lines=${range(edit.startLine, edit.endLine)} replacementLines=${replacementLines(edit)}"
 
+    fun skipped(reason: SkipReason) = "Next edit skipped: reason=${reason.label}"
+
+    fun waiting(reason: String, ms: Long) = "Next edit waiting: reason=$reason ms=$ms"
+
     fun dismissed(reason: String) = "Next edit dismissed: reason=$reason"
 
     private fun range(start: Int, end: Int) = if (start == end) "$start" else "$start-$end"

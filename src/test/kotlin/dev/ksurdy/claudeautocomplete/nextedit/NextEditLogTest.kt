@@ -69,6 +69,19 @@ class NextEditLogTest {
     }
 
     @Test
+    fun `skip lines name the reason`() {
+        assertEquals("Next edit skipped: reason=cooldown", NextEditLog.skipped(SkipReason.Cooldown))
+        assertEquals("Next edit skipped: reason=line cooldown", NextEditLog.skipped(SkipReason.LineCooldown))
+        assertEquals("Next edit skipped: reason=rejection memory", NextEditLog.skipped(SkipReason.Remembered))
+        assertEquals("Next edit skipped: reason=inline completion", NextEditLog.skipped(SkipReason.InlineCompletion))
+    }
+
+    @Test
+    fun `waiting line names the reason and the time`() {
+        assertEquals("Next edit waiting: reason=end of line ms=2000", NextEditLog.waiting("end of line", 2000))
+    }
+
+    @Test
     fun `no line leaks code content`() {
         val lines = listOf(NextEditLog.shown(edit), NextEditLog.jumped(edit), NextEditLog.applied(edit))
         lines.forEach { assertFalse(it.contains("secret")) }

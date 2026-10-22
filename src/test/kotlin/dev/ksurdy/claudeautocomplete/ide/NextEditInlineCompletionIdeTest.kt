@@ -11,6 +11,9 @@ import dev.ksurdy.claudeautocomplete.StatusService
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.nextedit.NextEdit
 import dev.ksurdy.claudeautocomplete.nextedit.NextEditController
+import dev.ksurdy.claudeautocomplete.nextedit.NextEditService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.seconds
 
 class NextEditInlineCompletionIdeTest : BasePlatformTestCase() {
@@ -25,6 +28,7 @@ class NextEditInlineCompletionIdeTest : BasePlatformTestCase() {
         original = service.engine
         fake = FakeCompletionBackend(CompletionResult.Success("world"))
         service.engine = fake
+        NextEditService.getInstance().reset()
         ClaudeAutocompleteSettings.getInstance().state.apply {
             debounceMs = 0
             consentGiven = true
@@ -76,5 +80,55 @@ class NextEditInlineCompletionIdeTest : BasePlatformTestCase() {
         delay(600)
         assertTrue(fake.contexts.none { it.nextEdit != null })
         onEdt { assertFalse(NextEditController.of(myFixture.editor)?.state?.isVisible ?: true) }
+    }
+
+    private suspend fun realDelay(ms: Long) = withContext(Dispatchers.IO) { kotlinx.coroutines.delay(ms) }
+
+    private suspend fun awaitReal(timeoutMs: Long = 5_000, condition: () -> Boolean): Boolean {
+        val end = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < end && !condition()) realDelay(50)
+        return condition()
+    }
+
+    private fun nextEditRequests() = fake.contexts.count { it.nextEdit != null }
+
+    private fun inlineBusy(): Boolean {
+        var busy = false
+        onEdt { busy = NextEditController.inlineBusy(myFixture.editor) }
+        return busy
+    }
+
+    fun testInlineCompletionCountsAsBusyOnceRequestedAndWhileShown() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        fake.responder = { context ->
+            if (context.nextEdit != null) CompletionResult.Success("<edit start_line=\"1\" end_line=\"1\">FIRST</edit>") else CompletionResult.Success("world")
+        }
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        fake.gate = gate
+        init(PlainTextFileType.INSTANCE, "first line\nsecond line\nhello<caret>")
+        assertFalse(inlineBusy())
+        typeChar(' ')
+        assertTrue(awaitReal { inlineBusy() })
+        assertTrue(fake.contexts.none { it.nextEdit != null })
+        gate.complete(Unit)
+        delay()
+        assertInlineElements { gray("world") }
+        assertTrue(inlineBusy())
+        escape()
+        assertTrue(awaitReal { !inlineBusy() })
+    }
+
+    fun testNextEditGoesOutOnceTheGhostSuggestionIsGone() = myFixture.testInlineCompletion(timeout = 30.seconds) {
+        ClaudeAutocompleteSettings.getInstance().state.debounceMs = 100
+        fake.responder = { context ->
+            if (context.nextEdit != null) CompletionResult.Success("<edit start_line=\"1\" end_line=\"1\">FIRST</edit>") else CompletionResult.Success("world")
+        }
+        init(PlainTextFileType.INSTANCE, "first line\nsecond line\nhello<caret>")
+        typeChar(' ')
+        delay()
+        assertInlineElements { gray("world") }
+        realDelay(1_000)
+        assertEquals(0, nextEditRequests())
+        escape()
+        assertTrue(awaitReal { nextEditRequests() > 0 })
     }
 }

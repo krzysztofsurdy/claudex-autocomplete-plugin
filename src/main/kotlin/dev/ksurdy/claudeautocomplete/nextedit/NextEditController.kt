@@ -1,6 +1,7 @@
 package dev.ksurdy.claudeautocomplete.nextedit
 
 import com.intellij.codeInsight.inline.completion.session.InlineCompletionContext
+import com.intellij.codeInsight.inline.completion.session.InlineCompletionSession
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
@@ -41,6 +42,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
     val presenter = NextEditPresenter(editor)
 
     private val document = editor.document
+    private val gate = NextEditService.getInstance().newGate { FileDocumentManager.getInstance().getFile(document)?.path.orEmpty() }
     private var pending: Job? = null
     private var applying = false
     private var jumping = false
@@ -55,7 +57,9 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
 
     private val caretListener = object : CaretListener {
         override fun caretPositionChanged(event: CaretEvent) {
-            if (!jumping && !applying && state.isVisible) dismiss("caret moved")
+            if (jumping || applying) return
+            if (state.isVisible) dismiss(CARET_MOVED)
+            if (gate.caretMoved(event.oldPosition.line, event.newPosition.line)) schedule()
         }
     }
 
@@ -82,10 +86,12 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         }
     }
 
-    fun onEscape() = dismiss("escape")
+    fun onEscape() = dismiss(ESCAPE)
 
     fun dismiss(reason: String) {
+        val shown = state.edit
         if (state.isVisible) LOG.debug { NextEditLog.dismissed(reason) }
+        if (shown != null && reason in REJECTIONS) gate.rejected(shown, baseMs())
         state.dismiss()
         presenter.clear()
     }
@@ -106,6 +112,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         val project = editor.project
         if (project == null || edit.endOffset > document.textLength || !EditorModificationUtil.requestWriting(editor)) return
         applying = true
+        gate.accepted(baseMs())
         LOG.debug { NextEditLog.applied(edit) }
         try {
             WriteCommandAction.runWriteCommandAction(project, ClaudexBundle.message("nextedit.command.name"), null, Runnable {
@@ -127,7 +134,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
     }
 
     private fun onDocumentChanged(event: DocumentEvent) {
-        dismiss("document changed")
+        dismiss(DOCUMENT_CHANGED)
         pending?.cancel()
         val before = changeBefore
         changeBefore = null
@@ -137,6 +144,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
             val last = doc.getLineNumber(minOf(event.offset + event.newLength, doc.textLength))
             val after = doc.getText(TextRange(doc.getLineStartOffset(changeStartLine), doc.getLineEndOffset(last)))
             history.record(changeStartLine + 1, before, after)
+            gate.edited()
         }
         if (!applying && before != null && !event.isWholeTextReplaced) schedule()
     }
@@ -148,18 +156,49 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         return !SensitiveFiles.isSensitive(file.name, settings.excludedFilePatterns.orEmpty())
     }
 
+    private fun baseMs(): Long = ClaudeAutocompleteSettings.getInstance().state.debounceMs.coerceAtLeast(0) * PAUSE_FACTOR.toLong()
+
     private fun schedule() {
-        val pause = ClaudeAutocompleteSettings.getInstance().state.debounceMs.coerceAtLeast(0) * PAUSE_FACTOR
-        pending = NextEditService.getInstance().scope.launch {
-            delay(pause.toLong())
-            requestNextEdit()
+        val service = NextEditService.getInstance()
+        pending?.cancel()
+        pending = service.scope.launch {
+            service.sleep(gate.pauseMs(baseMs()))
+            gate.beforeRequest()?.let { reason ->
+                LOG.debug { NextEditLog.skipped(reason) }
+                return@launch
+            }
+            waitAtLineEnd(service)
+            if (awaitInlineIdle()) requestNextEdit()
         }
+    }
+
+    private suspend fun waitAtLineEnd(service: NextEditService) {
+        val extra = withContext(Dispatchers.EDT) {
+            if (editor.isDisposed) return@withContext 0L
+            val offset = editor.caretModel.offset
+            val line = document.getLineNumber(offset)
+            val start = document.getLineStartOffset(line)
+            gate.extraWaitMs(document.getText(TextRange(start, document.getLineEndOffset(line))), offset - start)
+        }
+        if (extra <= 0) return
+        LOG.debug { NextEditLog.waiting("end of line", extra) }
+        service.sleep(extra)
+    }
+
+    private suspend fun awaitInlineIdle(): Boolean {
+        val idle = InlineWait.await(
+            MAX_INLINE_WAITS,
+            isBusy = { withContext(Dispatchers.EDT) { !editor.isDisposed && inlineBusy(editor) } },
+            onWait = { LOG.debug { NextEditLog.waiting(SkipReason.InlineCompletion.label, INLINE_RECHECK_MS) } },
+            sleep = { delay(INLINE_RECHECK_MS) },
+        )
+        if (!idle) LOG.debug { NextEditLog.skipped(SkipReason.InlineCompletion) }
+        return idle
     }
 
     private suspend fun requestNextEdit() {
         val settings = ClaudeAutocompleteSettings.getInstance().state
         if (!settings.isNextEditActive || StatusService.getInstance().isBlocked(Instant.now())) return
-        if (withContext(Dispatchers.EDT) { ghostTextVisible(editor) }) return
         val request = readAction { NextEditRequestFactory.create(editor, history, settings) } ?: return
         val config = ClaudeAutocompleteSettings.getInstance().toBackendConfig()
         val startedAt = System.currentTimeMillis()
@@ -192,6 +231,10 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         when (val outcome = NextEditTarget.evaluate(parsed, document.charsSequence, caretLine)) {
             is TargetOutcome.Dropped -> LOG.debug { NextEditLog.dropped(NextEditLog.reason(outcome.reason, raw)) }
             is TargetOutcome.Chosen -> {
+                gate.beforeShow(outcome.edit)?.let { reason ->
+                    LOG.debug { NextEditLog.skipped(reason) }
+                    return@withContext
+                }
                 state.show(outcome.edit)
                 presenter.show(outcome.edit)
                 LOG.debug { NextEditLog.shown(outcome.edit) }
@@ -217,6 +260,12 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         private val LOG = Logger.getInstance(NextEditController::class.java)
         private val KEY = Key.create<NextEditController>("claude.autocomplete.next.edit")
         private const val PAUSE_FACTOR = 2
+        private const val ESCAPE = "escape"
+        private const val DOCUMENT_CHANGED = "document changed"
+        private const val CARET_MOVED = "caret moved"
+        private val REJECTIONS = setOf(ESCAPE, DOCUMENT_CHANGED)
+        private const val MAX_INLINE_WAITS = 50
+        private const val INLINE_RECHECK_MS = 100L
         private const val MAX_CAPTURE_CHARS = 20_000
 
         fun of(editor: Editor): NextEditController? = editor.getUserData(KEY)
@@ -235,5 +284,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         }
 
         fun ghostTextVisible(editor: Editor): Boolean = InlineCompletionContext.getOrNull(editor)?.isCurrentlyDisplaying() == true
+
+        fun inlineBusy(editor: Editor): Boolean = ghostTextVisible(editor) || InlineCompletionSession.getOrNull(editor)?.isActive() == true
     }
 }
