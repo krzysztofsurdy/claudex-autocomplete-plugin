@@ -5,6 +5,8 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorModificationUtil
 import com.intellij.openapi.editor.ScrollType
@@ -25,6 +27,7 @@ import dev.ksurdy.claudeautocomplete.FailureReporter
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.isNextEditActive
 import dev.ksurdy.claudeautocomplete.toBackendConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -52,7 +55,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
 
     private val caretListener = object : CaretListener {
         override fun caretPositionChanged(event: CaretEvent) {
-            if (!jumping && !applying && state.isVisible) dismiss()
+            if (!jumping && !applying && state.isVisible) dismiss("caret moved")
         }
     }
 
@@ -70,15 +73,19 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
 
     fun onTab() {
         when (val outcome = state.onTab()) {
-            is TabOutcome.Jump -> jump(outcome.offset)
+            is TabOutcome.Jump -> {
+                state.edit?.let { edit -> LOG.debug { NextEditLog.jumped(edit) } }
+                jump(outcome.offset)
+            }
             is TabOutcome.Apply -> apply(outcome.edit)
             TabOutcome.None -> Unit
         }
     }
 
-    fun onEscape() = dismiss()
+    fun onEscape() = dismiss("escape")
 
-    fun dismiss() {
+    fun dismiss(reason: String) {
+        if (state.isVisible) LOG.debug { NextEditLog.dismissed(reason) }
         state.dismiss()
         presenter.clear()
     }
@@ -99,6 +106,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         val project = editor.project
         if (project == null || edit.endOffset > document.textLength || !EditorModificationUtil.requestWriting(editor)) return
         applying = true
+        LOG.debug { NextEditLog.applied(edit) }
         try {
             WriteCommandAction.runWriteCommandAction(project, ClaudexBundle.message("nextedit.command.name"), null, Runnable {
                 document.replaceString(edit.startOffset, edit.endOffset, edit.newText)
@@ -119,7 +127,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
     }
 
     private fun onDocumentChanged(event: DocumentEvent) {
-        dismiss()
+        dismiss("document changed")
         pending?.cancel()
         val before = changeBefore
         changeBefore = null
@@ -154,20 +162,49 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
         if (withContext(Dispatchers.EDT) { ghostTextVisible(editor) }) return
         val request = readAction { NextEditRequestFactory.create(editor, history, settings) } ?: return
         val config = ClaudeAutocompleteSettings.getInstance().toBackendConfig()
-        when (val result = withContext(Dispatchers.IO) { BackendService.getInstance().engine.complete(request.context, config) }) {
-            is CompletionResult.Success -> present(result.text, request)
-            CompletionResult.Empty -> Unit
-            is CompletionResult.Failure -> StatusService.getInstance().update(FailureReporter.report(result, config.provider))
+        val startedAt = System.currentTimeMillis()
+        LOG.debug { NextEditLog.requested(request.context.languageId, request.context.nextEdit?.edits?.size ?: 0) }
+        val result = try {
+            withContext(Dispatchers.IO) { BackendService.getInstance().engine.complete(request.context, config) }
+        } catch (e: CancellationException) {
+            LOG.debug { NextEditLog.cancelled(System.currentTimeMillis() - startedAt) }
+            throw e
+        }
+        val ms = System.currentTimeMillis() - startedAt
+        when (result) {
+            is CompletionResult.Success -> present(result.text, request, ms)
+            CompletionResult.Empty -> LOG.debug { NextEditLog.empty(ms) }
+            is CompletionResult.Failure -> {
+                LOG.debug { NextEditLog.failed(result.kind.name, ms) }
+                StatusService.getInstance().update(FailureReporter.report(result, config.provider))
+            }
         }
     }
 
-    private suspend fun present(raw: String, request: NextEditRequest) = withContext(Dispatchers.EDT) {
-        if (editor.isDisposed || document.modificationStamp != request.modificationStamp) return@withContext
-        if (editor.caretModel.offset != request.caretOffset || ghostTextVisible(editor)) return@withContext
+    private suspend fun present(raw: String, request: NextEditRequest, ms: Long) = withContext(Dispatchers.EDT) {
+        val parsed = NextEditParser.parse(raw)
+        LOG.debug { NextEditLog.received(ms, parsed) }
+        staleReason(request)?.let { reason ->
+            LOG.debug { NextEditLog.dropped(reason) }
+            return@withContext
+        }
         val caretLine = document.getLineNumber(request.caretOffset) + 1
-        val edit = NextEditTarget.choose(NextEditParser.parse(raw), document.charsSequence, caretLine) ?: return@withContext
-        state.show(edit)
-        presenter.show(edit)
+        when (val outcome = NextEditTarget.evaluate(parsed, document.charsSequence, caretLine)) {
+            is TargetOutcome.Dropped -> LOG.debug { NextEditLog.dropped(NextEditLog.reason(outcome.reason, raw)) }
+            is TargetOutcome.Chosen -> {
+                state.show(outcome.edit)
+                presenter.show(outcome.edit)
+                LOG.debug { NextEditLog.shown(outcome.edit) }
+            }
+        }
+    }
+
+    private fun staleReason(request: NextEditRequest): String? = when {
+        editor.isDisposed -> "editor disposed"
+        document.modificationStamp != request.modificationStamp -> "stale document"
+        editor.caretModel.offset != request.caretOffset -> "stale caret"
+        ghostTextVisible(editor) -> "ghost text visible"
+        else -> null
     }
 
     override fun dispose() {
@@ -177,6 +214,7 @@ class NextEditController private constructor(private val editor: Editor) : Dispo
     }
 
     companion object {
+        private val LOG = Logger.getInstance(NextEditController::class.java)
         private val KEY = Key.create<NextEditController>("claude.autocomplete.next.edit")
         private const val PAUSE_FACTOR = 2
         private const val MAX_CAPTURE_CHARS = 20_000
