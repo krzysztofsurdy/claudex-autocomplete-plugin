@@ -216,8 +216,18 @@ class ClaudeCliBackendIntegrationTest {
         }
     }
 
+    private val stub = Regex("not implemented|TODO|FIXME|throw new \\\\?LogicException|\\{\\s*\\}", RegexOption.IGNORE_CASE)
+
+    private fun isWholeMethod(processed: String): Boolean {
+        val trimmed = processed.trim()
+        val body = trimmed.substringAfter('{', "")
+        return trimmed.isNotEmpty() && !trimmed.startsWith(")") && !stub.containsMatchIn(trimmed) &&
+            trimmed.endsWith("}") && trimmed.count { it == '{' } == trimmed.count { it == '}' } &&
+            body.lines().any { it.trim().endsWith(";") }
+    }
+
     @Test
-    fun `archive action signature continues the parameter list and writes real code`() {
+    fun `archive action signature completes the whole method`() {
         enabled()
         val prefix = controller + "    public function approveAction(int \$id): Response\n    {\n" +
             "        \$participant = \$this->learningTeamParticipantRepository->find(\$id);\n" +
@@ -229,8 +239,14 @@ class ClaudeCliBackendIntegrationTest {
             "        \$participant = \$this->learningTeamParticipantRepository->find(\$id);\n" +
             "        \$this->learningTeamParticipantRepository->remove(\$participant);\n\n" +
             "        return \$this->redirectToRoute('team_index');\n    }\n}\n"
-        val context = testContext(prefix = prefix, suffix = suffix, multiline = TriggerRules.isMultiline(prefix, suffix, "auto"), indent = "4 spaces")
-        val stub = Regex("not implemented|TODO|FIXME|throw new \\\\?LogicException|\\{\\s*\\}", RegexOption.IGNORE_CASE)
+        val context = testContext(
+            prefix = prefix,
+            suffix = suffix,
+            multiline = TriggerRules.isMultiline(prefix, suffix, "auto"),
+            indent = "4 spaces",
+            declaration = TriggerRules.isOpenDeclaration(prefix, suffix),
+        )
+        assertTrue(context.multiline && context.declaration)
         val runs = System.getenv("CLAUDE_IT_RUNS")?.toIntOrNull() ?: 3
         runBlocking {
             val backend = ClaudeCliBackend()
@@ -240,10 +256,10 @@ class ClaudeCliBackendIntegrationTest {
                     val raw = (backend.complete(context, config) as? CompletionResult.Success)?.text.orEmpty()
                     val processed = CompletionPostProcessor.interpret(raw, context).text
                     println("IT archive run=$index raw=<<$raw>> processed=<<$processed>>")
-                    processed.isNotBlank() && !stub.containsMatchIn(processed) && !processed.trimStart().startsWith(")")
+                    isWholeMethod(processed)
                 }
                 println("IT archive hits=$hits runs=$runs")
-                assertTrue(hits * 2 > runs, "only $hits of $runs requests wrote real code that continues the parameter list")
+                assertTrue(hits * 2 > runs, "only $hits of $runs requests completed the whole method")
             } finally {
                 backend.shutdown()
             }

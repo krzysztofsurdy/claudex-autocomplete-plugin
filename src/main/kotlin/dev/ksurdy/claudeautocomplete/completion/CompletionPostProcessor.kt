@@ -77,17 +77,33 @@ object CompletionPostProcessor {
         val lines = withoutLeadingBreaks.trimEnd().lines()
         val maxLines = context.maxLines.coerceAtLeast(1)
         if (lines.size <= maxLines) return lines.joinToString("\n")
-        return lines.take(balancedLineCount(lines, maxLines) ?: maxLines).joinToString("\n")
+        val depths = runningDepths(lines)
+        val blockEnd = firstBlockEnd(depths)?.takeUnless { suffixClosesBlock(context.suffix) }
+        if (context.declaration && blockEnd != null) return lines.take(blockEnd + 1).joinToString("\n")
+        val balanced = (0 until maxLines).lastOrNull { depths[it] == 0 }
+        val count = when {
+            balanced != null -> balanced + 1
+            blockEnd != null -> blockEnd + 1
+            else -> maxLines
+        }
+        return lines.take(count).joinToString("\n")
     }
 
-    private fun balancedLineCount(lines: List<String>, maxLines: Int): Int? {
+    private fun firstBlockEnd(depths: List<Int>): Int? {
+        val opened = depths.indexOfFirst { it > 0 }
+        if (opened < 0) return null
+        return (opened + 1 until depths.size).firstOrNull { depths[it] == 0 }
+    }
+
+    private fun suffixClosesBlock(suffix: String): Boolean = suffix.trimStart().firstOrNull()?.let { it in CLOSERS } == true
+
+    private fun runningDepths(lines: List<String>): List<Int> {
         var depth = 0
-        var balanced: Int? = null
-        for (index in 0 until maxLines) {
-            depth += bracketBalance(lines[index])
-            if (depth <= 0) balanced = index + 1
+        return lines.map { line ->
+            val scan = scanBrackets(line.substringBeforeLineComment())
+            depth = (depth - scan.unmatched).coerceAtLeast(0) + scan.depth
+            depth
         }
-        return balanced
     }
 
     private fun bracketBalance(line: String): Int {
@@ -135,7 +151,7 @@ object CompletionPostProcessor {
     private fun trimOverlappingTail(text: String, suffix: String): String {
         val tail = suffix.trimStart()
         val trimmed = text.trimEnd()
-        val unmatched = unmatchedClosers(trimmed)
+        val unmatched = scanBrackets(trimmed).unmatchedByKind
         for (length in minOf(tail.length, trimmed.length) downTo 1) {
             val candidate = tail.take(length)
             if (candidate.isNotBlank() && trimmed.endsWith(candidate) && isTrimmable(candidate, unmatched)) {
@@ -145,19 +161,19 @@ object CompletionPostProcessor {
         return text
     }
 
-    private fun isTrimmable(candidate: String, unmatched: Int): Boolean {
-        val closers = candidate.count { it in CLOSERS }
-        if (closers > 0) return closers <= unmatched
-        return candidate.all { it in CLOSING_PUNCTUATION || it.isWhitespace() }
+    private fun isTrimmable(candidate: String, unmatched: Map<Char, Int>): Boolean {
+        val closers = candidate.filter { it in CLOSERS }
+        if (closers.isEmpty()) return candidate.all { it in CLOSING_PUNCTUATION || it.isWhitespace() }
+        return closers.groupingBy { it }.eachCount().all { (kind, count) -> count <= (unmatched[kind] ?: 0) }
     }
 
-    private class BracketScan(val depth: Int, val unmatched: Int)
-
-    private fun unmatchedClosers(text: String): Int = scanBrackets(text).unmatched
+    private class BracketScan(val depth: Int, val unmatchedByKind: Map<Char, Int>) {
+        val unmatched: Int get() = unmatchedByKind.values.sum()
+    }
 
     private fun scanBrackets(text: String): BracketScan {
         var depth = 0
-        var unmatched = 0
+        val unmatched = mutableMapOf<Char, Int>()
         var quote: Char? = null
         var escaped = false
         for (char in text) {
@@ -172,7 +188,7 @@ object CompletionPostProcessor {
             when (char) {
                 '"', '\'', '`' -> quote = char
                 in OPENERS -> depth++
-                in CLOSERS -> if (depth > 0) depth-- else unmatched++
+                in CLOSERS -> if (depth > 0) depth-- else unmatched.merge(char, 1, Int::plus)
             }
         }
         return BracketScan(depth, unmatched)

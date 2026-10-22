@@ -31,6 +31,31 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `declaration mode asks for the whole method`() {
+        val message = PromptBuilder.userMessage(testContext(multiline = true, maxLines = 30, declaration = true))
+        assertTrue(message.endsWith("<mode>declaration (max 30 lines)</mode>"))
+    }
+
+    @Test
+    fun `declaration is ignored in single line mode`() {
+        assertTrue(PromptBuilder.userMessage(testContext(multiline = false, declaration = true)).endsWith("<mode>single-line</mode>"))
+    }
+
+    @Test
+    fun `declaration wins over an empty body`() {
+        val message = PromptBuilder.userMessage(testContext(multiline = true, maxLines = 9, declaration = true, emptyBody = true))
+        assertTrue(message.endsWith("<mode>declaration (max 9 lines)</mode>"))
+    }
+
+    @Test
+    fun `system prompt explains declaration mode`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "<mode>declaration (max N lines)</mode>")
+        assertContains(system, "the rest of the parameter list, the return type, the opening brace, the complete body and the closing brace")
+        assertContains(system, "<mode>declaration (max 30 lines)</mode>\n=> ")
+    }
+
+    @Test
     fun `empty body is ignored in single line mode`() {
         assertTrue(PromptBuilder.userMessage(testContext(multiline = false, emptyBody = true)).endsWith("<mode>single-line</mode>"))
     }
@@ -68,10 +93,12 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `system prompt shows an open signature example that continues the parameters`() {
+    fun `system prompt shows an open signature completed into the whole method`() {
         val system = PromptBuilder.systemPrompt("")
         assertContains(system, "public function archive(<CURSOR/>")
-        assertContains(system, "=> <completion>int ${'$'}id): Response</completion>")
+        assertContains(system, "=> <completion>int ${'$'}id): Response")
+        assertContains(system, "${'$'}this->users->save(${'$'}user);")
+        assertFalse(system.contains("=> <completion>int ${'$'}id): Response</completion>"))
     }
 
     @Test

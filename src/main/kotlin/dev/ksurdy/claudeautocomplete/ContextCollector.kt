@@ -66,6 +66,7 @@ object ContextCollector {
             suffixTruncated = window.suffixTruncated,
             importedClasses = importedClasses(request, settings),
             emptyBody = TriggerRules.isEmptyBody(prefix, suffix),
+            declaration = TriggerRules.isOpenDeclaration(prefix, suffix),
         )
     }
 
