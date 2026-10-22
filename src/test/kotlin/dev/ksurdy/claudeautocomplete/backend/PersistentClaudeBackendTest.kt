@@ -53,6 +53,26 @@ class PersistentClaudeBackendTest {
     }
 
     @Test
+    fun `warm up starts the process without sending anything and the next request reuses it`() = runBlocking {
+        val started = mutableListOf<ClaudeConfig>()
+        val process = echoProcess("42")
+        val backend = backend(process, started = started)
+        backend.warmUp(testConfig())
+        assertEquals(1, started.size)
+        assertTrue(process.sent.isEmpty())
+        assertEquals(CompletionResult.Success("42"), backend.complete(testContext(), testConfig()))
+        assertEquals(1, started.size)
+        assertEquals(1, process.sent.size)
+    }
+
+    @Test
+    fun `streamed text is reported as it grows`() = runBlocking {
+        val seen = mutableListOf<String>()
+        backend(echoProcess("abc")).complete(testContext(), testConfig()) { seen += it }
+        assertEquals(listOf("a", "abc"), seen)
+    }
+
+    @Test
     fun `later requests clear context first`() = runBlocking {
         val process = echoProcess()
         val backend = backend(process)

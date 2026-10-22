@@ -1,0 +1,89 @@
+package dev.ksurdy.claudeautocomplete.ui
+
+import com.intellij.driver.client.Driver
+import com.intellij.driver.sdk.invokeAction
+import com.intellij.driver.sdk.ui.components.common.JEditorUiComponent
+import com.intellij.driver.sdk.ui.components.common.codeEditor
+import com.intellij.driver.sdk.ui.components.common.ideFrame
+import com.intellij.ide.starter.driver.engine.BackgroundRun
+import kotlin.test.assertTrue
+import kotlin.test.fail
+import kotlin.time.Duration.Companion.seconds
+
+class ScenarioRunner(private val ide: BackgroundRun, private val log: PluginLog, private val original: String) {
+    fun verify(name: String, seed: Seed, trigger: (JEditorUiComponent, Driver) -> Unit, check: (Observation) -> String?) {
+        val attempts = mutableListOf<Observation>()
+        var problem: String? = null
+        for (number in 1..MAX_ATTEMPTS) {
+            val seen = observe(seed, trigger)
+            attempts += seen
+            if (seen.outcome != Outcome.Received) {
+                problem = "no suggestion was shown: ${seen.outcome}"
+                continue
+            }
+            problem = proseProblem(seen.inserted) ?: check(seen)
+            break
+        }
+        val report = attempts.withIndex().joinToString("\n") { (index, seen) -> "attempt ${index + 1}: ${seen.report()}" }
+        println("UI result $name\n$report")
+        assertTrue(problem == null, "$problem after ${attempts.size} attempts\n$report")
+    }
+
+    fun observe(seed: Seed, trigger: (JEditorUiComponent, Driver) -> Unit): Observation {
+        var observation: Observation? = null
+        with(ide.driver) {
+            ideFrame {
+                codeEditor {
+                    val (seeded, caret) = seed.apply(original)
+                    replaceDocument(this@with, seeded, caret)
+                    awaitQuiet()
+                    val finishedBefore = log.finished().size
+                    val linesBefore = log.lines().size
+                    trigger(this, this@with)
+                    val lastFinished = awaitCompletion(finishedBefore)
+                    Thread.sleep(RENDER_SETTLE_MS)
+                    val before = text
+                    val caretOffset = interact { getCaretModel().getOffset() }
+                    val newLogLines = log.lines().drop(linesBefore)
+                    val outcome = outcomeOf(lastFinished, newLogLines)
+                    if (outcome == Outcome.Received) {
+                        invokeAction(ACCEPT_ACTION, true, component)
+                        Thread.sleep(RENDER_SETTLE_MS)
+                    }
+                    observation = Observation(outcome, before, text, caretOffset, newLogLines)
+                }
+            }
+        }
+        return observation ?: fail("no observation\n${log.dump()}")
+    }
+
+    fun enter(editor: JEditorUiComponent) = ide.driver.invokeAction(ENTER_ACTION, true, editor.component)
+
+    fun awaitQuiet() {
+        Thread.sleep(QUIET_SETTLE_MS)
+        val deadline = System.nanoTime() + QUIET_TIMEOUT.inWholeNanoseconds
+        while (System.nanoTime() < deadline && log.requested() > log.finished().size) Thread.sleep(POLL_MS)
+        Thread.sleep(QUIET_SETTLE_MS)
+    }
+
+    fun awaitCompletion(finishedBefore: Int): String? {
+        val deadline = System.nanoTime() + SUGGESTION_TIMEOUT.inWholeNanoseconds
+        while (System.nanoTime() < deadline) {
+            val finished = log.finished()
+            if (finished.size > finishedBefore && log.requested() <= finished.size) return finished.last()
+            Thread.sleep(POLL_MS)
+        }
+        return null
+    }
+
+    companion object {
+        const val ENTER_ACTION = "EditorEnter"
+        const val ACCEPT_ACTION = "InsertInlineCompletionAction"
+        const val RENDER_SETTLE_MS = 700L
+        private const val MAX_ATTEMPTS = 2
+        private const val POLL_MS = 250L
+        private const val QUIET_SETTLE_MS = 1000L
+        private val SUGGESTION_TIMEOUT = 40.seconds
+        private val QUIET_TIMEOUT = 20.seconds
+    }
+}

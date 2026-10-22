@@ -26,14 +26,14 @@ class PersistentClaudeBackend(
     @Volatile
     private var session: Session? = null
 
-    override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult =
+    override suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit): CompletionResult =
         mutex.withLock {
             val current = when (val start = obtainSession(config)) {
                 is SessionStart.Failed -> return start.failure
                 is SessionStart.Ready -> start.session
             }
             try {
-                withTimeout(config.requestTimeoutMs.toLong()) { request(current, context) }
+                withTimeout(config.requestTimeoutMs.toLong()) { request(current, context, onText) }
             } catch (e: TimeoutCancellationException) {
                 discard(current)
                 CompletionResult.Failure(FailureKind.Timeout, "Timed out after ${config.requestTimeoutMs} ms")
@@ -45,6 +45,10 @@ class PersistentClaudeBackend(
                 CompletionResult.Failure(FailureKind.Other, e.message.orEmpty())
             }
         }
+
+    override suspend fun warmUp(config: ClaudeConfig) {
+        mutex.withLock { obtainSession(config) }
+    }
 
     private sealed interface SessionStart {
         data class Ready(val session: Session) : SessionStart
@@ -66,7 +70,7 @@ class PersistentClaudeBackend(
         }
     }
 
-    private suspend fun request(current: Session, context: CompletionContext): CompletionResult {
+    private suspend fun request(current: Session, context: CompletionContext, onText: (String) -> Unit): CompletionResult {
         if (current.used) {
             current.inFlight = true
             send(current, userLine("/clear"))
@@ -80,7 +84,10 @@ class PersistentClaudeBackend(
         var rejected = false
         for (line in current.process.lines) {
             when (val event = StreamJsonParser.parse(line)) {
-                is StreamEvent.TextDelta -> streamed.append(event.text)
+                is StreamEvent.TextDelta -> {
+                    streamed.append(event.text)
+                    onText(streamed.toString())
+                }
                 is StreamEvent.RateLimit -> {
                     usage.publish(event)
                     rejected = rejected || event.status == REJECTED

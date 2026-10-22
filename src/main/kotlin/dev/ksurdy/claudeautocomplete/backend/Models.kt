@@ -1,20 +1,29 @@
 package dev.ksurdy.claudeautocomplete.backend
 
+import dev.ksurdy.claudeautocomplete.nextedit.NextEditInput
+
 data class CompletionContext(
     val filePath: String,
     val languageId: String,
     val prefix: String,
     val suffix: String,
-    val openFiles: List<OpenFileSnippet>,
+    val relatedSnippets: List<RelatedSnippet>,
     val multiline: Boolean,
     val maxLines: Int,
     val indent: String = "",
     val prefixTruncated: Boolean = false,
     val suffixTruncated: Boolean = false,
     val importedClasses: List<OpenFileSnippet> = emptyList(),
+    val emptyBody: Boolean = false,
+    val alternativeTo: List<String> = emptyList(),
+    val distinctRetry: Boolean = false,
+    val nextEdit: NextEditInput? = null,
+    val declaration: Boolean = false,
 )
 
 data class OpenFileSnippet(val path: String, val languageId: String, val content: String)
+
+data class RelatedSnippet(val path: String, val startLine: Int, val endLine: Int, val content: String)
 
 data class ClaudeConfig(
     val claudePath: String,
@@ -41,7 +50,8 @@ sealed interface CompletionResult {
 enum class FailureKind { NotLoggedIn, CliNotFound, InvalidModel, Timeout, RateLimited, Other }
 
 interface CompletionBackend {
-    suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult
+    suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit = {}): CompletionResult
+    suspend fun warmUp(config: ClaudeConfig) = Unit
     fun shutdown()
 }
 

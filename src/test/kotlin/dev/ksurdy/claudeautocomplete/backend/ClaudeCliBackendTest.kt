@@ -8,7 +8,13 @@ class ClaudeCliBackendTest {
     private class Recording(private val results: ArrayDeque<CompletionResult>) : CompletionBackend {
         var calls = 0
         var shutdowns = 0
-        override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
+        var warmUps = 0
+
+        override suspend fun warmUp(config: ClaudeConfig) {
+            warmUps++
+        }
+
+        override suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit): CompletionResult {
             calls++
             return results.removeFirstOrNull() ?: CompletionResult.Success("default")
         }
@@ -28,6 +34,16 @@ class ClaudeCliBackendTest {
         ClaudeCliBackend(persistent, oneShot).complete(testContext(), testConfig(persistentProcess = true))
         assertEquals(1, persistent.calls)
         assertEquals(0, oneShot.calls)
+    }
+
+    @Test
+    fun `warm up only starts the persistent process when it is enabled`() = runBlocking {
+        val persistent = recording()
+        val backend = ClaudeCliBackend(persistent, recording())
+        backend.warmUp(testConfig(persistentProcess = false))
+        assertEquals(0, persistent.warmUps)
+        backend.warmUp(testConfig(persistentProcess = true))
+        assertEquals(1, persistent.warmUps)
     }
 
     @Test
@@ -150,7 +166,7 @@ class ClaudeCliBackendTest {
     private class PublishingOneShot(private val tracker: UsageTracker, private val result: CompletionResult, private val publish: Boolean) :
         CompletionBackend {
         var lastContext: CompletionContext? = null
-        override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
+        override suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit): CompletionResult {
             lastContext = context
             if (publish) tracker.publish(StreamEvent.RateLimit("allowed", UsageWindow(0.7, null), null))
             return result

@@ -1,8 +1,8 @@
 package dev.ksurdy.claudeautocomplete.completion
 
 import dev.ksurdy.claudeautocomplete.backend.BackendConfig
-import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
+import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 
 class CompletionCache(
     private val capacity: Int,
@@ -11,39 +11,54 @@ class CompletionCache(
 ) {
     private class Entry(val value: String, val storedAt: Long)
 
-    private val entries = object : LinkedHashMap<String, Entry>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>): Boolean = size > capacity
+    private val entries = object : LinkedHashMap<CacheKey, Entry>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<CacheKey, Entry>): Boolean = size > capacity
     }
 
     @Synchronized
-    fun get(key: String): String? {
-        val entry = entries[key] ?: return null
-        if (clock() - entry.storedAt > ttlMs) {
-            entries.remove(key)
-            return null
-        }
-        return entry.value
+    fun get(key: CacheKey): String? {
+        val exact = entries[key]
+        if (exact != null && !isExpired(exact)) return exact.value
+        return forward(key)
     }
 
     @Synchronized
-    fun put(key: String, value: String) {
+    fun put(key: CacheKey, value: String) {
         entries[key] = Entry(value, clock())
     }
 
+    private fun forward(key: CacheKey): String? {
+        var hitKey: CacheKey? = null
+        var remainder: String? = null
+        val iterator = entries.entries.iterator()
+        while (iterator.hasNext()) {
+            val (storedKey, entry) = iterator.next()
+            if (isExpired(entry)) {
+                iterator.remove()
+                continue
+            }
+            val rest = key.remainderOf(storedKey, entry.value) ?: continue
+            hitKey = storedKey
+            remainder = rest
+        }
+        hitKey?.let { entries[it] }
+        return remainder
+    }
+
+    private fun isExpired(entry: Entry): Boolean = clock() - entry.storedAt > ttlMs
+
     companion object {
-        private const val PREFIX_TAIL_CHARS = 500
-        private const val SUFFIX_HEAD_CHARS = 200
         private const val DEFAULT_TTL_MS = 60_000L
 
-        fun key(context: CompletionContext, config: BackendConfig): String = (listOf(
+        fun key(context: CompletionContext, config: BackendConfig): CacheKey =
+            CacheKey.of(scope(context, config), context.prefix, context.suffix, context.multiline)
+
+        fun scope(context: CompletionContext, config: BackendConfig): String = (listOf(
             config.provider.name,
             *providerSettings(config).toTypedArray(),
             context.filePath,
             context.languageId,
             context.maxLines.toString(),
-            context.multiline.toString(),
-            context.prefix.takeLast(PREFIX_TAIL_CHARS),
-            context.suffix.take(SUFFIX_HEAD_CHARS),
         ) + context.importedClasses.map { it.path + "\u0001" + it.content }).joinToString("\u0000")
 
         private fun providerSettings(config: BackendConfig): List<String> = when (config.provider) {

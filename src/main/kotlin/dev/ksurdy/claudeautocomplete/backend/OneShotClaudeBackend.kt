@@ -13,7 +13,7 @@ class OneShotClaudeBackend(
     private val usage: UsageTracker = UsageTracker(),
     private val processFactory: ClaudeProcessFactory = RealClaudeProcessFactory,
 ) : CompletionBackend {
-    override suspend fun complete(context: CompletionContext, config: ClaudeConfig): CompletionResult {
+    override suspend fun complete(context: CompletionContext, config: ClaudeConfig, onText: (String) -> Unit): CompletionResult {
         val binary = locator.resolve(config.claudePath)
             ?: return CompletionResult.Failure(FailureKind.CliNotFound, "Claude Code CLI not found")
         val process = try {
@@ -22,7 +22,7 @@ class OneShotClaudeBackend(
             return CompletionResult.Failure(FailureKind.CliNotFound, e.message.orEmpty())
         }
         return try {
-            withTimeout(config.requestTimeoutMs.toLong()) { run(process, context) }
+            withTimeout(config.requestTimeoutMs.toLong()) { run(process, context, onText) }
         } catch (e: TimeoutCancellationException) {
             CompletionResult.Failure(FailureKind.Timeout, "Timed out after ${config.requestTimeoutMs} ms")
         } catch (e: CancellationException) {
@@ -34,15 +34,20 @@ class OneShotClaudeBackend(
         }
     }
 
-    private suspend fun run(process: ClaudeProcess, context: CompletionContext): CompletionResult {
+    private suspend fun run(process: ClaudeProcess, context: CompletionContext, onText: (String) -> Unit): CompletionResult {
         withContext(Dispatchers.IO) {
             process.send(PromptBuilder.userMessage(context))
             process.closeInput()
         }
         var result: StreamEvent.Result? = null
         var rejected = false
+        val streamed = StringBuilder()
         for (line in process.lines) {
             when (val event = StreamJsonParser.parse(line)) {
+                is StreamEvent.TextDelta -> {
+                    streamed.append(event.text)
+                    onText(streamed.toString())
+                }
                 is StreamEvent.Result -> result = event
                 is StreamEvent.RateLimit -> {
                     usage.publish(event)
@@ -51,7 +56,7 @@ class OneShotClaudeBackend(
                 else -> Unit
             }
         }
-        return ResultMapper.toCompletionResult(result, rateLimited = rejected)
+        return ResultMapper.toCompletionResult(result, streamed.toString(), rejected)
     }
 
     override fun shutdown() = Unit
