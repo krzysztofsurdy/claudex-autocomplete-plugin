@@ -87,6 +87,30 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `system prompt requires the insertion inside completion tags`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "<completion>")
+        assertContains(system, "</completion>")
+        assertContains(system, "ignored")
+        assertContains(system, "<completion></completion>")
+    }
+
+    @Test
+    fun `system prompt examples wrap the reply in completion tags`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "=> <completion>findOneBy(['email' => \$email])</completion>")
+        assertContains(system, "<mode>multi-line (max 12 lines)</mode>\n=> <completion>return a + b;</completion>")
+        assertContains(system, "<mode>body (max 20 lines)</mode>\n=> <completion>const response = await fetch")
+        assertContains(system, "return response.json();</completion>")
+    }
+
+    @Test
+    fun `custom instructions come after the reply contract`() {
+        val system = PromptBuilder.systemPrompt("Follow PSR-12")
+        assertTrue(system.indexOf("<completion>") < system.indexOf("Follow PSR-12"))
+    }
+
+    @Test
     fun `system prompt appends custom instructions only when present`() {
         assertContains(PromptBuilder.systemPrompt("Follow PSR-12"), "Follow PSR-12")
         assertTrue(PromptBuilder.systemPrompt("  ") == PromptBuilder.systemPrompt(""))

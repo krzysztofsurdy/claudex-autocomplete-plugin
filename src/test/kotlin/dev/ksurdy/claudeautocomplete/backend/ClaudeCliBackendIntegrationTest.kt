@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import kotlin.system.measureTimeMillis
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -136,6 +137,57 @@ class ClaudeCliBackendIntegrationTest {
         enabled()
         val file = "<?php\n\n// TODO\nfunction ping(): string\n{\n    return 'pong';\n}"
         nextEditCase("nothing", file, listOf(EditHunk(3, "// todo", "// TODO")), 3, null)
+    }
+
+    private val controller = "<?php\n\nnamespace App\\Controller;\n\nuse App\\Repository\\LearningTeamParticipantRepository;\n" +
+        "use Symfony\\Bundle\\FrameworkBundle\\Controller\\AbstractController;\nuse Symfony\\Component\\HttpFoundation\\Response;\n\n" +
+        "class LearningTeamController extends AbstractController\n{\n" +
+        "    public function __construct(private LearningTeamParticipantRepository \$learningTeamParticipantRepository)\n    {\n    }\n\n" +
+        "    public function show(int \$id): Response\n    {\n" +
+        "        \$participant = \$this->learningTeamParticipantRepository->find(\$id);\n\n" +
+        "        return \$this->render('team/show.html.twig', ['participant' => \$participant]);\n    }\n\n"
+
+    private val prose = Regex("^\\s*(The cursor|The caret|Wait|Hmm|Actually|I |I'|Here|Sure|Note|This |Let me|Okay)", RegexOption.MULTILINE)
+
+    private fun proseFree(name: String, prefix: String, suffix: String) = runBlocking {
+        val multiline = TriggerRules.isMultiline(prefix, suffix, "auto")
+        val context = testContext(prefix = prefix, suffix = suffix, multiline = multiline, indent = "4 spaces")
+        val runs = System.getenv("CLAUDE_IT_RUNS")?.toIntOrNull() ?: 3
+        val backend = ClaudeCliBackend()
+        try {
+            val config = testConfig(claudePath = "", requestTimeoutMs = 30000)
+            repeat(runs) { index ->
+                val result = backend.complete(context, config)
+                val raw = (result as? CompletionResult.Success)?.text.orEmpty()
+                val processed = CompletionPostProcessor.interpret(raw, context)
+                println("IT prose case=$name run=$index multiline=$multiline source=${processed.source} raw=<<$raw>> processed=<<${processed.text}>>")
+                assertIs<CompletionResult.Success>(result)
+                assertFalse(prose.containsMatchIn(processed.text), "prose in suggestion: ${processed.text}")
+                assertFalse(processed.text.contains("cursor", ignoreCase = true), "prose in suggestion: ${processed.text}")
+            }
+        } finally {
+            backend.shutdown()
+        }
+    }
+
+    @Test
+    fun `mid line redirect call yields no prose`() {
+        enabled()
+        proseFree(
+            "redirect-mid-line",
+            controller + "    public function delete(int \$id): Response\n    {\n        return \$this->redirectToRoute(",
+            "['id' => \$id]);\n    }\n}\n",
+        )
+    }
+
+    @Test
+    fun `blank line between two methods yields no prose`() {
+        enabled()
+        proseFree(
+            "between-methods",
+            controller + "    public function edit(int \$id): Response\n    {\n        return \$this->render('team/edit.html.twig');\n    }\n\n",
+            "\n    public function delete(int \$id): Response\n    {\n        return \$this->redirectToRoute('team_index');\n    }\n}\n",
+        )
     }
 
     @Test

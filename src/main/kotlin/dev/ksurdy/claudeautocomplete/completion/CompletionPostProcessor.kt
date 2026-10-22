@@ -10,8 +10,18 @@ object CompletionPostProcessor {
     private const val CLOSERS = ")]}"
     private const val CLOSING_PUNCTUATION = "\"';,`"
 
-    fun process(raw: String, context: CompletionContext): String {
-        var text = stripFences(raw.replace("\r\n", "\n"))
+    class Processed(val text: String, val source: ReplySource, val extractedLength: Int)
+
+    fun process(raw: String, context: CompletionContext): String = interpret(raw, context).text
+
+    fun interpret(raw: String, context: CompletionContext): Processed {
+        val reply = CompletionReply.parse(raw, context, final = true)
+        if (reply.source == ReplySource.ProseRejected) return Processed("", reply.source, 0)
+        return Processed(format(reply.content, context), reply.source, reply.content.length)
+    }
+
+    fun format(content: String, context: CompletionContext): String {
+        var text = stripFences(content.replace("\r\n", "\n"))
         text = trimEchoedHead(text, context.prefix)
         text = limitLines(text, context)
         text = alignToCaretIndent(text, context)
