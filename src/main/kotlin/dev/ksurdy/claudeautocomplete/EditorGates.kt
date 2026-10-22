@@ -1,6 +1,5 @@
 package dev.ksurdy.claudeautocomplete
 
-import com.intellij.analysis.AnalysisBundle
 import com.intellij.codeInsight.inline.completion.InlineCompletionEvent
 import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.codeInsight.template.TemplateManager
@@ -8,7 +7,7 @@ import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.injected.editor.DocumentWindow
 import com.intellij.injected.editor.EditorWindow
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.undo.UndoManager
@@ -17,6 +16,7 @@ import com.intellij.openapi.editor.EditorKind
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.popup.util.PopupUtil
+import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiDocumentManager
 import dev.ksurdy.claudeautocomplete.completion.CompletionGates
 import dev.ksurdy.claudeautocomplete.completion.EditorSnapshot
@@ -25,16 +25,21 @@ import dev.ksurdy.claudeautocomplete.nextedit.NextEditController
 
 object EditorGates {
     private val SUPPORTED_KINDS = setOf(EditorKind.MAIN_EDITOR, EditorKind.UNTYPED)
+    private val TEMPLATE_ACTION_IDS = listOf(
+        "ExpandLiveTemplateByTab",
+        "ExpandLiveTemplateCustom",
+        "InsertLiveTemplate",
+        "SurroundWithLiveTemplate",
+    )
     private val TEMPLATE_COMMANDS by lazy {
-        listOfNotNull(
-            AnalysisBundle.message("insert.code.template.command"),
-            ActionManager.getInstance().getAction("ExpandLiveTemplateByTab")?.templatePresentation?.text,
-        )
+        val actions = ActionManager.getInstance()
+        TEMPLATE_ACTION_IDS.mapNotNull { actions.getAction(it)?.templatePresentation?.text }.toSet()
     }
 
     fun blockedBy(event: InlineCompletionEvent, settings: ClaudeAutocompleteSettings.State): Gate? {
         val editor = editorOf(event) ?: return null
-        val snapshot = ReadAction.compute<EditorSnapshot, RuntimeException> { snapshot(editor) }
+        val snapshot = ApplicationManager.getApplication()
+            .runReadAction(ThrowableComputable<EditorSnapshot, RuntimeException> { snapshot(editor) })
         return CompletionGates.blockedBy(snapshot, isManual(event), settings.suggestWhileLookupOpen)
     }
 
