@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Alternative suggestions: cycle with the platform's Next/Previous suggestion actions (Alt+] / Alt+[). The model is asked for another suggestion only when you press Next on the newest one (up to 3), and is told what was already shown.
 - Mid-line suggestions with code right of the caret, but not inside a word.
 - Multi-line suggestions stream in while the model writes: each finished, bracket-balanced line shows up at once.
+- Next edit suggestions (opt-in, off by default): after an edit and a pause, predicts your next edit on another line of the same file, highlights it and shows the replacement. Tab jumps to it, Tab again applies it, Esc or any typing dismisses it.
 
 ### Changed
 

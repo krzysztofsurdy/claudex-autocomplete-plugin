@@ -26,6 +26,8 @@ Inline ghost-text completions for JetBrains IDEs (build 253+), backed by the loc
 12. Failure notifications (group `Claude Autocomplete`): not logged in, CLI not found, invalid model, rate limited. Throttled to once per 5 min per provider and kind.
 13. Files matching `excludedFilePatterns`, VCS-ignored files and files excluded from the project are never sent as context.
 14. Alternatives: the platform's Next/Previous suggestion actions (Alt+] / Alt+[) move through up to 3 suggestions in the order they arrived, wrapping at the ends. Next on the newest suggestion, with fewer than 3 existing, asks the model for another one (`alternativeTo` carries the texts already shown, rendered as `<shown_suggestions>`), bypassing the cache. Nothing is requested before the user asks. The session lists variants newest first, so `NextAlternativeHandler` and `PrevAlternativeHandler` (`editorActionHandler`s on the platform actions) swap the platform's direction for our sessions and delegate to the original handler for any other.
+15. Next edit suggestions (`nextEditSuggestions`, default off, needs `enabled` and `consentGiven`): a document listener per editor keeps the last 5 edits as small line hunks (at most 12 lines and 600 chars per side, typing on one line merges into one hunk, hunks below an insertion or deletion are renumbered, secret files are not tracked). After a pause of `2 * debounceMs` with no edit, one request goes through the same engine and provider as completions. Any edit cancels the in-flight request and restarts the pause. No request while ghost text is visible, at a usage limit, in read-only editors, disabled languages or excluded files. The answer is dropped if the document or caret moved. An edit touching the caret line, outside the file, longer than 20 lines or identical to the current text is dropped.
+16. A shown suggestion highlights and strikes through the target lines and adds a block inlay below them with the replacement and a hint. Tab (an `EditorTab` handler, first in the chain) jumps the caret to the start of the target, Tab again applies it in one write command and moves the caret to the end of the new text. Esc, any document change or caret move dismisses. While ghost text is visible the handlers step aside, so the inline completion Tab and Esc win. With nothing shown Tab and Esc behave as before.
 
 ## Settings
 
@@ -51,6 +53,7 @@ App-level `ClaudeAutocompleteSettings`, stored in `claude-autocomplete.xml`. UI:
 | includeOpenTabs, maxOpenTabsChars | true, 6000 | Budget split across tabs, newest first |
 | includeImportedClasses, maxImportedClassesChars | true, 8000 | PHP: imported classes, parent, interfaces, traits |
 | showInlineLoadingIndicator | true | Braille spinner with elapsed time |
+| nextEditSuggestions | false | Next edit suggestions, an extra request per edit and pause |
 | showUsageInStatusBar | true | |
 | multilineMode | auto | |
 | maxCompletionLines | 30 | |
@@ -74,6 +77,31 @@ prefix<CURSOR/>suffix
 ```
 
 The file is whole or a window around the caret, capped at 200k chars. A truncated side gets a `<!-- truncated -->` marker. The fixed system prompt makes the model a fill-in-the-middle engine: raw text only, no fences, no repeating text around the caret. `customInstructions` is appended.
+
+### Next edit request
+
+Same system prompt and engine. The user message has no `<CURSOR/>` and ends with `<mode>next-edit</mode>`. Open tabs and imported classes are not sent.
+
+```
+<recent_edits>
+<edit line="5">
+<before>
+old line(s)
+</before>
+<after>
+new line(s)
+</after>
+</edit>
+</recent_edits>
+<numbered_file path="..." language="..." indent="...">
+1|first line
+2|second line
+</numbered_file>
+<caret line="5"/>
+<mode>next-edit</mode>
+```
+
+The file is whole or a window by the same context settings, every line prefixed `N|` with its own text right after the bar. The system prompt describes the mode and the only valid replies: `<edit start_line="N" end_line="M">replacement</edit>` (replaces lines N to M whole, an empty replacement deletes them) or `<none/>`. `NextEditParser` takes the first `<edit>` and tolerates chatter, code fences, other quote styles and attribute order, a missing end line and echoed line numbers. `NextEditTarget` maps lines to offsets, restores a dropped first-line indent and applies the drops from Behaviour 14.
 
 ## Claude Code CLI
 
@@ -101,6 +129,7 @@ Flags: `-p --model <m> --safe-mode --tools "" --no-session-persistence --strict-
 
 - `backend/` - CLI processes, command builders, parsers, prompt, usage tracking, `CompletionRouter` (picks the provider).
 - `completion/` - `TriggerRules`, `CompletionPostProcessor`, `CompletionCache`. Pure logic.
+- `nextedit/` - edit history, next edit prompt section, reply parser, target choice and state (pure), plus the editor controller, preview, Tab and Esc handlers.
 - `php/` - class outlines and imported-class context.
 - `alternatives/` - Next-suggestion handler, pending alternative request, multi-variant suggestion.
 - `actions/`, `ui/` - toggle and trigger actions, status bar widget.
