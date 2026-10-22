@@ -80,4 +80,56 @@ class StreamingGuardsTest {
         stream.onFinal(raw)
         assertEquals("\$a = 1;\nstep(\$a);", stream.text)
     }
+
+    @Test
+    fun `a trailing duplicate closer never appears while streaming`() {
+        val context = testContext(prefix = "function a() {\n", suffix = "\n\n}\n", multiline = true, maxLines = 400)
+        val reply = "\$a = 1;\nreturn \$a;\n}"
+        assertStable(reply, context)
+        assertEquals("\$a = 1;\nreturn \$a;", run(reply, context).final)
+    }
+
+    @Test
+    fun `an own closer streams as before`() {
+        val context = testContext(prefix = "function a() {\n", suffix = "\n}\n", multiline = true, maxLines = 400)
+        val reply = "if (\$x) {\n    run();\n}\nnext();"
+        assertStable(reply, context)
+        assertEquals(reply, run(reply, context).final)
+    }
+
+    @Test
+    fun `lines that repeat the file below are held back until they diverge or end`() {
+        val context = testContext(prefix = "function a() {\n", suffix = "\n    load();\n    save();\n}\n", multiline = true, maxLines = 400)
+        val reply = "prepare();\nload();\nsave();"
+        val run = run(reply, context)
+        assertEquals("prepare();", run.streamed)
+        assertEquals("prepare();", run.final)
+        assertStable(reply, context)
+    }
+
+    @Test
+    fun `a short line that only repeats the file together with the next one is held back`() {
+        val context = testContext(prefix = "function a() {\n", suffix = "\n    i++;\n    save(\$x);\n}\n", multiline = true, maxLines = 400)
+        val reply = "prepare();\ni++;\nsave(\$x);"
+        val run = run(reply, context)
+        assertEquals("prepare();", run.streamed)
+        assertEquals("prepare();", run.final)
+        assertStable(reply, context)
+    }
+
+    @Test
+    fun `lines that start like the file below but go on differently are shown`() {
+        val context = testContext(prefix = "function a() {\n", suffix = "\n    load();\n    save();\n}\n", multiline = true, maxLines = 400)
+        val reply = "prepare();\nload();\nclose();"
+        assertStable(reply, context)
+        assertEquals(reply, run(reply, context).final)
+    }
+
+    @Test
+    fun `an else branch streams without the doubled closer`() {
+        val context = testContext(prefix = "if (a) {\n", suffix = "\n}\n", multiline = true, maxLines = 400)
+        val reply = "run();\n} else {\n    other();\n}"
+        assertStable(reply, context)
+        assertEquals("run();\n} else {\n    other();", run(reply, context).final)
+    }
 }

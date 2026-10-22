@@ -50,4 +50,57 @@ class QualityGuardsTest {
     fun `the guard label names the cause for the log`() {
         assertEquals("repetition guard", Guard.Repetition.label)
     }
+
+    @Test
+    fun `a closer below the caret behind blank lines is not doubled`() {
+        val context = testContext(prefix = "function a() {\n    ", suffix = "\n\n\n}\n", multiline = true, maxLines = 30)
+        val processed = CompletionPostProcessor.interpret("<completion>run();\n}</completion>", context)
+        assertEquals("run();", processed.text)
+        assertEquals(listOf(Guard.Closers), processed.cuts.map { it.guard })
+        assertEquals(2, processed.cuts.single().linesBefore)
+        assertEquals(1, processed.cuts.single().linesAfter)
+    }
+
+    @Test
+    fun `an else branch closes once against the file`() {
+        val context = testContext(prefix = "if (a) {\n", suffix = "\n}\n", multiline = true, maxLines = 30)
+        val text = CompletionPostProcessor.process("<completion>run();\n} else {\n    other();\n}</completion>", context)
+        assertEquals("run();\n} else {\n    other();", text)
+        assertEquals(1, ("if (a) {\n$text\n}\n").lines().count { it == "}" })
+    }
+
+    @Test
+    fun `the closer of a completed block is kept`() {
+        val context = testContext(prefix = "function a() {\n    ", suffix = "\n}\n", multiline = true, maxLines = 30)
+        val raw = "if (\$x) {\n        run();\n    }"
+        assertEquals(raw, CompletionPostProcessor.process("<completion>$raw</completion>", context))
+    }
+
+    @Test
+    fun `a suggestion that repeats the next line is dropped and reported`() {
+        val context = testContext(prefix = "function a() {\n    \$x = 1;\n    ", suffix = "\n    return \$x;\n}\n", multiline = false)
+        val processed = CompletionPostProcessor.interpret("<completion>return \$x;</completion>", context)
+        assertEquals("", processed.text)
+        assertEquals(Guard.NextLine, processed.cuts.single().guard)
+    }
+
+    @Test
+    fun `the last lines that repeat the file are removed`() {
+        val context = testContext(prefix = "function a() {\n    ", suffix = "\n    return \$x;\n}\n", multiline = true, maxLines = 30)
+        val text = CompletionPostProcessor.process("<completion>\$x = load();\nreturn \$x;</completion>", context)
+        assertEquals("\$x = load();", text)
+    }
+
+    @Test
+    fun `a similar line is not a duplicate`() {
+        val context = testContext(prefix = "function a() {\n    ", suffix = "\n    return \$x;\n}\n", multiline = true, maxLines = 30)
+        assertEquals("return \$y;", CompletionPostProcessor.process("<completion>return \$y;</completion>", context))
+    }
+
+    @Test
+    fun `a streaming result keeps the guard cuts for the log`() {
+        val stream = StreamingCompletion(body)
+        stream.onFinal("<completion>" + "tick();\n".repeat(60) + "</completion>")
+        assertEquals(listOf(Guard.Repetition), stream.processed.cuts.map { it.guard })
+    }
 }
