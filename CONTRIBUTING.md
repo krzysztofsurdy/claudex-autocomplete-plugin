@@ -26,6 +26,13 @@ or once in `~/.gradle/gradle.properties`:
 localIdePath=/path/to/PhpStorm.app
 ```
 
+Without PhpStorm, install a JDK 21 with Homebrew instead:
+
+```
+brew install openjdk@21
+export JAVA_HOME=$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home
+```
+
 Sandbox IDE with the plugin: `./gradlew runIde`
 
 ## Tests
@@ -41,13 +48,22 @@ CLAUDE_IT=1 ./gradlew test
 CODEX_IT=1 ./gradlew test
 ```
 
-UI tests start a real PhpStorm with the built plugin (IntelliJ Starter + Driver), open the project in `src/uiTest/resources/php-project`, type in the editor and check the accepted suggestion. They call the real Claude CLI, so they are opt-in too. The first run downloads PhpStorm:
+UI tests start a real PhpStorm with the built plugin (IntelliJ Starter + Driver), open the project in `src/uiTest/resources/php-project`, type characters and check the accepted suggestion. They call the real Claude CLI, so they are opt-in too. The first run downloads PhpStorm:
 
 ```
 CLAUDE_IT=1 ./gradlew uiTest -PuiTestIdeVersion=2025.3
 ```
 
-Failing test first, then the code. Keep pure logic in `completion/` and `backend/`.
+New UI tests must drive the IDE only through in-IDE actions and APIs: `invokeAction`, the platform's typing action through the Driver and `moveCaretToOffset`. Never use OS-level keyboard or mouse input, because it goes to whatever app has focus on the developer's machine. They also take no screenshots: close the IDE with `closeIdeAndWait(takeScreenshot = false)`.
+
+Failing test first, then the code. Keep pure logic in `completion/`, `backend/`, `context/` and `nextedit/`.
+
+Test pitfalls:
+
+- Gradle's build cache can replay old test results. Verify with `./gradlew test --rerun --no-build-cache`.
+- Register new headless IDE test classes in `IdeTestsRunnerTest`, or they never run.
+- An IDE test that accepts a suggestion must call `CompletionRequests.getInstance().cancel()` in tearDown before it restores the engine. Otherwise a background prefetch can start the real CLI.
+- No wall-clock waits and no pixel or rendering checks in fixture tests, CI runs on headless Linux. Inject clocks, drive timers by hand and compare icons structurally.
 
 ## Layout
 
@@ -60,8 +76,10 @@ Sources are in `src/main/kotlin/dev/ksurdy/claudeautocomplete`. Tests mirror it 
 | `context/` | Related snippet ranking from open tabs: tokenizer, stop words, window scorer, selector |
 | `nextedit/` | Next edit suggestions: edit history, prompt section, reply parser, target choice, timing policy, rejection memory, Tab handlers, preview |
 | `php/` | PHP class outlines and imported-class context |
+| `alternatives/` | Next and Previous suggestion handlers, alternative requests |
+| `settings/` | Settings page group builders, provider choice |
 | `actions/`, `ui/` | Editor actions, status bar widget |
-| top level | Inline completion provider, settings, context collection, status service |
+| top level | Inline completion provider, settings, context collection, status service, request service (`CompletionRequests`, `RunningCompletion`: in-flight reuse and prefetch), `EditorGates` |
 
 ## Code style
 
