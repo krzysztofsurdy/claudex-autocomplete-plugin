@@ -10,6 +10,7 @@
       <li>Choose Claude Code or Codex as the provider</li>
       <li>Next edit suggestions (opt-in): predicts your next edit elsewhere in the file, Tab jumps to it and Tab again applies it</li>
       <li>Accept the whole suggestion, the next word or the rest of the line</li>
+      <li>Whole method bodies and mid-line suggestions, with alternatives on Alt+] / Alt+[</li>
       <li>Context from the current file, the most relevant snippets of other open tabs and, for PHP, imported classes</li>
       <li>Persistent Claude Code process for lower latency</li>
       <li>Animated spinner with elapsed time while a suggestion is generated</li>
@@ -32,6 +33,21 @@
     <p>Claudex Autocomplete is an independent project and is not affiliated with, endorsed or sponsored by Anthropic or OpenAI. Claude is a trademark of Anthropic; Codex is a trademark of OpenAI.</p>
   ]]></description>
   <change-notes><![CDATA[
+    <h4>1.1.0</h4>
+    <ul>
+      <li>Whole function body when you press Enter in an empty body, and the whole method when a declaration line ends with <code>(</code></li>
+      <li>Suggestions mid-line, with code right of the caret</li>
+      <li>Multi-line suggestions stream in line by line while the model writes</li>
+      <li>Alternative suggestions with Alt+] / Alt+[, up to 3, requested only when you ask</li>
+      <li>Next edit suggestions (opt-in): Tab jumps to the predicted edit, Tab again applies it</li>
+      <li>A dismissed suggestion survives typing, and the next suggestion is prefetched after you accept one</li>
+      <li>Related snippets from open tabs, ranked by the identifiers they share with the code at the caret</li>
+      <li>Quality guards: no prose, repetition loops, repeated lines or doubled closing brackets in suggestions</li>
+      <li>Smarter triggering: no requests with a selection, several carets, during undo, in live templates or while the completion popup is open (configurable)</li>
+      <li>Status bar icon without text, state and usage in the tooltip</li>
+      <li>Settings page regrouped by feature</li>
+      <li>Faster first suggestion: the Claude Code process starts with the project</li>
+    </ul>
     <h4>1.0.0</h4>
     <ul>
       <li>Codex CLI as a second provider next to Claude Code</li>
