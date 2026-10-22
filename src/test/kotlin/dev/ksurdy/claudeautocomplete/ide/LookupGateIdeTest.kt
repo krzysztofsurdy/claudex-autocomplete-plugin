@@ -4,12 +4,10 @@ import com.intellij.codeInsight.inline.completion.testInlineCompletion
 import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import dev.ksurdy.claudeautocomplete.ClaudeAutocompleteSettings
-import dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider
-import kotlinx.coroutines.CompletableDeferred
 import org.jetbrains.yaml.YAMLFileType
 import kotlin.time.Duration.Companion.seconds
 
-class LookupAndDuplicateGatesIdeTest : GatesIdeTestBase() {
+class LookupGateIdeTest : GatesIdeTestBase() {
     private fun openLookup() = onEdt { myFixture.completeBasic() }
 
     private fun yamlWithLookup(key: String) = "a: foobar1\nb: foobar2\n$key: foo<caret>\n"
@@ -61,55 +59,24 @@ class LookupAndDuplicateGatesIdeTest : GatesIdeTestBase() {
         assertEquals(1, fake.contexts.size)
     }
 
-    fun testRepeatedEventForTheSameStateStartsNoSecondRequest() = myFixture.testInlineCompletion(timeout = 20.seconds) {
-        val gate = CompletableDeferred<Unit>()
-        fake.gate = gate
+    fun testRepeatedEventForTheSameStateStillShowsASuggestion() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         init(PlainTextFileType.INSTANCE, "gate15 <caret>")
         onEdt {
             insertAtCaret()
             handler().invokeEvent(typingEvent())
+            handler().invokeEvent(typingEvent())
         }
-        repeat(100) { if (fake.contexts.isEmpty()) delay(50) }
-        assertEquals(1, fake.contexts.size)
-        onEdt { handler().invokeEvent(typingEvent()) }
-        gate.complete(Unit)
         delay()
-        assertEquals(1, fake.contexts.size)
+        assertInlineElements { gray("world") }
     }
 
-    fun testANewEditAfterARequestIsNotADuplicate() = myFixture.testInlineCompletion(timeout = 20.seconds) {
-        init(PlainTextFileType.INSTANCE, "gate16<caret>")
-        fireAutomatic()
-        delay()
-        typeChar(' ')
-        delay()
-        assertEquals(2, fake.contexts.size)
-    }
-
-    fun testOneEventAnsweredTwiceByTheProviderIsNotItsOwnDuplicate() = myFixture.testInlineCompletion(timeout = 20.seconds) {
-        init(PlainTextFileType.INSTANCE, "gate17 <caret>")
-        val provider = ClaudeInlineCompletionProvider()
-        var first = false
-        var again = false
-        var repeated = true
-        onEdt {
-            val event = typingEvent()
-            first = provider.isEnabled(event)
-            again = provider.isEnabled(event)
-            repeated = provider.isEnabled(typingEvent())
-        }
-        assertTrue(first)
-        assertTrue(again)
-        assertFalse(repeated)
-    }
-
-    fun testManualTriggerIsNeverADuplicate() = myFixture.testInlineCompletion(timeout = 20.seconds) {
+    fun testManualTriggerAfterAnAutomaticRequestForTheSameStateStillRuns() = myFixture.testInlineCompletion(timeout = 20.seconds) {
         init(PlainTextFileType.INSTANCE, "gate18 <caret>")
-        callAction("ClaudeAutocomplete.Trigger")
+        fireAutomatic()
         delay()
         escape()
         callAction("ClaudeAutocomplete.Trigger")
         delay()
-        assertEquals(2, fake.contexts.size)
+        assertInlineElements { gray("world") }
     }
 }

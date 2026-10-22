@@ -14,13 +14,9 @@ enum class Gate {
     LiveTemplate,
     LookupOpen,
     NextEditShown,
-    Duplicate,
 }
 
-data class RequestStamp(val modificationStamp: Long, val caretOffset: Int)
-
 data class EditorSnapshot(
-    val stamp: RequestStamp,
     val viewer: Boolean = false,
     val writable: Boolean = true,
     val oneLine: Boolean = false,
@@ -38,10 +34,10 @@ data class EditorSnapshot(
 )
 
 object CompletionGates {
-    fun blockedBy(snapshot: EditorSnapshot, manual: Boolean, showWhileLookupOpen: Boolean, last: RequestStamp?): Gate? {
+    fun blockedBy(snapshot: EditorSnapshot, manual: Boolean, showWhileLookupOpen: Boolean): Gate? {
         editorGate(snapshot)?.let { return it }
         if (manual) return null
-        return stateGate(snapshot, showWhileLookupOpen) ?: Gate.Duplicate.takeIf { snapshot.stamp == last }
+        return stateGate(snapshot, showWhileLookupOpen)
     }
 
     private fun editorGate(snapshot: EditorSnapshot): Gate? = when {
