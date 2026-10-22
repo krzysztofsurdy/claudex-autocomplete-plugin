@@ -45,6 +45,13 @@ class EditHistoryTest {
     }
 
     @Test
+    fun `keeps up to 20 hunks by default`() {
+        val history = EditHistory()
+        (1..25).forEach { history.record(it * 10, "a$it", "b$it") }
+        assertEquals((6..25).map { it * 10 }, history.hunks().map { it.startLine })
+    }
+
+    @Test
     fun `keeps only the most recent hunks`() {
         val history = EditHistory(maxEdits = 3)
         (1..5).forEach { history.record(it * 10, "a$it", "b$it") }

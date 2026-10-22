@@ -7,8 +7,7 @@ object NextEditPrompt {
         append("<recent_edits>\n")
         for (hunk in input.edits) {
             append("<edit line=\"").append(hunk.startLine).append("\">\n")
-            append("<before>\n").append(escape(hunk.before)).append("\n</before>\n")
-            append("<after>\n").append(escape(hunk.after)).append("\n</after>\n")
+            EditDiff.render(hunk).forEach { append(escape(it)).append('\n') }
             append("</edit>\n")
         }
         append("</recent_edits>\n")
@@ -26,6 +25,5 @@ object NextEditPrompt {
     private fun escape(content: String): String =
         content.replace("</numbered_file>", "<\\/numbered_file>")
             .replace("</recent_edits>", "<\\/recent_edits>")
-            .replace("</before>", "<\\/before>")
-            .replace("</after>", "<\\/after>")
+            .replace("</edit>", "<\\/edit>")
 }

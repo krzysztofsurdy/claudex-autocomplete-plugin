@@ -48,4 +48,13 @@ class NextEditInputTest {
         assertTrue(input.windowText.length <= 20)
         assertTrue(input.windowText.contains("line5"))
     }
+
+    @Test
+    fun `only the newest hunks within the token budget are sent`() {
+        val many = (1..40).map { EditHunk(it, "a".repeat(100), "b".repeat(100)) }
+        val input = NextEditInput.create(many, text, 0, FileWindow.MODE_AUTO, 1000, 150, 200_000)
+        assertTrue(input.edits.size in 1 until 40)
+        assertEquals(many.takeLast(input.edits.size), input.edits)
+        assertTrue(input.edits.sumOf { HistoryBudget.tokens(it) } <= HistoryBudget.DEFAULT_TOKENS)
+    }
 }

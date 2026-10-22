@@ -31,7 +31,8 @@ data class NextEditInput(
                 radius /= 2
                 range = rangeAround(caretIndex, radius, lines.size)
             }
-            return NextEditInput(edits, lines.subList(range.first, range.last + 1).joinToString("\n"), range.first + 1, caretIndex + 1)
+            val windowText = lines.subList(range.first, range.last + 1).joinToString("\n")
+            return NextEditInput(HistoryBudget.select(edits), windowText, range.first + 1, caretIndex + 1)
         }
 
         private fun rangeAround(caretIndex: Int, radius: Int, lineCount: Int): IntRange =
