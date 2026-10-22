@@ -19,7 +19,7 @@
 - Gray inline suggestions after a short pause, in any language the IDE edits.
 - Claude Code (`claude`) or Codex (`codex`), switch in settings or the status bar.
 - Accept all, next word or rest of the line.
-- Context: current file (whole or around the caret), open tabs, and for PHP outlines of imported classes, parent, interfaces and traits.
+- Context: current file (whole or around the caret), the most relevant snippets of other open tabs (ranked by identifier overlap with the code around the caret), and for PHP outlines of imported classes, parent, interfaces and traits.
 - Multi-line suggestions stream in line by line while the model writes.
 - Next edit suggestions (opt-in): after an edit, predicts the next one elsewhere in the file, e.g. the other usages of a renamed parameter. Tab jumps to it, Tab again applies it.
 - Spinner with elapsed time until the first line arrives.
@@ -78,7 +78,7 @@ Settings | Tools | Claudex Autocomplete. Main options:
 | Debounce (ms) | 250 | Delay after typing before a request |
 | Request timeout (ms) | 8000 | |
 | Current file context | auto | Whole file up to 1000 lines, else 150 lines around the caret |
-| Include open tabs | true | Character budget is configurable |
+| Include related snippets from open tabs | true | Up to 4 snippets of about 60 lines each, from open tabs only. Character budget is configurable |
 | Excluded file patterns | `.env`, `*.pem`, `id_rsa*`, ... | Comma-separated. Matching files, VCS-ignored files and files excluded from the project are never sent |
 | Include imported classes | true | PHP only, signatures only |
 | Multi-line mode | auto | auto / always / never |
@@ -91,7 +91,7 @@ Test Connection runs one completion with the values in the form, without saving.
 
 ## How it works
 
-After you pause, the plugin sends the CLI the code before and after the caret, the file window, optionally other open tabs and (PHP) imported class outlines. The reply shows as ghost text.
+After you pause, the plugin sends the CLI the code before and after the caret, the file window, optionally the best matching snippets of other open tabs (each with its path and line range) and (PHP) imported class outlines. The reply shows as ghost text.
 
 It only asks when the rest of the line is empty or closing characters, and never in read-only editors or files over 1,000,000 characters. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_*` are removed from the CLI environment, so your subscription login is used.
 
@@ -109,7 +109,7 @@ No CLI starts at IDE startup. Usage refreshes after completions, on Refresh Usag
 
 - **Not logged in**: run `claude` then `/login`, or `codex login`.
 - **CLI not found**: set the full path in settings, GUI-launched IDEs have a minimal PATH.
-- **Slow**: use `haiku`, keep "Keep CLI process alive" on, effort `low`, thinking off, lower the open tabs budget or file window.
+- **Slow**: use `haiku`, keep "Keep CLI process alive" on, effort `low`, thinking off, lower the related snippets budget or file window.
 - **No suggestions**: check completions are enabled, the status bar, disabled languages, and that the caret is at the end of the code on its line.
 - **Limit reached**: resumes after the reset time in the widget tooltip.
 

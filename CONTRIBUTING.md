@@ -57,6 +57,7 @@ Sources are in `src/main/kotlin/dev/ksurdy/claudeautocomplete`. Tests mirror it 
 |---|---|
 | `backend/` | CLI processes, command builders, parsers, prompt |
 | `completion/` | Post-processing, trigger rules, cache |
+| `context/` | Related snippet ranking from open tabs: tokenizer, stop words, window scorer, selector |
 | `nextedit/` | Next edit suggestions: edit history, prompt section, reply parser, target choice, Tab handlers, preview |
 | `php/` | PHP class outlines and imported-class context |
 | `actions/`, `ui/` | Editor actions, status bar widget |
