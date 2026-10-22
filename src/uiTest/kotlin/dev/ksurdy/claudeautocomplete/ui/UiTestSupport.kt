@@ -61,8 +61,9 @@ class Seed(val anchor: String, val replacement: String) {
 }
 
 @OptIn(ExperimentalPathApi::class)
-fun newPhpStormContext(name: String, nextEdit: Boolean = false): IDETestContext {
-    val project = Files.createTempDirectory("claudex-ui-")
+fun newPhpStormContext(name: String, nextEdit: Boolean = false, projectName: String? = null): IDETestContext {
+    val root = Files.createTempDirectory("claudex-ui-")
+    val project = projectName?.let { root.resolve(it).createDirectories() } ?: root
     Path(System.getProperty("ui.test.project")).copyToRecursively(project, followLinks = false, overwrite = true)
     val testCase = TestCase(IdeProductProvider.PS, LocalProjectInfo(project)).let { case ->
         System.getProperty("ui.test.ide.version")?.let(case::useRelease) ?: case
