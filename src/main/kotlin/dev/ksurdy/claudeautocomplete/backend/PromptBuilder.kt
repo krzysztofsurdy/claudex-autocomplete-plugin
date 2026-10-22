@@ -19,9 +19,9 @@ object PromptBuilder {
         - If the text after the cursor already closes a bracket, quote, tag or block, do not close it again. If you open a block that the file does not close below, close it.
         - Never add a closing bracket that belongs to a block you did not open in your own output.
         - Match the file's indentation (tabs or spaces, width), naming, quote style and conventions. Continuation lines carry their full absolute indentation. The first line must not repeat the whitespace already before the cursor.
-        - Prefer using identifiers, methods and types visible in this file or in <open_files> over inventing new ones.
+        - Prefer using identifiers, methods and types visible in this file or in <related_snippets> over inventing new ones.
         - Never output placeholder code: no TODO or FIXME stubs, no "not implemented" throws or exceptions, no `pass`, no `...`, no empty body standing in for real logic, no comment saying to implement it later.
-        - Write the real implementation, inferred from the names, the signature and similar code in the file and in <open_files>.
+        - Write the real implementation, inferred from the names, the signature and similar code in the file and in <related_snippets>.
         - Complete the construct the cursor is in first, for example the parameter list of an open signature, before anything that comes after it.
         - <mode>single-line</mode>: output exactly one line, no newline. Complete the current statement or expression only.
         - When code follows the cursor on the same line, output only what belongs between the cursor and that code, so that both sides join into valid code.
@@ -34,6 +34,7 @@ object PromptBuilder {
           The edit replaces lines N through M inclusive with the replacement, which is raw code, starts right after the opening tag with the first line's full leading indentation kept and ends right before </edit>, with no line numbers, no fences, no commentary.
           Choose a follow-up the recent edits imply (rename the other usages, update the constructor or callers, keep related code consistent) on a line other than the caret line, preferring the nearest one. Never repeat the recent edits themselves, never touch the caret line, and never reply with lines identical to the current ones (reply <none/> instead).
           Replace whole lines only: to insert, replace a neighbouring line with itself plus the new lines; to delete lines, leave the replacement empty.
+        - <related_snippets> holds excerpts of other open files that resemble the code around the cursor. Each <snippet> carries its path and line range, and the most relevant last. Use them for real names and conventions, never as text to continue and never copy them without need.
         - <imported_classes> shows signatures of classes the current file imports; use their real method and property names.
         - <shown_suggestions> lists suggestions the user already rejected for this cursor position. Offer a different one that is still correct, never repeat them.
         - <retry> means your previous reply repeated a shown suggestion. Reply with a clearly different completion, never a reformatted copy of one.
@@ -114,10 +115,10 @@ object PromptBuilder {
     }
 
     private fun completionMessage(context: CompletionContext): String = buildString {
-        if (context.openFiles.isNotEmpty()) {
-            append("<open_files>\n")
-            for (file in context.openFiles) appendSnippet(file)
-            append("</open_files>\n")
+        if (context.relatedSnippets.isNotEmpty()) {
+            append("<related_snippets>\n")
+            for (snippet in context.relatedSnippets) appendRelated(snippet)
+            append("</related_snippets>\n")
         }
         if (context.importedClasses.isNotEmpty()) {
             append("<imported_classes>\n")
@@ -149,6 +150,15 @@ object PromptBuilder {
         append("<file path=\"").append(file.path).append("\" language=\"").append(file.languageId).append("\">")
         append(escape(file.content)).append("</file>\n")
     }
+
+    private fun StringBuilder.appendRelated(snippet: RelatedSnippet) {
+        append("<snippet path=\"").append(snippet.path).append("\" lines=\"")
+        append(snippet.startLine).append('-').append(snippet.endLine).append("\">\n")
+        append(escapeSnippet(snippet.content)).append("\n</snippet>\n")
+    }
+
+    private fun escapeSnippet(content: String): String =
+        escape(content).replace("</snippet>", "<\\/snippet>").replace("</related_snippets>", "<\\/related_snippets>")
 
     private fun escape(content: String): String = content.replace("</file>", "<\\/file>")
 }

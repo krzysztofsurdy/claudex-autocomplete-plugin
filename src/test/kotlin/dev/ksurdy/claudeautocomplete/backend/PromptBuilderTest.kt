@@ -82,7 +82,7 @@ class PromptBuilderTest {
     fun `system prompt asks for a real implementation inferred from similar code`() {
         val system = PromptBuilder.systemPrompt("")
         assertContains(system, "Write the real implementation")
-        assertContains(system, "similar code in the file and in <open_files>")
+        assertContains(system, "similar code in the file and in <related_snippets>")
     }
 
     @Test
@@ -135,19 +135,27 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `open files block is omitted when there are none`() {
-        assertFalse(PromptBuilder.userMessage(testContext()).contains("<open_files>"))
+    fun `related snippets block is omitted when there are none`() {
+        assertFalse(PromptBuilder.userMessage(testContext()).contains("<related_snippets>"))
     }
 
     @Test
-    fun `open files block lists each snippet`() {
+    fun `related snippets block lists each snippet with path and line range`() {
         val message = PromptBuilder.userMessage(
-            testContext(openFiles = listOf(OpenFileSnippet("a.php", "PHP", "AAA"), OpenFileSnippet("b.js", "JavaScript", "BBB"))),
+            testContext(relatedSnippets = listOf(RelatedSnippet("src/Foo.php", 40, 99, "AAA\nAAB"), RelatedSnippet("b.js", 1, 3, "BBB"))),
         )
-        assertContains(message, "<open_files>")
-        assertContains(message, "<file path=\"a.php\" language=\"PHP\">AAA</file>")
-        assertContains(message, "<file path=\"b.js\" language=\"JavaScript\">BBB</file>")
-        assertContains(message, "</open_files>")
+        assertContains(message, "<related_snippets>\n<snippet path=\"src/Foo.php\" lines=\"40-99\">\nAAA\nAAB\n</snippet>\n")
+        assertContains(message, "<snippet path=\"b.js\" lines=\"1-3\">\nBBB\n</snippet>\n</related_snippets>\n")
+        assertTrue(message.indexOf("src/Foo.php\" lines") < message.indexOf("b.js\" lines"))
+    }
+
+    @Test
+    fun `system prompt explains related snippets`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "<related_snippets>")
+        assertContains(system, "path and line range")
+        assertContains(system, "most relevant last")
+        assertFalse(system.contains("<open_files>"))
     }
 
     @Test
@@ -211,18 +219,20 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `open files come before current file and mode is last`() {
-        val message = PromptBuilder.userMessage(testContext(openFiles = listOf(OpenFileSnippet("a.php", "PHP", "AAA"))))
-        assertTrue(message.indexOf("<open_files>") < message.indexOf("<CURSOR/>"))
+    fun `related snippets come before current file and mode is last`() {
+        val message = PromptBuilder.userMessage(testContext(relatedSnippets = listOf(RelatedSnippet("a.php", 1, 1, "AAA"))))
+        assertTrue(message.indexOf("<related_snippets>") < message.indexOf("<CURSOR/>"))
         assertTrue(message.endsWith("<mode>single-line</mode>"))
     }
 
     @Test
     fun `literal closing file tag in content is escaped`() {
         val message = PromptBuilder.userMessage(
-            testContext(prefix = "a</file>", suffix = "</file>b", openFiles = listOf(OpenFileSnippet("x", "PHP", "</file>"))),
+            testContext(prefix = "a</file>", suffix = "</file>b", relatedSnippets = listOf(RelatedSnippet("x", 1, 1, "</file></snippet></related_snippets>"))),
         )
-        assertEquals(2, Regex("</file>").findAll(message).count())
+        assertEquals(1, Regex("</file>").findAll(message).count())
+        assertEquals(1, Regex("</snippet>").findAll(message).count())
+        assertEquals(1, Regex("</related_snippets>").findAll(message).count())
     }
 
     @Test
@@ -241,15 +251,15 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `imported classes block sits between open files and current file`() {
+    fun `imported classes block sits between related snippets and current file`() {
         val message = PromptBuilder.userMessage(
             testContext(
-                openFiles = listOf(OpenFileSnippet("a.php", "PHP", "AAA")),
+                relatedSnippets = listOf(RelatedSnippet("a.php", 1, 1, "AAA")),
                 importedClasses = listOf(OpenFileSnippet("src/User.php", "PHP", "class User { function getName(): string; }")),
             ),
         )
         assertContains(message, "<imported_classes>\n<file path=\"src/User.php\" language=\"PHP\">class User { function getName(): string; }</file>\n</imported_classes>")
-        assertTrue(message.indexOf("</open_files>") < message.indexOf("<imported_classes>"))
+        assertTrue(message.indexOf("</related_snippets>") < message.indexOf("<imported_classes>"))
         assertTrue(message.indexOf("</imported_classes>") < message.indexOf("<CURSOR/>"))
     }
 

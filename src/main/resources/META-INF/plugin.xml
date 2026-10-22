@@ -10,7 +10,7 @@
       <li>Choose Claude Code or Codex as the provider</li>
       <li>Next edit suggestions (opt-in): predicts your next edit elsewhere in the file, Tab jumps to it and Tab again applies it</li>
       <li>Accept the whole suggestion, the next word or the rest of the line</li>
-      <li>Context from the current file, open tabs and, for PHP, imported classes</li>
+      <li>Context from the current file, the most relevant snippets of other open tabs and, for PHP, imported classes</li>
       <li>Persistent Claude Code process for lower latency</li>
       <li>Animated spinner with elapsed time while a suggestion is generated</li>
       <li>Status bar icon: grey when off, coloured when ready, blinking while thinking, usage in the tooltip</li>

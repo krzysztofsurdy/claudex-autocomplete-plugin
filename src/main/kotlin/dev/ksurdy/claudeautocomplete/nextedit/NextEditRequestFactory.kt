@@ -38,7 +38,7 @@ object NextEditRequestFactory {
             languageId = psiFile.language.id,
             prefix = "",
             suffix = "",
-            openFiles = emptyList(),
+            relatedSnippets = emptyList(),
             multiline = false,
             maxLines = NextEditTarget.MAX_LINES,
             indent = if (options.USE_TAB_CHARACTER) "tabs" else "${options.INDENT_SIZE} spaces",

@@ -16,6 +16,9 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.OpenFileSnippet
+import dev.ksurdy.claudeautocomplete.backend.RelatedSnippet
+import dev.ksurdy.claudeautocomplete.context.CaretQuery
+import dev.ksurdy.claudeautocomplete.context.SnippetSelector
 import dev.ksurdy.claudeautocomplete.completion.TriggerRules
 
 object ContextCollector {
@@ -54,8 +57,8 @@ object ContextCollector {
             languageId = languageId,
             prefix = prefix,
             suffix = suffix,
-            openFiles = if (settings.includeOpenTabs && project != null) {
-                openTabs(project, currentFile, settings.maxOpenTabsChars, patterns)
+            relatedSnippets = if (settings.includeOpenTabs && project != null) {
+                relatedSnippets(project, currentFile, languageId, CaretQuery.around(prefix, suffix), settings.maxOpenTabsChars, patterns)
             } else {
                 emptyList()
             },
@@ -82,21 +85,28 @@ object ContextCollector {
         return if (options.USE_TAB_CHARACTER) "tabs" else "${options.INDENT_SIZE} spaces"
     }
 
-    private fun openTabs(project: Project, current: VirtualFile?, budget: Int, patterns: String): List<OpenFileSnippet> {
+    private fun relatedSnippets(
+        project: Project,
+        current: VirtualFile?,
+        languageId: String,
+        query: String,
+        budget: Int,
+        patterns: String,
+    ): List<RelatedSnippet> {
         val manager = FileEditorManager.getInstance(project)
         val documents = FileDocumentManager.getInstance()
         val open = manager.openFiles.toSet()
         val recent = EditorHistoryManager.getInstance(project).fileList.asReversed().filter { it in open }
         val ordered = (manager.selectedFiles.toList() + recent + open).distinct()
         val psiManager = PsiManager.getInstance(project)
-        val snippets = ordered
+        val tabs = ordered
             .filter { it != current && it.isValid && !it.fileType.isBinary && !isExcluded(project, it, patterns) }
             .mapNotNull { file ->
                 val content = documents.getCachedDocument(file)?.charsSequence ?: return@mapNotNull null
                 if (content.length > MAX_FILE_CHARS) return@mapNotNull null
                 OpenFileSnippet(relativePath(project, file), psiManager.findFile(file)?.language?.id ?: file.fileType.name, content.toString())
             }
-        return ContextLimits.budget(snippets, budget)
+        return SnippetSelector().select(tabs, languageId, query, budget)
     }
 
     fun isExcluded(project: Project, file: VirtualFile, patterns: String): Boolean {
