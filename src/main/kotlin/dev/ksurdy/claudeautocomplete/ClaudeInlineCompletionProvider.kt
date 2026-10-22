@@ -14,11 +14,13 @@ import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.util.UserDataHolderBase
 import dev.ksurdy.claudeautocomplete.alternatives.AlternativeRequest
 import dev.ksurdy.claudeautocomplete.alternatives.AlternativeSuggestion
+import dev.ksurdy.claudeautocomplete.alternatives.AlternativeTexts
 import dev.ksurdy.claudeautocomplete.backend.BackendConfig
 import dev.ksurdy.claudeautocomplete.backend.CompletionContext
 import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
+import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
 import dev.ksurdy.claudeautocomplete.completion.ReplySource
 import dev.ksurdy.claudeautocomplete.completion.StreamingCompletion
 import kotlinx.coroutines.CancellationException
@@ -73,10 +75,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
         val config = settings.toBackendConfig()
         val indicatorShown = settings.state.showInlineLoadingIndicator
-        if (alternative != null) {
-            val fresh = streamCompletion(request, context.copy(alternativeTo = alternative.previousTexts), config, null, gen, indicatorShown)
-            return AlternativeSuggestion(fresh, alternative.previousTexts)
-        }
+        if (alternative != null) return alternativeSuggestion(request, context, config, alternative, gen, indicatorShown)
         val cacheKey = CompletionCache.key(context, config)
         val cached = if (manual) null else cache.get(cacheKey)
         if (cached != null) {
@@ -86,11 +85,60 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         return InlineCompletionSingleSuggestion.build(UserDataHolderBase(), streamCompletion(request, context, config, cacheKey, gen, indicatorShown))
     }
 
+    private suspend fun alternativeSuggestion(
+        request: InlineCompletionRequest,
+        context: CompletionContext,
+        config: BackendConfig,
+        alternative: AlternativeRequest,
+        gen: Long,
+        indicatorShown: Boolean,
+    ): InlineCompletionSuggestion {
+        val startedAt = System.currentTimeMillis()
+        publish(gen, ClaudeStatus.Thinking(startedAt))
+        StatusService.getInstance().recordModel(config.activeModel())
+        val indicator = if (indicatorShown) InlineLoadingIndicator.start(request.editor, request.endOffset) else null
+        try {
+            val fresh = AlternativeTexts.fetchDistinct(alternative.previousTexts) { retry ->
+                requestAlternative(context.copy(alternativeTo = alternative.previousTexts, distinctRetry = retry), config, gen)
+            }
+            if (fresh == null) LOG.debug { "Alternative dropped: no distinct suggestion shown=${alternative.previousTexts.size}" }
+            return AlternativeSuggestion(AlternativeTexts.variants(fresh, alternative.previousTexts))
+        } catch (e: CancellationException) {
+            publish(gen, ClaudeStatus.Ready)
+            LOG.debug { "Alternative cancelled: ms=${System.currentTimeMillis() - startedAt}" }
+            throw e
+        } finally {
+            indicator?.stop()
+        }
+    }
+
+    private suspend fun requestAlternative(context: CompletionContext, config: BackendConfig, gen: Long): String {
+        val startedAt = System.currentTimeMillis()
+        LOG.debug { "Requesting alternative: provider=${config.provider} model=${config.activeModel()} retry=${context.distinctRetry} shown=${context.alternativeTo.size}" }
+        return when (val result = withContext(Dispatchers.IO) { BackendService.getInstance().engine.complete(context, config) }) {
+            is CompletionResult.Success -> {
+                val finishedAt = System.currentTimeMillis()
+                publish(gen, ClaudeStatus.Done(finishedAt - startedAt, finishedAt))
+                val text = CompletionPostProcessor.interpret(result.text, context).text
+                LOG.debug { "Alternative received: ms=${finishedAt - startedAt} length=${text.length} duplicate=${AlternativeTexts.isDuplicate(text, context.alternativeTo)}" }
+                text
+            }
+            CompletionResult.Empty -> {
+                publish(gen, ClaudeStatus.Ready)
+                ""
+            }
+            is CompletionResult.Failure -> {
+                handleFailure(gen, result, config.provider)
+                ""
+            }
+        }
+    }
+
     private fun streamCompletion(
         request: InlineCompletionRequest,
         context: CompletionContext,
         config: BackendConfig,
-        cacheKey: String?,
+        cacheKey: String,
         gen: Long,
         indicatorShown: Boolean,
     ): Flow<InlineCompletionElement> = channelFlow {
@@ -121,7 +169,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
                     logReceived(context, result.text, stream.text, finishedAt - startedAt, firstShownMs)
                     if (stream.text.isEmpty()) logEmptied(result.text, stream)
                     if (delta.isNotEmpty()) send(InlineCompletionGrayTextElement(delta))
-                    if (stream.text.isNotEmpty()) cacheKey?.let { cache.put(it, stream.text) }
+                    if (stream.text.isNotEmpty()) cache.put(cacheKey, stream.text)
                 }
                 CompletionResult.Empty -> {
                     publish(gen, ClaudeStatus.Ready)

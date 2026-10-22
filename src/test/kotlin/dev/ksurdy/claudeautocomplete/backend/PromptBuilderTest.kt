@@ -53,6 +53,20 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `retry requests tell the model its last reply repeated a shown suggestion`() {
+        val message = PromptBuilder.userMessage(testContext(alternativeTo = listOf("foo()")).copy(distinctRetry = true))
+        assertContains(message, "<retry>Your previous reply was identical to a shown suggestion.")
+        assertTrue(message.indexOf("</shown_suggestions>") < message.indexOf("<retry>"))
+        assertTrue(message.endsWith("<mode>single-line</mode>"))
+        assertFalse(PromptBuilder.userMessage(testContext(alternativeTo = listOf("foo()"))).contains("<retry>"))
+    }
+
+    @Test
+    fun `system prompt explains the retry note`() {
+        assertContains(PromptBuilder.systemPrompt(""), "<retry> means your previous reply repeated a shown suggestion")
+    }
+
+    @Test
     fun `system prompt asks for a different suggestion when some were shown`() {
         assertContains(PromptBuilder.systemPrompt(""), "<shown_suggestions> lists suggestions the user already rejected")
     }
