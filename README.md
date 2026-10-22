@@ -21,6 +21,7 @@
 - Accept all, next word or rest of the line.
 - Context: current file (whole or around the caret), the most relevant snippets of other open tabs (ranked by identifier overlap with the code around the caret), and for PHP outlines of imported classes, parent, interfaces and traits.
 - Multi-line suggestions stream in line by line while the model writes.
+- Quality guards: suggestions that end in a repetition loop, repeat the next lines of the file or double the closing brackets below the caret are cut or dropped.
 - A suggestion survives typing: after Esc or a restart, typing the start of a suggestion you already saw shows the rest at once, without a new request.
 - Typing while a request runs keeps it when you type what the model is writing, so the result still arrives without a restart.
 - After you accept a whole suggestion, the next one is requested in the background, so it is ready when you ask or start typing.
