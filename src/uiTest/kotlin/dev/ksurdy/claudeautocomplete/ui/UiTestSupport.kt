@@ -26,8 +26,15 @@ const val COMPLETION_REQUESTED = "Requesting completion"
 const val COMPLETION_EMPTY = "Completion empty"
 const val COMPLETION_EMPTIED = "Completion emptied"
 const val COMPLETION_CANCELLED = "Completion cancelled"
+const val ALTERNATIVE_REQUESTED = "Requesting alternative"
+const val ALTERNATIVE_RECEIVED = "Alternative received"
+const val ALTERNATIVE_DROPPED = "Alternative dropped"
+const val ALTERNATIVE_CANCELLED = "Alternative cancelled"
 
-private val TERMINAL_MARKERS = listOf(COMPLETION_RECEIVED, COMPLETION_FAILED, COMPLETION_EMPTY, COMPLETION_CANCELLED)
+private val TERMINAL_MARKERS = listOf(
+    COMPLETION_RECEIVED, COMPLETION_FAILED, COMPLETION_EMPTY, COMPLETION_CANCELLED,
+    ALTERNATIVE_RECEIVED, ALTERNATIVE_DROPPED, ALTERNATIVE_CANCELLED,
+)
 private const val LOG_CATEGORY = "#dev.ksurdy.claudeautocomplete,#com.intellij.codeInsight.inline.completion"
 private const val PLUGIN_LOGGER = "#dev.ksurdy.claudeautocomplete."
 private const val FULL_LINE_PLUGIN = "org.jetbrains.completion.full.line"
@@ -38,7 +45,7 @@ class PluginLog(private val file: Path) {
 
     fun finished(): List<String> = lines().filter { line -> TERMINAL_MARKERS.any { it in line } }
 
-    fun requested(): Int = lines().count { COMPLETION_REQUESTED in it }
+    fun requested(): Int = lines().count { COMPLETION_REQUESTED in it || (ALTERNATIVE_REQUESTED in it && "retry=false" in it) }
 
     fun dump(): String = lines().joinToString("\n").ifEmpty { "(no plugin log lines)" }
 }
