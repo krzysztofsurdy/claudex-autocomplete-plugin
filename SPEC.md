@@ -76,7 +76,7 @@ prefix<CURSOR/>suffix
 <mode>single-line | multi-line (max N lines) | body (max N lines)</mode>
 ```
 
-The file is whole or a window around the caret, capped at 200k chars. A truncated side gets a `<!-- truncated -->` marker. The fixed system prompt makes the model a fill-in-the-middle engine. Reply contract: the insertion is wrapped as `<completion>TEXT</completion>`, raw code only inside, no fences, no repeating text around the caret; anything outside the tags is ignored, and `<completion></completion>` means nothing fits. Claude Code and Codex get the same prompt. `customInstructions` is appended.
+The file is whole or a window around the caret, capped at 200k chars. A truncated side gets a `<!-- truncated -->` marker. The fixed system prompt makes the model a fill-in-the-middle engine. Reply contract: the insertion is wrapped as `<completion>TEXT</completion>`, raw code only inside, no fences, no repeating text around the caret; anything outside the tags is ignored, and `<completion></completion>` means nothing fits (the file is finished, no code can go at the caret). On a blank line inside a class, interface, trait or function body the prompt asks for the most likely next member or statement instead, with an example of a method between two methods. Claude Code and Codex get the same prompt. `customInstructions` is appended.
 
 ### Next edit request
 

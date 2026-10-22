@@ -105,6 +105,22 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun `system prompt reserves the empty completion for cases where nothing fits`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "almost never right on a blank line inside a class, interface, trait or function body")
+        assertContains(system, "propose the most likely next member or statement, matching the neighbouring code")
+        assertContains(system, "<completion></completion>")
+    }
+
+    @Test
+    fun `system prompt shows a blank line between methods producing a full method`() {
+        val system = PromptBuilder.systemPrompt("")
+        assertContains(system, "public function count(): int")
+        assertContains(system, "<mode>multi-line (max 20 lines)</mode>\n=> <completion>public function clear(): void\n    {")
+        assertContains(system, "\$this->items = [];\n    }</completion>")
+    }
+
+    @Test
     fun `custom instructions come after the reply contract`() {
         val system = PromptBuilder.systemPrompt("Follow PSR-12")
         assertTrue(system.indexOf("<completion>") < system.indexOf("Follow PSR-12"))
