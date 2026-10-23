@@ -2,7 +2,6 @@ package dev.ksurdy.claudeautocomplete.ui
 
 import com.intellij.driver.sdk.openFile
 import com.intellij.driver.sdk.waitForIndicators
-import com.intellij.ide.starter.driver.engine.runIdeWithDriver
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
@@ -14,7 +13,6 @@ import kotlin.io.path.writeText
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 class MarketplaceMediaUiTest {
     private val wanted: Set<String> = System.getenv("CLAUDEX_MEDIA_ONLY")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet().orEmpty()
@@ -44,29 +42,25 @@ class MarketplaceMediaUiTest {
         seedLook(context.paths.configDir)
         seedProject(context.resolvedProjectHome)
         val original = Path(System.getProperty("ui.test.project")).resolve(CONTROLLER).readText()
-        val ide = context.runIdeWithDriver(runTimeout = RUN_TIMEOUT)
+        val session = GuardedIde.start(context, RUN_TIMEOUT)
         val problems = mutableListOf<String>()
         try {
-            val guarded = ScreenshotGuard.cancelPeriodicScreenshots(ide.driver, GUARD_TIMEOUT)
-            check(guarded > 0) { "could not cancel the IDE's periodic OS screenshot job, aborting" }
-            println("MEDIA cancelled $guarded periodic screenshot job(s)")
-            val log = PluginLog(context.paths.testHome.resolve("log/idea.log"))
-            val stage = MediaStage(ide, log, original, outDir.createDirectories(), work)
+            val stage = MediaStage(session.ide, session.log, original, outDir.createDirectories(), work)
             val selected = scenes(stage).filter { wanted.isEmpty() || it.key in wanted }
             if (selected.isEmpty()) return
-            with(ide.driver) {
+            with(session.ide.driver) {
                 waitForIndicators(5.minutes)
                 openFile(CONTROLLER)
             }
             stage.prepare()
             selected.forEach { (id, scene) ->
-                ScreenshotGuard.cancelPeriodicScreenshots(ide.driver, Duration.ZERO)
+                session.guard(Duration.ZERO)
                 val problem = scene()
                 println("MEDIA RESULT $id: ${problem ?: "ok"}")
                 if (problem != null) problems += "$id: $problem"
             }
         } finally {
-            ide.closeIdeAndWait(2.minutes, takeScreenshot = false)
+            session.close()
         }
         assertTrue(problems.isEmpty(), problems.joinToString("\n"))
     }
@@ -87,7 +81,6 @@ class MarketplaceMediaUiTest {
     private companion object {
         const val DEFAULT_OUT = "docs/marketplace"
         const val PROJECT_NAME = "admin-portal"
-        val GUARD_TIMEOUT = 45.seconds
         val RUN_TIMEOUT = 90.minutes
         const val PHP_SETTINGS = """<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">

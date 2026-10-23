@@ -54,7 +54,14 @@ UI tests start a real PhpStorm with the built plugin (IntelliJ Starter + Driver)
 CLAUDE_IT=1 ./gradlew uiTest -PuiTestIdeVersion=2025.3
 ```
 
-New UI tests must drive the IDE only through in-IDE actions and APIs: `invokeAction`, the platform's typing action through the Driver and `moveCaretToOffset`. Never use OS-level keyboard or mouse input, because it goes to whatever app has focus on the developer's machine. They also take no screenshots: close the IDE with `closeIdeAndWait(takeScreenshot = false)`.
+New UI tests must drive the IDE only through in-IDE actions and APIs: `invokeAction`, the platform's typing action through the Driver and `moveCaretToOffset`. Never use OS-level keyboard or mouse input, because it goes to whatever app has focus on the developer's machine. They also never capture the screen, and the shared setup enforces it. Start every IDE with `GuardedIde.start(context)` and stop it with `GuardedIde.close()`, never with `runIdeWithDriver` and `closeIdeAndWait` directly. Four layers keep OS capture off:
+
+- The Starter always adds `-Dide.performance.screenshot=heartbeat`, which makes the IDE's performance plugin screenshot its windows every minute. `GuardedIde.start` removes that property from the run's VM options (the plugin only starts the job when the property is set at all).
+- When a run hits its timeout the Starter kills the IDE and first runs an external `java -jar TakeScreenshot`, a full-screen `java.awt.Robot` capture, and it has no option to turn that off. `CaptureTripwire.disarmKillScreenshot` replaces that tool jar in the Starter cache with an inert one before every run. Runs also get an explicit timeout and close the IDE in `finally`/`@AfterAll`.
+- `ScreenshotGuard.enforce` asks the running IDE whether the property is unset and cancels any screenshot job it finds, and the run aborts if it cannot tell or finds one.
+- `GuardedIde.close` is a tripwire: after the IDE exits it deletes, without opening, any `*screenshot*`, `heartbeat*`, `*.jpg`, `*.jpeg` or `*.png` under the run's test home (`out/ide-tests/tests/**`, which includes `log`) and fails the test. With the other layers in place it never fires.
+
+`CLAUDEX_SOAK=1 ./gradlew uiTest -PuiTestIdeVersion=2025.3 --tests '*OsCaptureFreeUiTest*'` keeps an IDE idle for 80 seconds, past the first heartbeat, and checks that nothing was captured or logged. It does not call the Claude CLI.
 
 Failing test first, then the code. Keep pure logic in `completion/`, `backend/`, `context/` and `nextedit/`.
 
