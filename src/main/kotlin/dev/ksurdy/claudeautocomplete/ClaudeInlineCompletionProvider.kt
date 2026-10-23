@@ -11,6 +11,7 @@ import com.intellij.codeInsight.inline.completion.InlineCompletionRequest
 import com.intellij.codeInsight.inline.completion.elements.InlineCompletionElement
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSingleSuggestion
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSuggestion
+import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSuggestionUpdateManager
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
@@ -52,6 +53,8 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         }
     }
 
+    override val suggestionUpdateManager: InlineCompletionSuggestionUpdateManager = SuggestionMode.UpdateManager()
+
     private val requests = CompletionRequests.getInstance()
     private val generation = AtomicLong()
 
@@ -61,7 +64,6 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     }
 
     override fun restartOn(event: InlineCompletionEvent): Boolean {
-        if (event is InlineCompletionEvent.DocumentChange) return SuggestionMode.outgrown(event)
         val editor = when (event) {
             is InlineCompletionEvent.DirectCall -> event.editor
             is InlineCompletionEvent.ManualCall -> event.editor

@@ -1,7 +1,8 @@
 package dev.ksurdy.claudeautocomplete
 
 import com.intellij.codeInsight.inline.completion.InlineCompletionEvent
-import com.intellij.codeInsight.inline.completion.session.InlineCompletionSession
+import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSuggestionUpdateManager
+import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionVariant
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.editor.Editor
@@ -16,14 +17,21 @@ object SuggestionMode {
 
     fun dataFor(multiline: Boolean): UserDataHolderBase = UserDataHolderBase().also { it.putUserData(REQUESTED_MULTILINE, multiline) }
 
-    fun outgrown(event: InlineCompletionEvent.DocumentChange): Boolean {
-        val shown = InlineCompletionSession.getOrNull(event.editor)?.capture()?.activeVariant?.data
-        if (shown?.getUserData(REQUESTED_MULTILINE) != false) return false
-        val caret = event.typing.range.startOffset + event.typing.typed.length
-        val outgrown = multilineAt(event.editor, caret)
-        if (outgrown) LOG.debug { "Suggestion restarted: single-line suggestion does not fit the typed position" }
-        return outgrown
+    class UpdateManager : InlineCompletionSuggestionUpdateManager.Default() {
+        override fun onDocumentChange(
+            event: InlineCompletionEvent.DocumentChange,
+            snapshot: InlineCompletionVariant.Snapshot,
+        ): InlineCompletionSuggestionUpdateManager.UpdateResult {
+            if (snapshot.data.getUserData(REQUESTED_MULTILINE) == false && outgrown(event)) {
+                LOG.debug { "Suggestion dropped: single-line suggestion does not fit the typed position" }
+                return InlineCompletionSuggestionUpdateManager.UpdateResult.Invalidated
+            }
+            return super.onDocumentChange(event, snapshot)
+        }
     }
+
+    private fun outgrown(event: InlineCompletionEvent.DocumentChange): Boolean =
+        multilineAt(event.editor, event.typing.range.startOffset + event.typing.typed.length)
 
     private fun multilineAt(editor: Editor, caret: Int): Boolean {
         val text = editor.document.charsSequence
