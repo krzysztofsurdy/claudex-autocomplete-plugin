@@ -9,7 +9,6 @@ import com.intellij.codeInsight.inline.completion.InlineCompletionProviderID
 import com.intellij.codeInsight.inline.completion.InlineCompletionProviderPresentation
 import com.intellij.codeInsight.inline.completion.InlineCompletionRequest
 import com.intellij.codeInsight.inline.completion.elements.InlineCompletionElement
-import com.intellij.codeInsight.inline.completion.elements.InlineCompletionGrayTextElement
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSingleSuggestion
 import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSuggestion
 import com.intellij.openapi.application.readAction
@@ -26,6 +25,7 @@ import dev.ksurdy.claudeautocomplete.backend.CompletionResult
 import dev.ksurdy.claudeautocomplete.backend.ProviderKind
 import dev.ksurdy.claudeautocomplete.completion.CacheKey
 import dev.ksurdy.claudeautocomplete.completion.CompletionCache
+import dev.ksurdy.claudeautocomplete.completion.CloserSplice
 import dev.ksurdy.claudeautocomplete.completion.CompletionPostProcessor
 import dev.ksurdy.claudeautocomplete.completion.Gate
 import dev.ksurdy.claudeautocomplete.completion.ReplySource
@@ -61,6 +61,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     }
 
     override fun restartOn(event: InlineCompletionEvent): Boolean {
+        if (event is InlineCompletionEvent.DocumentChange) return SuggestionMode.outgrown(event)
         val editor = when (event) {
             is InlineCompletionEvent.DirectCall -> event.editor
             is InlineCompletionEvent.ManualCall -> event.editor
@@ -107,11 +108,13 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         val cached = if (manual) null else requests.cache.get(cacheKey)
         if (cached != null) {
             publish(gen, ClaudeStatus.Ready)
-            return InlineCompletionSingleSuggestion.build { emit(InlineCompletionGrayTextElement(cached)) }
+            return InlineCompletionSingleSuggestion.build(SuggestionMode.dataFor(context.multiline)) {
+                elementsOf(cached, context.skippedCloser).forEach { emit(it) }
+            }
         }
         val attachment = if (manual) null else requests.attach(context, config)
         return InlineCompletionSingleSuggestion.build(
-            UserDataHolderBase(),
+            SuggestionMode.dataFor(context.multiline),
             streamCompletion(request, context, config, cacheKey, gen, indicatorShown, attachment),
         )
     }
@@ -133,7 +136,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
                 requestAlternative(context.copy(alternativeTo = alternative.previousTexts, distinctRetry = retry), config, gen)
             }
             if (fresh == null) LOG.debug { "Alternative dropped: no distinct suggestion shown=${alternative.previousTexts.size}" }
-            return AlternativeSuggestion(AlternativeTexts.variants(fresh, alternative.previousTexts))
+            return AlternativeSuggestion(AlternativeTexts.variants(fresh, alternative.previousTexts), context.skippedCloser)
         } catch (e: CancellationException) {
             publish(gen, ClaudeStatus.Ready)
             LOG.debug { "Alternative cancelled: ms=${System.currentTimeMillis() - startedAt}" }
@@ -185,11 +188,12 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
         val indicator = if (indicatorShown) InlineLoadingIndicator.start(request.editor, request.endOffset) else null
         var firstShownAt = 0L
         var shownLength = 0
+        val splice = CloserSplice(context.skippedCloser)
         val show: suspend (String) -> Unit = { delta ->
             if (firstShownAt == 0L) firstShownAt = System.currentTimeMillis()
             shownLength += delta.length
             indicator?.stop()
-            send(InlineCompletionGrayTextElement(delta))
+            splice.elements(delta).forEach { send(it) }
         }
         try {
             var followed = (reused ?: requests.start(context, config, cacheKey)).follow(show)
@@ -224,7 +228,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     }.buffer(Channel.UNLIMITED)
 
     private fun logReceived(context: CompletionContext, raw: String, shown: String, ms: Long, firstShownMs: Long) = LOG.debug {
-        "Completion received: ms=$ms firstShownMs=$firstShownMs multiline=${context.multiline} emptyBody=${context.emptyBody} " +
+        "Completion received: ms=$ms firstShownMs=$firstShownMs multiline=${context.multiline} emptyBody=${context.emptyBody} declaration=${context.declaration} " +
             "maxLines=${context.maxLines} rawLines=${raw.lines().size} shownLines=${shown.lines().size} " +
             "caretColumn=${context.prefix.substringAfterLast('\n').length} " +
             "rawLead=${raw.takeWhile { it.isWhitespace() }.length} shownLead=${shown.takeWhile { it.isWhitespace() }.length}"

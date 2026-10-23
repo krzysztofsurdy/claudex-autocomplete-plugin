@@ -8,6 +8,7 @@ data class CacheKey(
 ) {
     fun remainderOf(stored: CacheKey, value: String): String? {
         if (scope != stored.scope || suffixHead != stored.suffixHead) return null
+        if (multiline && !stored.multiline) return null
         val longest = minOf(value.length - 1, prefixTail.length, MAX_TYPED_CHARS)
         for (typedLength in 0..longest) {
             if (!extendsBy(stored.prefixTail, value, typedLength)) continue

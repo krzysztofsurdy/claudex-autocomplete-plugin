@@ -119,7 +119,7 @@ class CompletionRequests(private val scope: CoroutineScope) {
     }
 
     private fun originOf(context: CompletionContext, config: BackendConfig) =
-        InFlightOrigin(CompletionCache.scope(context, config), context.prefix, context.suffix)
+        InFlightOrigin(CompletionCache.scope(context, config), context.prefix, context.suffix, context.multiline)
 
     companion object {
         private const val CACHE_CAPACITY = 32
