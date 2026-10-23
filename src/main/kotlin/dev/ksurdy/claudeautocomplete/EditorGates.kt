@@ -56,7 +56,7 @@ object EditorGates {
         else -> null
     }
 
-    private fun isManual(event: InlineCompletionEvent): Boolean = event !is InlineCompletionEvent.DocumentChange
+    private fun isManual(event: InlineCompletionEvent): Boolean = !LookupClosedTrigger.isAutomatic(event)
 
     private fun snapshot(editor: Editor): EditorSnapshot {
         val project = editor.project
