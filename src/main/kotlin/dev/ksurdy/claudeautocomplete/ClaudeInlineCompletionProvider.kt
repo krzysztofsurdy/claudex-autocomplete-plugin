@@ -16,6 +16,7 @@ import com.intellij.openapi.application.readAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.util.UserDataHolder
 import com.intellij.openapi.util.UserDataHolderBase
 import dev.ksurdy.claudeautocomplete.alternatives.AlternativeRequest
 import dev.ksurdy.claudeautocomplete.alternatives.AlternativeSuggestion
@@ -74,7 +75,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
     override suspend fun getDebounceDelay(request: InlineCompletionRequest): Duration {
         val gen = generation.incrementAndGet()
-        if (request.event is InlineCompletionEvent.DirectCall || request.event is InlineCompletionEvent.ManualCall) {
+        if (!LookupClosedTrigger.isAutomatic(request.event)) {
             return Duration.ZERO
         }
         val delay = ClaudeAutocompleteSettings.getInstance().state.debounceMs.milliseconds
@@ -84,7 +85,7 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
 
     override suspend fun getSuggestionDebounced(request: InlineCompletionRequest): InlineCompletionSuggestion {
         val settings = ClaudeAutocompleteSettings.getInstance()
-        val manual = request.event is InlineCompletionEvent.ManualCall
+        val manual = request.event is InlineCompletionEvent.ManualCall && !LookupClosedTrigger.isAutomatic(request.event)
         val gen = generation.get()
         if (skipped(EditorGates.blockedAfterDebounce(request.event, settings.state))) {
             publish(gen, ClaudeStatus.Ready)
@@ -271,8 +272,8 @@ class ClaudeInlineCompletionProvider : DebouncedInlineCompletionProvider() {
     companion object {
         const val ID = "dev.ksurdy.claudeautocomplete.ClaudeInlineCompletionProvider"
 
-        fun manualCall(editor: Editor): InlineCompletionEvent.ManualCall =
-            InlineCompletionEvent.ManualCall(editor, InlineCompletionProviderID(ID), UserDataHolderBase())
+        fun manualCall(editor: Editor, data: UserDataHolder = UserDataHolderBase()): InlineCompletionEvent.ManualCall =
+            InlineCompletionEvent.ManualCall(editor, InlineCompletionProviderID(ID), data)
 
         private val LOG = Logger.getInstance(ClaudeInlineCompletionProvider::class.java)
     }

@@ -98,6 +98,12 @@
                          implementationClass="dev.ksurdy.claudeautocomplete.alternatives.PrevAlternativeHandler"/>
   </extensions>
 
+
+  <projectListeners>
+    <listener class="dev.ksurdy.claudeautocomplete.LookupClosedListener"
+              topic="com.intellij.codeInsight.lookup.LookupManagerListener"/>
+  </projectListeners>
+
   <actions>
     <action id="ClaudeAutocomplete.Toggle"
             class="dev.ksurdy.claudeautocomplete.actions.ToggleAction"

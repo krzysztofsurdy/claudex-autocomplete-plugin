@@ -59,6 +59,17 @@ class ScenarioRunner(private val ide: BackgroundRun, private val log: PluginLog,
 
     fun enter(editor: JEditorUiComponent) = ide.driver.invokeAction(ENTER_ACTION, true, editor.component)
 
+    fun typeAndDismissPopup(editor: JEditorUiComponent, driver: Driver, char: Char) {
+        val skipsBefore = log.lines().count { LOOKUP_SKIP in it }
+        val requestsBefore = log.requested()
+        editor.typeCharacter(driver, char)
+        val deadline = System.nanoTime() + POPUP_TIMEOUT.inWholeNanoseconds
+        while (System.nanoTime() < deadline && log.lines().count { LOOKUP_SKIP in it } == skipsBefore && log.requested() == requestsBefore) {
+            Thread.sleep(POLL_MS)
+        }
+        driver.invokeAction(ESCAPE_ACTION, true, editor.component)
+    }
+
     fun awaitQuiet() {
         Thread.sleep(QUIET_SETTLE_MS)
         val deadline = System.nanoTime() + QUIET_TIMEOUT.inWholeNanoseconds
@@ -78,6 +89,8 @@ class ScenarioRunner(private val ide: BackgroundRun, private val log: PluginLog,
 
     companion object {
         const val ENTER_ACTION = "EditorEnter"
+        const val ESCAPE_ACTION = "EditorEscape"
+        private const val LOOKUP_SKIP = "Request skipped: gate=LookupOpen"
         const val ACCEPT_ACTION = "InsertInlineCompletionAction"
         const val RENDER_SETTLE_MS = 700L
         private const val MAX_ATTEMPTS = 2
@@ -85,5 +98,6 @@ class ScenarioRunner(private val ide: BackgroundRun, private val log: PluginLog,
         private const val QUIET_SETTLE_MS = 1000L
         private val SUGGESTION_TIMEOUT = 40.seconds
         private val QUIET_TIMEOUT = 20.seconds
+        private val POPUP_TIMEOUT = 10.seconds
     }
 }

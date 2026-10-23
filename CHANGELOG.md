@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A suggestion is now requested when the code-completion popup closes (cancelled, Esc, caret moved on, or an item picked) instead of waiting for the next keystroke, so `$repo->` gets its inline suggestion once the popup is gone. It is an automatic request: the debounce and every other gate (selection, several carets, undo, live template, mid-word, consent, excluded files, usage limit) still apply. No change with "Show suggestions while the completion popup is open" on.
 - Typing `public function name(` character by character now gets the whole method (rest of the parameters, return type, body and closing brace) instead of a one-line suggestion: the `)` the IDE inserts after `(` no longer turns the declaration into a plain multi-line request, and a single-line suggestion or request made at an earlier keystroke is no longer reused (or trimmed) for a position that is multi-line or a declaration.
 
 ## [1.1.0] - 2026-10-22

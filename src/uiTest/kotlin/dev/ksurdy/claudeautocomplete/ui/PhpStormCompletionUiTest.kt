@@ -73,9 +73,9 @@ class PhpStormCompletionUiTest {
 
     @Test
     @Order(3)
-    fun `member access completes with a real repository method on one line`() {
+    fun `member access completes with a real repository method once the popup is dismissed`() {
         val seed = Seed(FIND_LINE, "        \$participant = \$learningTeamParticipantRepository-$CARET")
-        scenarios.verify("memberAccess", seed, { editor, driver -> editor.typeCharacter(driver, '>') }) { seen ->
+        scenarios.verify("memberAccess", seed, { editor, driver -> scenarios.typeAndDismissPopup(editor, driver, '>') }) { seen ->
             if (seen.inserted.isBlank()) return@verify "nothing was inserted"
             if ('\n' in seen.inserted) return@verify "member access suggestion spans several lines"
             if (seen.before.lines().size != seen.after.lines().size) return@verify "line count changed"
