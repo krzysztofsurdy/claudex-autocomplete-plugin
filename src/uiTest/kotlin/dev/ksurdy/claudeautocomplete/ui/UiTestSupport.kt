@@ -11,6 +11,7 @@ import com.intellij.ide.starter.runner.Starter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
 import kotlin.io.path.copyToRecursively
@@ -60,8 +61,18 @@ class PluginLog(private val file: Path) {
 
 class GuardedIde private constructor(private val context: IDETestContext, val ide: BackgroundRun) {
     val log = PluginLog(context.paths.testHome.resolve("log/idea.log"))
+    val blockedScreenshots = AtomicInteger()
 
     fun guard(wait: Duration = GUARD_WAIT) = ScreenshotGuard.enforce(ide.driver, wait)
+
+    fun screenshotLogLines(): List<String> {
+        val ideaLog = context.paths.testHome.resolve("log/idea.log")
+        if (!ideaLog.exists()) return emptyList()
+        return ideaLog.readLines().filter { line ->
+            val lower = line.lowercase()
+            "screenshot" in lower && ScreenshotGuard.PROBED_FIELD.lowercase() !in lower
+        }
+    }
 
     fun close() {
         val closeFailure = runCatching { ide.closeIdeAndWait(IDE_CLOSE_TIMEOUT, takeScreenshot = false) }.exceptionOrNull()
@@ -83,6 +94,7 @@ class GuardedIde private constructor(private val context: IDETestContext, val id
             )
             val session = GuardedIde(context, ide)
             try {
+                DriverScreenshotBlock.install(ide.driver, session.blockedScreenshots)
                 session.guard()
             } catch (failure: Throwable) {
                 runCatching { session.close() }.onFailure(failure::addSuppressed)

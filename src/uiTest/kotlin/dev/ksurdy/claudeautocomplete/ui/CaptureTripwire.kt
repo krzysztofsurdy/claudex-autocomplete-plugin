@@ -21,6 +21,8 @@ import kotlin.io.path.writeBytes
 @OptIn(ExperimentalPathApi::class)
 object CaptureTripwire {
     private val NOT_SCANNED = setOf("plugins", "config", "system")
+    private const val VIEWER = "ui-hierarchy"
+    private const val VIEWER_ASSETS = "static"
     private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png")
 
     fun disarmKillScreenshot() {
@@ -37,6 +39,7 @@ object CaptureTripwire {
             object : SimpleFileVisitor<Path>() {
                 override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult = when {
                     dir.parent == root && dir.name in NOT_SCANNED -> FileVisitResult.SKIP_SUBTREE
+                    dir.name == VIEWER_ASSETS && dir.parent?.name == VIEWER -> FileVisitResult.SKIP_SUBTREE
                     dir != root && isCaptureName(dir) -> hits.add(dir).let { FileVisitResult.SKIP_SUBTREE }
                     else -> FileVisitResult.CONTINUE
                 }

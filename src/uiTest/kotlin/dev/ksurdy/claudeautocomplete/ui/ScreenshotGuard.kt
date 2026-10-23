@@ -46,7 +46,8 @@ object ScreenshotGuard {
     const val HEARTBEAT_PROPERTY = "ide.performance.screenshot"
     private const val PERFORMANCE_PLUGIN = "com.jetbrains.performancePlugin"
     private const val SERVICE = "com.jetbrains.performancePlugin.ProjectLoadedService"
-    private const val JOBS_FIELD = "screenshotJobs"
+    const val PROBED_FIELD = "screenshotJobs"
+    private const val JOBS_FIELD = PROBED_FIELD
     private const val POLL_MS = 500L
 
     fun enforce(driver: Driver, wait: Duration) {

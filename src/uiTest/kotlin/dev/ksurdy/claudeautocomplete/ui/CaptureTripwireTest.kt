@@ -16,6 +16,7 @@ class CaptureTripwireTest {
         home.resolve("log/heartbeat").createDirectories()
         val files = listOf(
             "log/heartbeat/window.jpg", "log/screenshotBeforeKill.jpg", "log/frame.PNG", "log/idea.log", "plugins/icon.png", "config/options/ui.xml",
+            "log/ui-hierarchy/static/img/show.png", "log/ui-hierarchy/ui.html",
         )
         files.forEach { home.resolve(it).also { file -> file.parent.createDirectories() }.writeText("x") }
 
@@ -24,6 +25,7 @@ class CaptureTripwireTest {
         assertEquals(listOf("log/frame.PNG", "log/heartbeat", "log/screenshotBeforeKill.jpg"), swept)
         assertTrue(home.resolve("log/idea.log").exists())
         assertTrue(home.resolve("plugins/icon.png").exists())
+        assertTrue(home.resolve("log/ui-hierarchy/static/img/show.png").exists())
         assertTrue(!home.resolve("log/heartbeat").exists())
     }
 
