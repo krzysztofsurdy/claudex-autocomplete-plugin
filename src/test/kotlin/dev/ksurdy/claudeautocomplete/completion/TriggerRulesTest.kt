@@ -133,9 +133,27 @@ class TriggerRulesTest {
 
     @Test
     fun `declaration needs an empty rest of the line`() {
-        assertFalse(TriggerRules.isOpenDeclaration("    public function archive(", ")\n}"))
+        assertFalse(TriggerRules.isOpenDeclaration("    public function archive(", ") {\n}"))
         assertFalse(TriggerRules.isOpenDeclaration("    public function archive(", "int \$id): Response"))
         assertTrue(TriggerRules.isOpenDeclaration("    public function archive(", "  \n}"))
         assertTrue(TriggerRules.isOpenDeclaration("    public function archive(", ""))
+    }
+
+    @Test
+    fun `an auto inserted closing parenthesis keeps the declaration open`() {
+        assertTrue(TriggerRules.isOpenDeclaration("    public function archive(", ")\n}"))
+        assertTrue(TriggerRules.isOpenDeclaration("    public function archive(", ")  \n}"))
+        assertTrue(TriggerRules.isOpenDeclaration("    public function archive(", ")"))
+        assertFalse(TriggerRules.isOpenDeclaration("    public function archive(", " )\n}"))
+        assertFalse(TriggerRules.isOpenDeclaration("    public function archive(", "))\n}"))
+        assertFalse(TriggerRules.isOpenDeclaration("        \$x = foo(", ")\n}"))
+    }
+
+    @Test
+    fun `the paired closer is reported only for a declaration`() {
+        assertEquals(")", TriggerRules.pairedCloser("    public function archive(", ")\n}"))
+        assertEquals("", TriggerRules.pairedCloser("    public function archive(", "\n}"))
+        assertEquals("", TriggerRules.pairedCloser("        \$x = foo(", ")\n}"))
+        assertEquals("", TriggerRules.pairedCloser("    public function archive(", ") {\n}"))
     }
 }

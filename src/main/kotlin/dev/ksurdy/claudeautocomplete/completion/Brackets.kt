@@ -31,6 +31,28 @@ internal object Brackets {
         return Scan(depth, unmatched)
     }
 
+    fun firstUnmatchedIndex(text: String, closer: Char): Int {
+        var depth = 0
+        var quote: Char? = null
+        var escaped = false
+        for ((index, char) in text.withIndex()) {
+            if (quote != null) {
+                when {
+                    escaped -> escaped = false
+                    char == '\\' -> escaped = true
+                    char == quote -> quote = null
+                }
+                continue
+            }
+            when (char) {
+                '"', '\'', '`' -> quote = char
+                in OPENERS -> depth++
+                in CLOSERS -> if (depth > 0) depth-- else if (char == closer) return index
+            }
+        }
+        return -1
+    }
+
     fun balance(line: String): Int {
         val scan = scan(substringBeforeLineComment(line))
         return scan.depth - scan.unmatched
