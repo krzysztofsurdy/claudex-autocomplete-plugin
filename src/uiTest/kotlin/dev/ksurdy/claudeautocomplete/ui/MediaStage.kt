@@ -83,6 +83,12 @@ class MediaStage(
         reportSize(target)
     }
 
+    fun snap(name: String): Path {
+        val target = Files.createTempFile(workDir, "$name-", ".${IdeCanvas.FAST_FORMAT}")
+        canvas.paint(target)
+        return target
+    }
+
     fun reportSize(target: Path) {
         val image: BufferedImage = ImageIO.read(target.toFile())
         println("MEDIA ${target.fileName}: ${image.width}x${image.height}")
