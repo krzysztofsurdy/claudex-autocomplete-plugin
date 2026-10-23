@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Marketplace description rewritten; README gains a Privacy section.
+
 ### Fixed
 
 - Typing `public function name(` character by character now gets the whole method (rest of the parameters, return type, body and closing brace) instead of a one-line suggestion: the `)` the IDE inserts after `(` no longer turns the declaration into a plain multi-line request, and a single-line suggestion or request made at an earlier keystroke is no longer reused (or trimmed) for a position that is multi-line or a declaration.
