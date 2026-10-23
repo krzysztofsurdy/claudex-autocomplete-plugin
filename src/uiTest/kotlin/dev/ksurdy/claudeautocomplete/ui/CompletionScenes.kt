@@ -24,14 +24,26 @@ class CompletionScenes(private val stage: MediaStage) {
     fun wholeMethod(): String? = retrying { stage.record("whole-method") { editor, recorder -> wholeMethodScene(editor, recorder) } }
 
     private fun wholeMethodScene(editor: JEditorUiComponent, recorder: FrameRecorder): String? {
-        val (seeded, caret) = Seed(BETWEEN_METHODS, "    }$CARET\n\n    #[Route('/admin/learning-team/replace-course'").apply(original)
+        val (seeded, caret) = Seed(BETWEEN_METHODS, "    }\n\n    $CARET\n\n    #[Route('/admin/learning-team/replace-course'").apply(original)
         stage.seed(editor, seeded, caret, METHOD_ROW)
         recorder.start()
         Thread.sleep(LEAD_IN_MS)
-        val finishedBefore = log.finished().size
+        stage.type(editor, METHOD_HEAD, METHOD_TYPING_MS)
+        val requestedBefore = log.requested()
         val linesBefore = log.lines().size
-        runner.enter(editor)
-        return shownProblem(editor, linesBefore) { runner.awaitCompletion(finishedBefore) } ?: acceptProblem(editor, MIN_METHOD_LINES)
+        editor.typeCharacter(stage.driver, METHOD_OPEN)
+        if (!awaitRequest(requestedBefore)) return "typing the parenthesis did not request a suggestion"
+        val last = runner.awaitCompletion(log.finished().size)
+        return shownProblem(editor, linesBefore) { last } ?: acceptProblem(editor, MIN_METHOD_LINES)
+    }
+
+    private fun awaitRequest(before: Int): Boolean {
+        val deadline = System.nanoTime() + REQUEST_TIMEOUT_MS * NANOS_PER_MS
+        while (System.nanoTime() < deadline) {
+            if (log.requested() > before) return true
+            Thread.sleep(POLL_MS)
+        }
+        return false
     }
 
     fun midLine(): String? = suggestion("mid-line") { editor ->
@@ -44,20 +56,32 @@ class CompletionScenes(private val stage: MediaStage) {
         shownProblem(editor, linesBefore) { runner.awaitCompletion(finishedBefore) }
     }
 
-    fun alternatives(): String? = suggestion("alternatives") { editor ->
-        val seed = Seed(FLASH_LINE, "        \$this->addFlash(${CARET}")
+    fun alternatives(): String? {
+        var problem: String? = null
+        stage.withEditor { editor -> problem = alternativesScene(editor) }
+        return problem
+    }
+
+    private fun alternativesScene(editor: JEditorUiComponent): String? {
+        val seed = Seed(NOT_FOUND_ANCHOR, "throw \$this->createNotFoundException($CARET);\n        }\n\n        \$form")
         val (seeded, caret) = seed.apply(original)
         stage.seed(editor, seeded, caret, MID_LINE_ROW)
         val finishedBefore = log.finished().size
         val linesBefore = log.lines().size
         editor.typeCharacter(stage.driver, ' ')
-        shownProblem(editor, linesBefore) { runner.awaitCompletion(finishedBefore) }?.let { return@suggestion it }
+        shownProblem(editor, linesBefore) { runner.awaitCompletion(finishedBefore) }?.let { return it }
         val first = editor.shownText()
+        val firstShot = stage.snap("alternatives-first")
         val secondBefore = log.finished().size
         val secondLines = log.lines().size
         stage.driver.invokeAction(NEXT_ACTION, true, editor.component)
-        shownProblem(editor, secondLines) { runner.awaitCompletion(secondBefore) }?.let { return@suggestion it }
-        if (editor.shownText().trim() == first.trim()) "the alternative equals the first suggestion" else null
+        shownProblem(editor, secondLines) { runner.awaitCompletion(secondBefore) }?.let { return it }
+        if (editor.shownText().trim() == first.trim()) return "the alternative equals the first suggestion"
+        val secondShot = stage.snap("alternatives-second")
+        val target = stage.outDir.resolve("alternatives.png")
+        ComparisonShot.compose(firstShot, secondShot, target)
+        stage.reportSize(target)
+        return null
     }
 
     private fun suggestion(name: String, scene: (JEditorUiComponent) -> String?): String? {
@@ -107,8 +131,14 @@ class CompletionScenes(private val stage: MediaStage) {
     private companion object {
         const val EMPTY_ACTION_ANCHOR = "StudentLearningTeamResolver \$studentLearningTeamResolver\n    ): Response {"
         const val REDIRECT_LINE = "        return \$this->redirectToRoute('admin_learning_team_edit', ['id' => \$id]);"
-        const val FLASH_LINE = "        \$this->addFlash('info', 'Change cancelled.');"
+        const val NOT_FOUND_ANCHOR = "throw \$this->createNotFoundException('Participant not found.');\n        }\n\n        \$form"
         const val BETWEEN_METHODS = "    }\n\n    #[Route('/admin/learning-team/replace-course'"
+        const val METHOD_HEAD = "public function restoreAction"
+        const val METHOD_OPEN = '('
+        const val METHOD_TYPING_MS = 90L
+        const val REQUEST_TIMEOUT_MS = 10_000L
+        const val POLL_MS = 100L
+        const val NANOS_PER_MS = 1_000_000L
         const val NEXT_ACTION = "NextInlineCompletionSuggestionAction"
         const val ESCAPE_ACTION = "EditorEscape"
         const val RESET_MS = 800L
