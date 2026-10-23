@@ -112,7 +112,7 @@ It also asks mid-line, when there is code right of the caret, but not inside a w
 
 With next edit suggestions on, a request is also sent after you edit and pause: the last few small edits and the file window go to the CLI, and a suggestion on another line shows up highlighted with the new text below it. Tab jumps the caret there, Tab again applies it as one undo step, Esc or typing dismisses it. The pause before asking adapts to you (longer after a dismissed suggestion, shorter after an applied one), a dismissed suggestion is not offered again for a while, and the caret moving to another line soon after an edit also triggers a request. Nothing shows when a ghost-text suggestion is visible or being requested, and Tab behaves as usual when no next edit suggestion is shown.
 
-Your code context goes to Anthropic or OpenAI through the CLI, under your account's terms.
+Your code context goes to Anthropic or OpenAI through the CLI, under your account's terms. See [Privacy](#privacy).
 
 ## Status bar
 
@@ -149,6 +149,22 @@ export JAVA_HOME=/path/to/PhpStorm.app/Contents/jbr/Contents/Home
 ```
 
 Use a local IDE with `./gradlew buildPlugin -PlocalIdePath=/path/to/PhpStorm.app`, or set `localIdePath` in `~/.gradle/gradle.properties`.
+
+## Privacy
+
+What is sent: the code around the caret, optionally related snippets from your other open tabs and, for PHP, outlines of imported classes. With next edit suggestions on, your last few small edits go along.
+
+Where it goes: to Anthropic or OpenAI, through the Claude Code or Codex CLI you installed and logged in. Their terms and privacy policies apply. The plugin has no server of its own.
+
+What is never sent: files that look like secrets (see Excluded file patterns), files your VCS ignores (in a project with a VCS), and files excluded from the project. Such a file gets no completions and is not used as context.
+
+Nothing is sent, and no CLI is started, until you enable completions. Turn the plugin off from the status bar or Tools menu and it stops.
+
+The plugin never reads or stores your credentials. Your CLI keeps its own login. `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` (Claude Code) and `OPENAI_API_KEY` and `CODEX_API_KEY` (Codex) are removed from the CLI environment, so the subscription login is used.
+
+The plugin has no telemetry of its own and makes no network requests itself. For Claude Code it also sets `DISABLE_TELEMETRY` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`.
+
+Local logs: debug logs in idea.log record sizes, counts and timings, never your code. A failure warning includes the CLI's error message, cut to 300 characters.
 
 ## Disclaimer
 

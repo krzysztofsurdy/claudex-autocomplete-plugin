@@ -1,6 +1,8 @@
 package dev.ksurdy.claudeautocomplete.ui
 
+import com.intellij.driver.client.Driver
 import com.intellij.driver.sdk.openFile
+import com.intellij.driver.sdk.ui.components.common.JEditorUiComponent
 import com.intellij.driver.sdk.waitForIndicators
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -104,7 +106,34 @@ class PhpStormCompletionUiTest {
         alternatives.verify(seed) { editor, driver -> editor.typeCharacter(driver, ' ') }
     }
 
+    @Test
+    @Order(6)
+    fun `typing an open signature character by character gets the whole method`() {
+        val seed = Seed(BETWEEN_METHODS, "    }\n\n    $CARET\n\n    #[Route('/admin/learning-team/replace-course'")
+        val trigger = { editor: JEditorUiComponent, driver: Driver ->
+            editor.typeText(driver, SIGNATURE_NAME, TYPING_PAUSE_MS)
+            Thread.sleep(PAUSE_BEFORE_PAREN_MS)
+            editor.typeCharacter(driver, '(')
+            Thread.sleep(PAUSE_AFTER_PAREN_MS)
+        }
+        scenarios.verify("typedSignature", seed, trigger) { seen ->
+            val method = seen.after.substringAfter(SIGNATURE_NAME).substringBefore(NEXT_METHOD)
+            val lines = method.lines().filter { it.isNotBlank() }
+            if (lines.size < MIN_METHOD_LINES) return@verify "expected a whole method of at least $MIN_METHOD_LINES lines"
+            if (method.count { it == '{' } == 0) return@verify "no body was inserted"
+            if (method.count { it == '{' } != method.count { it == '}' }) return@verify "unbalanced braces"
+            if (method.count { it == '(' } != method.count { it == ')' }) return@verify "unbalanced parentheses"
+            if (!method.contains("): ")) return@verify "no return type after the parameters"
+            phpLintError(seen.after)
+        }
+    }
+
     private companion object {
+        const val SIGNATURE_NAME = "public function restoreAction"
+        const val NEXT_METHOD = "\n\n    #[Route('/admin/learning-team/replace-course'"
+        const val TYPING_PAUSE_MS = 90L
+        const val PAUSE_BEFORE_PAREN_MS = 700L
+        const val PAUSE_AFTER_PAREN_MS = 900L
         const val EMPTY_ACTION_ANCHOR = "StudentLearningTeamResolver \$studentLearningTeamResolver\n    ): Response {"
         const val REDIRECT_LINE = "        return \$this->redirectToRoute('admin_learning_team_edit', ['id' => \$id]);"
         const val FLASH_LINE = "        \$this->addFlash('info', 'Change cancelled.');"

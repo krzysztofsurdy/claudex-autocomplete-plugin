@@ -19,6 +19,7 @@ data class CompletionContext(
     val distinctRetry: Boolean = false,
     val nextEdit: NextEditInput? = null,
     val declaration: Boolean = false,
+    val skippedCloser: String = "",
 )
 
 data class OpenFileSnippet(val path: String, val languageId: String, val content: String)

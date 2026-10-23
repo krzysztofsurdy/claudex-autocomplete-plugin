@@ -52,17 +52,19 @@ object ContextCollector {
         val currentFile = request.file.virtualFile
         val patterns = settings.excludedFilePatterns.orEmpty()
         if (project != null && currentFile != null && isExcluded(project, currentFile, patterns)) return null
+        val multiline = TriggerRules.isMultiline(prefix, suffix, settings.multilineMode.orEmpty())
+        val pairedCloser = if (multiline) TriggerRules.pairedCloser(prefix, suffix) else ""
         return CompletionContext(
             filePath = currentFile?.let { relativePath(project, it) } ?: request.file.name,
             languageId = languageId,
             prefix = prefix,
-            suffix = suffix,
+            suffix = suffix.removePrefix(pairedCloser),
             relatedSnippets = if (settings.includeOpenTabs && project != null) {
                 relatedSnippets(project, currentFile, languageId, CaretQuery.around(prefix, suffix), settings.maxOpenTabsChars, patterns)
             } else {
                 emptyList()
             },
-            multiline = TriggerRules.isMultiline(prefix, suffix, settings.multilineMode.orEmpty()),
+            multiline = multiline,
             maxLines = settings.maxCompletionLines,
             indent = indentOf(request),
             prefixTruncated = window.prefixTruncated,
@@ -70,6 +72,7 @@ object ContextCollector {
             importedClasses = importedClasses(request, settings),
             emptyBody = TriggerRules.isEmptyBody(prefix, suffix),
             declaration = TriggerRules.isOpenDeclaration(prefix, suffix),
+            skippedCloser = pairedCloser,
         )
     }
 

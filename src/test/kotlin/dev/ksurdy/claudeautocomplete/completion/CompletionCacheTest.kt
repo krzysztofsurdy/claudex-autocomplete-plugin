@@ -207,4 +207,19 @@ class CompletionCacheTest {
         assertEquals(key(config = codex), key(config = codex.copy(claude = testConfig(model = "sonnet"))))
         assertEquals(claudeKey, key(config = BackendConfig(ProviderKind.Claude, testConfig(), testCodexConfig(model = "other"))))
     }
+
+    @Test
+    fun `a single line suggestion is never served to a multi line request`() {
+        val cache = CompletionCache(4)
+        cache.put(at("public function archiveAction", "\n}", multiline = false), "(Request \$request): Response")
+        assertNull(cache.get(at("public function archiveAction(", "\n}", multiline = true)))
+        assertEquals("Request \$request): Response", cache.get(at("public function archiveAction(", "\n}", multiline = false)))
+    }
+
+    @Test
+    fun `a multi line suggestion is served to a multi line request that typed its start`() {
+        val cache = CompletionCache(4)
+        cache.put(at("    ", "\n}", multiline = true), "public function a(): int\n    {\n    }")
+        assertEquals("): int\n    {\n    }", cache.get(at("    public function a(", "\n}", multiline = true)))
+    }
 }
