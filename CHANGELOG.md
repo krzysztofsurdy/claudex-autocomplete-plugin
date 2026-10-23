@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-24
+
 ### Changed
 
-- Marketplace description rewritten; README gains a Privacy section.
+- New Marketplace description; the README has a Privacy section.
 
 ### Fixed
 
-- A suggestion is now requested when the code-completion popup closes (cancelled, Esc, caret moved on, or an item picked) instead of waiting for the next keystroke, so `$repo->` gets its inline suggestion once the popup is gone. It is an automatic request: the debounce and every other gate (selection, several carets, undo, live template, mid-word, consent, excluded files, usage limit) still apply. No change with "Show suggestions while the completion popup is open" on.
-- Typing `public function name(` character by character now gets the whole method (rest of the parameters, return type, body and closing brace) instead of a one-line suggestion: the `)` the IDE inserts after `(` no longer turns the declaration into a plain multi-line request, and a single-line suggestion or request made at an earlier keystroke is no longer reused (or trimmed) for a position that is multi-line or a declaration.
+- After `$repo->` the inline suggestion now appears once the completion popup closes, instead of waiting for the next keystroke. All other gates still apply.
+- Typing `public function name(` character by character now gets the whole method instead of one line. The `)` the IDE inserts after `(` no longer breaks declaration mode, and a single-line suggestion from an earlier keystroke is no longer reused there.
 
 ## [1.1.0] - 2026-10-22
 
@@ -94,7 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release: inline completions through the Claude Code CLI.
 
-[Unreleased]: https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/releases/tag/v1.1.1
 [1.1.0]: https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/releases/tag/v1.1.0
 [1.0.0]: https://github.com/krzysztofsurdy/claudex-autocomplete-plugin/releases/tag/v1.0.0
 [0.1.0]: https://plugins.jetbrains.com/plugin/34817-claudex-autocomplete
