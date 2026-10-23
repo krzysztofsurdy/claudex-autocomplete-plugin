@@ -1,5 +1,7 @@
 package dev.ksurdy.claudeautocomplete.ui
 
+import com.intellij.ide.starter.driver.engine.BackgroundRun
+import com.intellij.ide.starter.driver.engine.runIdeWithDriver
 import com.intellij.ide.starter.ide.IDETestContext
 import com.intellij.ide.starter.ide.IdeProductProvider
 import com.intellij.ide.starter.models.TestCase
@@ -9,6 +11,7 @@ import com.intellij.ide.starter.runner.Starter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
 import kotlin.io.path.copyToRecursively
@@ -17,6 +20,9 @@ import kotlin.io.path.deleteRecursively
 import kotlin.io.path.exists
 import kotlin.io.path.readLines
 import kotlin.io.path.writeText
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 const val CONTROLLER = "src/Controller/Admin/LearningTeamController.php"
 const val CARET = "<caret>"
@@ -39,6 +45,9 @@ private const val LOG_CATEGORY = "#dev.ksurdy.claudeautocomplete,#com.intellij.c
 private const val PLUGIN_LOGGER = "#dev.ksurdy.claudeautocomplete."
 private const val FULL_LINE_PLUGIN = "org.jetbrains.completion.full.line"
 private const val PHP_LINT_TIMEOUT_SECONDS = 30L
+private val DEFAULT_RUN_TIMEOUT = 45.minutes
+private val IDE_CLOSE_TIMEOUT = 2.minutes
+private val GUARD_WAIT = 45.seconds
 
 class PluginLog(private val file: Path) {
     fun lines(): List<String> = if (file.exists()) file.readLines().filter { PLUGIN_LOGGER in it } else emptyList()
@@ -48,6 +57,52 @@ class PluginLog(private val file: Path) {
     fun requested(): Int = lines().count { COMPLETION_REQUESTED in it || (ALTERNATIVE_REQUESTED in it && "retry=false" in it) }
 
     fun dump(): String = lines().joinToString("\n").ifEmpty { "(no plugin log lines)" }
+}
+
+class GuardedIde private constructor(private val context: IDETestContext, val ide: BackgroundRun) {
+    val log = PluginLog(context.paths.testHome.resolve("log/idea.log"))
+    val blockedScreenshots = AtomicInteger()
+
+    fun guard(wait: Duration = GUARD_WAIT) = ScreenshotGuard.enforce(ide.driver, wait)
+
+    fun screenshotLogLines(): List<String> {
+        val ideaLog = context.paths.testHome.resolve("log/idea.log")
+        if (!ideaLog.exists()) return emptyList()
+        return ideaLog.readLines().filter { line ->
+            val lower = line.lowercase()
+            "screenshot" in lower && ScreenshotGuard.PROBED_FIELD.lowercase() !in lower
+        }
+    }
+
+    fun close() {
+        val closeFailure = runCatching { ide.closeIdeAndWait(IDE_CLOSE_TIMEOUT, takeScreenshot = false) }.exceptionOrNull()
+        val captures = CaptureTripwire.sweep(context.paths.testHome)
+        if (captures.isNotEmpty()) {
+            throw IllegalStateException("OS screen capture appeared and was deleted unseen: $captures").also { tripped ->
+                closeFailure?.let(tripped::addSuppressed)
+            }
+        }
+        closeFailure?.let { throw it }
+    }
+
+    companion object {
+        fun start(context: IDETestContext, runTimeout: Duration = DEFAULT_RUN_TIMEOUT): GuardedIde {
+            CaptureTripwire.disarmKillScreenshot()
+            val ide = context.runIdeWithDriver(
+                runTimeout = runTimeout,
+                configure = { addVMOptionsPatch { clearSystemProperty(ScreenshotGuard.HEARTBEAT_PROPERTY) } },
+            )
+            val session = GuardedIde(context, ide)
+            try {
+                DriverScreenshotBlock.install(ide.driver, session.blockedScreenshots)
+                session.guard()
+            } catch (failure: Throwable) {
+                runCatching { session.close() }.onFailure(failure::addSuppressed)
+                throw failure
+            }
+            return session
+        }
+    }
 }
 
 class Seed(val anchor: String, val replacement: String) {

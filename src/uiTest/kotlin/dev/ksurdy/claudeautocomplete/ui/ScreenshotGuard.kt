@@ -37,28 +37,41 @@ interface CoroutineJobHandle {
     fun cancel()
 }
 
+@Remote("java.lang.System")
+interface SystemProperties {
+    fun getProperty(key: String): String?
+}
+
 object ScreenshotGuard {
+    const val HEARTBEAT_PROPERTY = "ide.performance.screenshot"
     private const val PERFORMANCE_PLUGIN = "com.jetbrains.performancePlugin"
     private const val SERVICE = "com.jetbrains.performancePlugin.ProjectLoadedService"
-    private const val JOBS_FIELD = "screenshotJobs"
+    const val PROBED_FIELD = "screenshotJobs"
+    private const val JOBS_FIELD = PROBED_FIELD
     private const val POLL_MS = 500L
 
-    fun cancelPeriodicScreenshots(driver: Driver, wait: Duration): Int {
+    fun enforce(driver: Driver, wait: Duration) {
         val deadline = System.nanoTime() + wait.inWholeNanoseconds
-        while (true) {
-            val cancelled = runCatching { cancelOnce(driver) }.getOrDefault(0)
-            if (cancelled > 0 || System.nanoTime() >= deadline) return cancelled
+        var state = runCatching { inspect(driver) }
+        while (state.isFailure && System.nanoTime() < deadline) {
             Thread.sleep(POLL_MS)
+            state = runCatching { inspect(driver) }
         }
+        val seen = state.getOrElse { error("cannot inspect the IDE's periodic OS screenshot state, aborting: ${it.message}") }
+        check(seen.property == null) { "$HEARTBEAT_PROPERTY is set to '${seen.property}' in the IDE, aborting" }
+        check(seen.cancelledJobs == 0) { "cancelled ${seen.cancelledJobs} periodic OS screenshot job(s) that should never exist, aborting" }
     }
 
-    private fun cancelOnce(driver: Driver): Int {
+    private fun inspect(driver: Driver): Inspection {
+        val property = driver.utility(SystemProperties::class).getProperty(HEARTBEAT_PROPERTY)
         val id = driver.utility(PluginId::class).getId(PERFORMANCE_PLUGIN)
         val loader = driver.utility(PluginLookup::class).getPlugin(id).getPluginClassLoader()
         val field = loader.loadClass(SERVICE).getField(JOBS_FIELD)
         field.setAccessible(true)
         val jobs = field.get(null)
         jobs.forEach { it.cancel() }
-        return jobs.size
+        return Inspection(property, jobs.size)
     }
+
+    private class Inspection(val property: String?, val cancelledJobs: Int)
 }

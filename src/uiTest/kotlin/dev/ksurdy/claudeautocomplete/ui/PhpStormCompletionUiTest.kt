@@ -4,8 +4,6 @@ import com.intellij.driver.client.Driver
 import com.intellij.driver.sdk.openFile
 import com.intellij.driver.sdk.ui.components.common.JEditorUiComponent
 import com.intellij.driver.sdk.waitForIndicators
-import com.intellij.ide.starter.driver.engine.BackgroundRun
-import com.intellij.ide.starter.driver.engine.runIdeWithDriver
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
@@ -16,13 +14,13 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
 import kotlin.io.path.Path
 import kotlin.io.path.readText
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class PhpStormCompletionUiTest {
-    private lateinit var ide: BackgroundRun
+    private lateinit var session: GuardedIde
     private lateinit var scenarios: ScenarioRunner
     private lateinit var alternatives: AlternativesScenario
 
@@ -31,21 +29,19 @@ class PhpStormCompletionUiTest {
         assumeTrue(System.getenv("CLAUDE_IT") == "1", "set CLAUDE_IT=1 to run PhpStorm against the real claude CLI")
         val context = newPhpStormContext("completionScenarios")
         val original = Path(System.getProperty("ui.test.project")).resolve(CONTROLLER).readText()
-        ide = context.runIdeWithDriver()
-        val guarded = ScreenshotGuard.cancelPeriodicScreenshots(ide.driver, GUARD_TIMEOUT)
-        check(guarded > 0) { "could not cancel the IDE's periodic OS screenshot job, aborting" }
-        val log = PluginLog(context.paths.testHome.resolve("log/idea.log"))
-        scenarios = ScenarioRunner(ide, log, original)
-        alternatives = AlternativesScenario(ide, log, original, scenarios)
-        with(ide.driver) {
+        session = GuardedIde.start(context)
+        scenarios = ScenarioRunner(session.ide, session.log, original)
+        alternatives = AlternativesScenario(session.ide, session.log, original, scenarios)
+        with(session.ide.driver) {
             waitForIndicators(5.minutes)
             openFile(CONTROLLER)
         }
+        session.guard(Duration.ZERO)
     }
 
     @AfterAll
     fun stopIde() {
-        if (::ide.isInitialized) ide.closeIdeAndWait(IDE_CLOSE_TIMEOUT, takeScreenshot = false)
+        if (::session.isInitialized) session.close()
     }
 
     @Test
@@ -138,7 +134,6 @@ class PhpStormCompletionUiTest {
         const val TYPING_PAUSE_MS = 90L
         const val PAUSE_BEFORE_PAREN_MS = 700L
         const val PAUSE_AFTER_PAREN_MS = 900L
-        val GUARD_TIMEOUT = 45.seconds
         const val EMPTY_ACTION_ANCHOR = "StudentLearningTeamResolver \$studentLearningTeamResolver\n    ): Response {"
         const val REDIRECT_LINE = "        return \$this->redirectToRoute('admin_learning_team_edit', ['id' => \$id]);"
         const val FLASH_LINE = "        \$this->addFlash('info', 'Change cancelled.');"
@@ -150,6 +145,5 @@ class PhpStormCompletionUiTest {
         const val MIN_METHOD_LINES = 3
         val REPOSITORY_METHOD = Regex("""->\s*(find|findByLearningTeamId)\(""")
         val METHOD_DECLARATION = Regex("""^\s*(public|private|protected)\s+(static\s+)?function\s+\w+\(""")
-        val IDE_CLOSE_TIMEOUT = 2.minutes
     }
 }
