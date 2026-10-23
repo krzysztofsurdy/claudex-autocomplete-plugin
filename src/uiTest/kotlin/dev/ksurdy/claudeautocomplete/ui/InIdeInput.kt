@@ -34,6 +34,13 @@ fun JEditorUiComponent.typeCharacter(driver: Driver, character: Char) {
     }
 }
 
+fun JEditorUiComponent.typeText(driver: Driver, text: String, pauseMs: Long) {
+    text.forEach { character ->
+        typeCharacter(driver, character)
+        Thread.sleep(pauseMs)
+    }
+}
+
 fun JEditorUiComponent.replaceDocument(driver: Driver, newText: String, caretOffset: Int) {
     val target = editor
     driver.withWriteAction { target.getDocument().setText(newText) }
